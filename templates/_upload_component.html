@@ -1,0 +1,457 @@
+<!-- 财报上传组件 v2 — 智能统一上传区，自动识别年份 -->
+<div class="card" style="border-color:var(--accent);border-style:dashed" id="upload-card">
+  <h3>📎 上传财报自动填充（可选）</h3>
+  <p class="text-muted" style="font-size:13px;margin-bottom:12px">
+    拖拽或点击上传利润表/资产负债表/审计报告，系统自动识别年份并提取数据。支持 Excel (.xlsx/.xls)、PDF、Word (.docx)
+  </p>
+
+  <!-- 统一上传区 -->
+  <div class="upload-zone unified-upload" id="unified-zone"
+       onclick="document.getElementById('unified-file').click()"
+       ondragover="event.preventDefault();this.classList.add('drag-over')"
+       ondragleave="event.preventDefault();this.classList.remove('drag-over')"
+       ondrop="event.preventDefault();this.classList.remove('drag-over');handleFiles(event.dataTransfer.files)">
+    <div class="icon">📁</div>
+    <p style="font-size:15px;font-weight:600">拖拽文件到此处，或点击选择</p>
+    <p class="hint">支持同时上传多年财报，自动按年份归类</p>
+  </div>
+  <input type="file" id="unified-file" accept=".xlsx,.xls,.pdf,.docx" multiple
+         style="display:none" onchange="handleFiles(this.files)" />
+
+  <!-- 文件列表 + 状态 -->
+  <div id="file-list" style="margin-top:16px;display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h4 style="margin:0">📋 已上传文件 (<span id="file-count">0</span>)</h4>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="clearAllUploads()">全部清除</button>
+    </div>
+    <div id="file-items" style="max-height:200px;overflow-y:auto"></div>
+  </div>
+
+  <!-- 提取预览 -->
+  <div id="extracted-preview" style="margin-top:16px;display:none;padding:12px;background:var(--bg-primary);border-radius:6px">
+    <h4 style="color:var(--success);margin-bottom:8px">✅ 已识别 <span id="extracted-count">0</span> 个字段</h4>
+    <div id="extracted-fields" style="font-size:12px;color:var(--text-secondary);max-height:120px;overflow-y:auto;line-height:1.8"></div>
+  </div>
+</div>
+
+<script>
+const FIELD_LABELS = {
+  'fin_2023_revenue':'2023营业收入','fin_2024_revenue':'2024营业收入','fin_2025_revenue':'2025营业收入',
+  'fin_2023_profit':'2023利润','fin_2024_profit':'2024利润','fin_2025_profit':'2025利润',
+  'fin_2023_assets':'2023总资产','fin_2024_assets':'2024总资产','fin_2025_assets':'2025总资产',
+  'fin_2023_net_assets':'2023净资产','fin_2024_net_assets':'2024净资产','fin_2025_net_assets':'2025净资产',
+  'fin_2023_sales':'2023销售收入','fin_2024_sales':'2024销售收入','fin_2025_sales':'2025销售收入',
+  'fin_2023_employees':'2023职工数','fin_2024_employees':'2024职工数','fin_2025_employees':'2025职工数',
+  'fin_2023_rd_staff':'2023科技人员','fin_2024_rd_staff':'2024科技人员','fin_2025_rd_staff':'2025科技人员',
+  'fin_2023_rd_expense':'2023研发费','fin_2024_rd_expense':'2024研发费','fin_2025_rd_expense':'2025研发费',
+  'fin_2023_main_revenue':'2023主营收入','fin_2024_main_revenue':'2024主营收入','fin_2025_main_revenue':'2025主营收入',
+  'fin_2023_liabilities':'2023负债','fin_2024_liabilities':'2024负债','fin_2025_liabilities':'2025负债',
+  'fin_2023_paid_capital':'2023实收资本','fin_2024_paid_capital':'2024实收资本','fin_2025_paid_capital':'2025实收资本',
+  'fin_2023_undistributed_profit':'2023未分配利润','fin_2024_undistributed_profit':'2024未分配利润','fin_2025_undistributed_profit':'2025未分配利润',
+  'fin_2023_current_assets':'2023流动资产','fin_2024_current_assets':'2024流动资产','fin_2025_current_assets':'2025流动资产',
+  'fin_2023_current_liabilities':'2023流动负债','fin_2024_current_liabilities':'2024流动负债','fin_2025_current_liabilities':'2025流动负债',
+  'company_name':'企业名称',
+};
+
+const nameAliases = {
+  'company_name': ['company_name'],
+  'fin_2023_revenue': ['fin_2023_revenue', 'year1_sales'],
+  'fin_2024_revenue': ['fin_2024_revenue', 'year2_sales'],
+  'fin_2025_revenue': ['fin_2025_revenue', 'year3_sales'],
+  'fin_2023_profit': ['fin_2023_profit', 'year1_profit'],
+  'fin_2024_profit': ['fin_2024_profit', 'year2_profit'],
+  'fin_2025_profit': ['fin_2025_profit', 'year3_profit'],
+  'fin_2023_net_assets': ['fin_2023_net_assets', 'year1_net_assets'],
+  'fin_2024_net_assets': ['fin_2024_net_assets', 'year2_net_assets'],
+  'fin_2025_net_assets': ['fin_2025_net_assets', 'year3_net_assets'],
+  'fin_2023_revenue': ['fin_2023_revenue', 'year1_sales'],
+  'fin_2024_revenue': ['fin_2024_revenue', 'year2_sales'],
+  'fin_2025_revenue': ['fin_2025_revenue', 'year3_sales'],
+  'fin_2023_sales': ['fin_2023_sales', 'year1_sales'],
+  'fin_2024_sales': ['fin_2024_sales', 'year2_sales'],
+  'fin_2025_sales': ['fin_2025_sales', 'year3_sales'],
+  'fin_2023_employees': ['fin_2023_employees', 'staff_total'],
+  'fin_2023_rd_expense': ['fin_2023_rd_expense', 'rd_total_3y'],
+  'fin_2023_rd_staff': ['fin_2023_rd_staff', 'tech_staff'],
+};
+
+function aliasesForKey(key) {
+  const aliases = nameAliases[key] ? [...nameAliases[key]] : [];
+  const m = key.match(/^fin_(20\d{2})_(net_assets|revenue|main_revenue|sales)$/);
+  if (m) {
+    const years = Object.keys(allExtracted)
+      .map(k => {
+        const ym = k.match(/^fin_(20\d{2})_/);
+        return ym ? ym[1] : null;
+      })
+      .filter(Boolean)
+      .filter((v, i, arr) => arr.indexOf(v) === i)
+      .sort()
+      .slice(-3);
+    const idx = years.indexOf(m[1]);
+    if (idx >= 0) {
+      aliases.push(m[2] === 'net_assets' ? `year${idx + 1}_net_assets` : `year${idx + 1}_sales`);
+    }
+  }
+  return aliases;
+}
+
+const YEAR_PATTERNS = [/20(\d{2})/, /FY(\d{2})/, /财年(\d{4})/, /年度(\d{4})/];
+const DEFAULT_YEAR = new Date().getFullYear() - 1; // 当前年份-1为默认财年
+
+let allExtracted = {};
+let fileStates = {}; // {fileName: {status: 'uploading'|'done'|'error', year: '2023', fields: N}}
+
+function detectYear(filename) {
+  for (const re of YEAR_PATTERNS) {
+    const m = filename.match(re);
+    if (m) {
+      const y = parseInt(m[1]);
+      return y < 100 ? 2000 + y : y;
+    }
+  }
+  return DEFAULT_YEAR;
+}
+
+function guessYear(filename, extractedData) {
+  // 文件名优先
+  const fnYear = detectYear(filename);
+  if (fnYear >= 2020 && fnYear <= 2030) return String(fnYear);
+  // 否则检查提取数据中的年份
+  for (const key of Object.keys(extractedData)) {
+    const m = key.match(/20(\d{2})/);
+    if (m) {
+      const y = 2000 + parseInt(m[1]);
+      if (y >= 2020 && y <= 2030) return String(y);
+    }
+  }
+  return String(DEFAULT_YEAR);
+}
+
+function handleFiles(files) {
+  for (const file of files) {
+    uploadFile(file);
+  }
+  document.getElementById('unified-file').value = '';
+}
+
+function uploadFile(file) {
+  const fileName = file.name;
+  if (fileStates[fileName] && fileStates[fileName].status !== 'error') return; // 已成功或正在上传时去重
+
+  fileStates[fileName] = {status: 'uploading', year: '', fields: 0};
+  renderFileList();
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  fetch('/parser/upload', {method: 'POST', body: fd})
+    .then(r => r.json().catch(() => ({})))
+    .then(result => {
+      if (result.success && result.data) {
+        const year = guessYear(fileName, result.data);
+        fileStates[fileName] = {status: 'done', year: year, fields: result.count || 0, message: ''};
+        // 合并提取数据
+        for (const [key, value] of Object.entries(result.data)) {
+          allExtracted[key] = value;
+        }
+        applyToForm(result.data);
+        autoCalcGrowth();
+        autoCalcZhuanjing();
+        showPreview();
+      } else {
+        fileStates[fileName] = {
+          status: 'error',
+          year: '',
+          fields: 0,
+          message: (result.tip || result.error || '解析失败') + (result.debug ? ' [' + result.debug + ']' : '')
+        };
+      }
+      renderFileList();
+    })
+    .catch(err => {
+      fileStates[fileName] = {status: 'error', year: '', fields: 0, message: '上传接口异常：' + (err && err.message ? err.message : '请求失败')};
+      renderFileList();
+    });
+}
+
+function renderFileList() {
+  const container = document.getElementById('file-list');
+  const items = document.getElementById('file-items');
+  const entries = Object.entries(fileStates);
+
+  if (entries.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'block';
+  document.getElementById('file-count').textContent = entries.length;
+
+  items.innerHTML = entries.map(([name, state]) => {
+    const icon = state.status === 'done' ? '✅' : state.status === 'error' ? '❌' : '⏳';
+    const color = state.status === 'done' ? 'var(--success)' : state.status === 'error' ? 'var(--danger)' : 'var(--warning)';
+    const detail = state.status === 'done' ? `${state.year}年 · ${state.fields}字段` :
+                   state.status === 'error' ? (state.message || '解析失败') : '解析中...';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:13px">
+      <span>${icon}</span>
+      <span style="flex:1;color:var(--text-primary)">${name}</span>
+      <span style="color:${color};font-size:12px">${detail}</span>
+      <button type="button" onclick="removeFile('${name}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px" title="移除">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function removeFile(fileName) {
+  delete fileStates[fileName];
+  // 重建 allExtracted
+  allExtracted = {};
+  for (const [name, state] of Object.entries(fileStates)) {
+    if (state.status === 'done') {
+      // 注意：无法精确还原每个文件的数据，简化处理：不清除已填表单
+    }
+  }
+  renderFileList();
+  showPreview();
+}
+
+function ensureHiddenField(key, value) {
+  const form = document.getElementById('score-form') || document.querySelector('form');
+  if (!form || value === undefined || value === null || value === '') return;
+  let hidden = form.querySelector('input[type="hidden"][name="' + key + '"]');
+  if (!hidden) {
+    hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = key;
+    hidden.className = 'finance-upload-hidden';
+    form.appendChild(hidden);
+  }
+  hidden.value = value;
+}
+
+function visibleFieldByName(name) {
+  return Array.from(document.querySelectorAll('[name="' + name + '"]'))
+    .find(el => el.type !== 'hidden');
+}
+
+function applyToForm(data) {
+  const filled = new Set();
+  for (const [key, value] of Object.entries(data)) {
+    ensureHiddenField(key, value);
+    if (filled.has(key)) continue;
+    let input = visibleFieldByName(key);
+    if (input) {
+      input.value = value;
+      input.style.borderColor = 'var(--success)';
+      setTimeout(() => { input.style.borderColor = ''; }, 2000);
+      filled.add(key);
+      continue;
+    }
+    const aliases = aliasesForKey(key);
+    for (const alias of aliases) {
+      ensureHiddenField(alias, value);
+      input = visibleFieldByName(alias);
+      if (input && !filled.has(alias)) {
+        input.value = value;
+        input.style.borderColor = 'var(--success)';
+        setTimeout(() => { input.style.borderColor = ''; }, 2000);
+        filled.add(alias);
+        break;
+      }
+    }
+  }
+}
+
+function showPreview() {
+  const preview = document.getElementById('extracted-preview');
+  const fields = document.getElementById('extracted-fields');
+  const entries = Object.entries(allExtracted);
+  document.getElementById('extracted-count').textContent = entries.length;
+
+  if (entries.length === 0) {
+    preview.style.display = 'none';
+    return;
+  }
+  preview.style.display = 'block';
+  fields.innerHTML = entries
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([k, v]) => '<span style="display:inline-block;background:var(--bg-tertiary);padding:2px 8px;border-radius:4px;margin:2px;font-size:11px">' +
+      (FIELD_LABELS[k] || k) + ': <strong>' + v + '</strong></span>'
+    ).join('');
+}
+
+function clearAllUploads() {
+  allExtracted = {};
+  fileStates = {};
+  document.getElementById('file-list').style.display = 'none';
+  document.getElementById('extracted-preview').style.display = 'none';
+  document.getElementById('extracted-count').textContent = '0';
+  document.getElementById('unified-file').value = '';
+  document.querySelectorAll('.finance-upload-hidden').forEach(el => el.remove());
+  // 清除表单高亮
+  document.querySelectorAll('input').forEach(el => { el.style.borderColor = ''; });
+}
+
+// ═══ 自动计算成长性增长率 ═══
+function calcGrowthRate(v1, v2, v3) {
+  if (!v1 && !v2 && !v3) return null;
+  v1 = parseFloat(v1) || 0;
+  v2 = parseFloat(v2) || 0;
+  v3 = parseFloat(v3) || 0;
+  if (v1 === 0) {
+    if (v2 === 0) return 0;
+    return ((v3 / v2) - 1) * 100;
+  }
+  if (v2 === 0) return 0;
+  return (0.5 * (v2 / v1 + v3 / v2) - 1) * 100;
+}
+
+function growthScoreFromRate(rate) {
+  if (rate >= 35) return 10;
+  if (rate >= 25) return 8;
+  if (rate >= 15) return 6;
+  if (rate >= 5) return 4;
+  if (rate > 0) return 2;
+  return 0;
+}
+
+function autoCalcGrowth() {
+  const y1na = document.querySelector('[name=\"year1_net_assets\"]');
+  const y2na = document.querySelector('[name=\"year2_net_assets\"]');
+  const y3na = document.querySelector('[name=\"year3_net_assets\"]');
+  const y1s = document.querySelector('[name=\"year1_sales\"]');
+  const y2s = document.querySelector('[name=\"year2_sales\"]');
+  const y3s = document.querySelector('[name=\"year3_sales\"]');
+
+  const naRate = calcGrowthRate(y1na?.value, y2na?.value, y3na?.value);
+  const salesRate = calcGrowthRate(y1s?.value, y2s?.value, y3s?.value);
+
+  const naInput = document.querySelector('[name=\"growth_net_assets_rate\"]');
+  const salesInput = document.querySelector('[name=\"growth_sales_rate\"]');
+  const naScore = document.querySelector('[name=\"growth_net_assets_score\"]');
+  const salesScore = document.querySelector('[name=\"growth_sales_score\"]');
+
+  if (naRate !== null && naInput) {
+    const displayRate = Math.max(0, naRate);
+    naInput.value = displayRate.toFixed(2);
+    if (naScore) naScore.value = growthScoreFromRate(displayRate);
+    naInput.style.borderColor = 'var(--success)';
+    setTimeout(() => { naInput.style.borderColor = ''; }, 2000);
+  }
+  if (salesRate !== null && salesInput) {
+    const displayRate = Math.max(0, salesRate);
+    salesInput.value = displayRate.toFixed(2);
+    if (salesScore) salesScore.value = growthScoreFromRate(displayRate);
+    salesInput.style.borderColor = 'var(--success)';
+    setTimeout(() => { salesInput.style.borderColor = ''; }, 2000);
+  }
+}
+
+// 监听财务数据输入框变化，自动计算增长率
+document.addEventListener('DOMContentLoaded', function() {
+  ['year1_net_assets','year2_net_assets','year3_net_assets',
+   'year1_sales','year2_sales','year3_sales'].forEach(function(name) {
+    const el = document.querySelector('[name=\"' + name + '\"]');
+    if (el) {
+      el.addEventListener('input', autoCalcGrowth);
+      el.addEventListener('change', autoCalcGrowth);
+    }
+  });
+
+  [['growth_net_assets_rate', 'growth_net_assets_score'], ['growth_sales_rate', 'growth_sales_score']].forEach(function(pair) {
+    const rateEl = document.querySelector('[name=\"' + pair[0] + '\"]');
+    const scoreEl = document.querySelector('[name=\"' + pair[1] + '\"]');
+    if (rateEl && scoreEl) {
+      const update = function() {
+        const rate = Math.max(0, parseFloat(rateEl.value) || 0);
+        scoreEl.value = growthScoreFromRate(rate);
+      };
+      rateEl.addEventListener('input', update);
+      rateEl.addEventListener('change', update);
+      update();
+    }
+  });
+  
+  // 专精特新字段：监听 year 字段变化自动计算
+  ['year1_sales','year2_sales','year3_sales'].forEach(function(name) {
+    const el = document.querySelector('[name="' + name + '"]');
+    if (el) {
+      el.addEventListener('input', autoCalcZhuanjing);
+      el.addEventListener('change', autoCalcZhuanjing);
+    }
+  });
+});
+
+// ═══ 专精特新指标自动计算 ═══
+function autoCalcZhuanjing() {
+  const getVal = (key) => parseFloat(allExtracted[key]) || 0;
+  const revenue = getVal('fin_2025_main_revenue') || getVal('fin_2025_revenue') || 0;
+  const revenuePrev = getVal('fin_2024_main_revenue') || getVal('fin_2024_revenue') || 0;
+  const netProfit = getVal('fin_2025_net_profit') || 0;
+  const assets = getVal('fin_2025_assets') || 0;
+  const liabilities = getVal('fin_2025_liabilities') || 0;
+  const rdExpense = getVal('fin_2025_rd_expense') || 0;
+
+  // 净利润率
+  if (revenue > 0) {
+    const el = document.querySelector('[name="net_profit_rate"]');
+    if (el) {
+      el.value = Math.max(0, (netProfit / revenue * 100)).toFixed(2);
+      el.style.borderColor = 'var(--success)';
+      setTimeout(() => { el.style.borderColor = ''; }, 2000);
+    }
+  }
+  // 资产负债率
+  if (assets > 0 && liabilities > 0) {
+    const el = document.querySelector('[name="debt_ratio"]');
+    if (el) {
+      el.value = (liabilities / assets * 100).toFixed(2);
+      el.style.borderColor = 'var(--success)';
+      setTimeout(() => { el.style.borderColor = ''; }, 2000);
+    }
+  }
+  // 研发费用（万元）+ 研发占比
+  if (allExtracted['fin_2025_rd_expense'] !== undefined) {
+    const el = document.querySelector('[name="rd_amount"]');
+    if (el) {
+      el.value = (rdExpense / 10000).toFixed(2);
+      el.style.borderColor = 'var(--success)';
+      setTimeout(() => { el.style.borderColor = ''; }, 2000);
+    }
+    if (revenue > 0) {
+      const el2 = document.querySelector('[name="rd_ratio"]');
+      if (el2) {
+        el2.value = (rdExpense / revenue * 100).toFixed(2);
+        el2.style.borderColor = 'var(--success)';
+        setTimeout(() => { el2.style.borderColor = ''; }, 2000);
+      }
+    }
+  }
+  // 近2年主营业务收入平均增长率
+  if (revenuePrev > 0 && revenue > 0) {
+    const el = document.querySelector('[name="revenue_growth"]');
+    if (el) {
+      el.value = Math.max(0, ((revenue / revenuePrev - 1) * 100)).toFixed(2);
+      el.style.borderColor = 'var(--success)';
+      setTimeout(() => { el.style.borderColor = ''; }, 2000);
+    }
+  }
+}
+</script>
+
+<style>
+.unified-upload {
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  border-color: var(--accent) !important;
+  border-style: dashed !important;
+}
+.unified-upload.drag-over {
+  background: rgba(88,166,255,0.08);
+  border-color: var(--success) !important;
+  transform: scale(1.01);
+}
+</style>

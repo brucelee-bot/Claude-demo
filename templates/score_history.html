@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}评分历史 — 申报助手{% endblock %}
+{% block content %}
+
+<h1 style="margin-bottom: 8px">📋 评分历史</h1>
+<p class="text-muted mb-2">最近 20 条评分记录</p>
+
+{% if records %}
+<table>
+  <thead>
+    <tr>
+      <th>企业名称</th>
+      <th>申报类型</th>
+      <th>总分</th>
+      <th>是否达标</th>
+      <th>评分时间</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in records %}
+    <tr>
+      <td><strong>{{ r.company.name }}</strong></td>
+      <td>{{ r.score_type }}</td>
+      <td style="font-weight:700;font-size:16px">{{ r.total_score }}</td>
+      <td>
+        {% if r.total_score >= 71 %}
+        <span class="score-badge pass">达标</span>
+        {% else %}
+        <span class="score-badge fail">未达标</span>
+        {% endif %}
+      </td>
+      <td class="text-muted">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="card" style="text-align:center;padding:40px">
+  <p class="text-muted">暂无评分记录</p>
+  <a href="{{ url_for('scoring.index') }}" class="btn btn-primary mt-2">开始评分</a>
+</div>
+{% endif %}
+
+{% endblock %}

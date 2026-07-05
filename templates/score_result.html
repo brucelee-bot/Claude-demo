@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}评分结果 — {{ company_name }}{% endblock %}
+{% block content %}
+
+<div class="flex-between mb-2">
+  <div>
+    <h1 style="margin-bottom: 4px">📊 评分结果</h1>
+    <p class="text-muted">企业：{{ company_name }} | 类型：{{ result.rule_name }}</p>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:48px;font-weight:700;color:{% if result.passed %}var(--success){%
+      else %}var(--danger){% endif %}">
+      {{ result.total_score }}
+    </div>
+    <span class="text-muted">/ {{ result.full_score }} 分</span>
+  </div>
+</div>
+
+<!-- 通过/未通过 -->
+<div class="card" style="text-align:center;background:{% if result.passed %}rgba(63,185,80,0.08){%
+  else %}rgba(248,81,73,0.08){% endif %};border-color:{% if result.passed
+  %}rgba(63,185,80,0.3){% else %}rgba(248,81,73,0.3){% endif %}">
+  {% if result.passed %}
+  <div style="font-size:24px">✅ 符合认定要求</div>
+  <p class="text-muted">综合得分 ≥{{ result.pass_score }} 分，达标</p>
+  {% else %}
+  <div style="font-size:24px">❌ 未达到认定要求</div>
+  <p class="text-muted">{{ result.warnings[0] if result.warnings else '综合得分未达标' }}</p>
+  {% endif %}
+</div>
+
+<!-- 小巨人基本条件校验 -->
+{% if basic_conditions %}
+<div class="card mt-2" style="border-color:{% if basic_conditions.all_passed %}var(--success){% else %}var(--danger){% endif %}">
+  <h3 style="margin-bottom:12px">
+    📋 基本条件校验
+    <span class="score-badge {{ 'pass' if basic_conditions.all_passed else 'fail' }}" style="margin-left:12px">
+      {{ basic_conditions.passed_count }}/{{ basic_conditions.total_count }}
+    </span>
+    {% if not basic_conditions.all_passed %}
+    <span style="color:var(--danger);font-size:13px;margin-left:8px">⚠️ 不满足将一票否决</span>
+    {% endif %}
+  </h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px">
+    {% for item in basic_conditions["items"] %}
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px;background:var(--bg-primary);border-radius:6px;
+                border-left:3px solid {% if item.passed %}var(--success){% else %}var(--danger){% endif %}">
+      <span style="font-size:18px;flex-shrink:0;margin-top:2px">{% if item.passed %}✅{% else %}❌{% endif %}</span>
+      <div>
+        <div style="font-size:14px;font-weight:500;color:{% if item.passed %}var(--text-primary){% else %}var(--danger){% endif %}">
+          {{ item.title }}
+        </div>
+        <div class="text-muted" style="font-size:11px;margin-top:2px">{{ item.hint }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- 分项得分 -->
+<div class="dashboard-grid" style="margin-top:24px">
+  {% for cat in result.breakdown %}
+  <div class="card">
+    <div class="flex-between mb-1">
+      <h3 style="margin:0">{{ cat.name }}</h3>
+      <span style="font-size:24px;font-weight:700;color:var(--accent)">{{ cat.score }}<span
+        style="font-size:14px;color:var(--text-muted)">/{{ cat.max_score }}</span></span>
+    </div>
+    <!-- 进度条 -->
+    <div class="progress-bar mb-2">
+      <div class="progress-fill {% if cat.score / cat.max_score >= 0.7 %}high{%
+        elif cat.score / cat.max_score >= 0.4 %}mid{% else %}low{% endif %}"
+           style="width:{{ (cat.score / cat.max_score * 100) | round }}%"></div>
+    </div>
+    <!-- 子项 -->
+    {% for sub in cat.sub_items %}
+    <div class="flex-between" style="font-size:13px;padding:4px 0">
+      <span style="color:var(--text-secondary);max-width:75%">
+        {{ sub.name }}
+        {% if sub.is_bonus %}<span style="color:var(--warning);font-size:11px">[加分]</span>{% endif %}
+      </span>
+      <span style="font-weight:600;white-space:nowrap">{{ sub.score }}/{{ sub.max_score }}</span>
+    </div>
+    {% if not loop.last %}<hr style="border-color:var(--border);margin:4px 0">{% endif %}
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- 总分进度条 -->
+<div class="card mt-2" style="text-align:center">
+  <h3 style="margin-bottom:12px">综合得分</h3>
+  <div style="display:flex;align-items:center;gap:16px">
+    <span style="font-size:14px;color:var(--text-muted);white-space:nowrap">0</span>
+    <div class="progress-bar" style="flex:1;height:16px">
+      <div class="progress-fill {% if result.passed %}high{% else %}low{% endif %}"
+           style="width:{{ (result.total_score / result.full_score * 100) | round }}%"></div>
+    </div>
+    <span style="font-size:14px;color:var(--text-muted);white-space:nowrap">{{ result.full_score }}</span>
+  </div>
+  <div class="flex-between mt-1" style="font-size:12px;color:var(--text-muted)">
+    <span>当前：{{ result.total_score }} 分</span>
+    <span>达标线：{{ result.pass_score }} 分</span>
+  </div>
+</div>
+
+<!-- 操作按钮 -->
+<div style="text-align:center;padding:28px 0" class="flex-between">
+  <a href="{{ url_for('scoring.gaoxin') }}" class="btn btn-secondary">🔄 重新评分</a>
+  <div class="gap-2" style="display:flex">
+    <a href="{{ url_for('scoring.index') }}" class="btn btn-secondary">📋 返回列表</a>
+    <a href="{{ url_for('docgen.index') }}" class="btn btn-primary">📝 生成申报书</a>
+  </div>
+</div>
+
+<!-- AI 定性分析 -->
+{% if ai_analysis %}
+<div class="card" style="margin-top:24px;border-color:var(--accent)">
+  <h3>🤖 AI 定性分析
+    <span class="score-badge {{ 'pass' if ai_analysis.risk_level == '低' else 'warn' if ai_analysis.risk_level == '中' else 'fail' }}" style="margin-left:12px">
+      风险：{{ ai_analysis.risk_level }}
+    </span>
+  </h3>
+
+  <!-- 综合评估 -->
+  <div class="card" style="background:rgba(88,166,255,0.05);border-color:rgba(88,166,255,0.2)">
+    <p style="font-size:15px;line-height:1.8">{{ ai_analysis.overall }}</p>
+  </div>
+
+  <!-- 优势 -->
+  {% if ai_analysis.strengths %}
+  <h4 style="color:var(--success);margin-top:16px">✅ 优势指标</h4>
+  <ul style="list-style:none;padding:0">
+    {% for s in ai_analysis.strengths %}
+    <li style="padding:6px 0;font-size:14px;color:var(--text-secondary)">{{ s }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <!-- 短板 -->
+  {% if ai_analysis.weaknesses %}
+  <h4 style="color:var(--danger);margin-top:12px">⚠️ 待提升指标</h4>
+  <ul style="list-style:none;padding:0">
+    {% for w in ai_analysis.weaknesses %}
+    <li style="padding:6px 0;font-size:14px;color:var(--text-secondary)">{{ w }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <!-- 建议 -->
+  {% if ai_analysis.recommendations %}
+  <h4 style="color:var(--accent);margin-top:12px">💡 改进建议</h4>
+  {% for r in ai_analysis.recommendations %}
+  <div class="card" style="background:var(--bg-primary);padding:14px;margin-bottom:8px;white-space:pre-line;font-size:13px;color:var(--text-secondary)">{{ r }}</div>
+  {% endfor %}
+  {% endif %}
+
+  <!-- 行动路线 -->
+  <h4 style="color:var(--warning);margin-top:12px">🗺️ 建议行动路线</h4>
+  <div class="card" style="background:rgba(210,153,29,0.08);border-color:rgba(210,153,29,0.3);text-align:center;font-size:15px;font-weight:500">
+    {{ ai_analysis.priority }}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

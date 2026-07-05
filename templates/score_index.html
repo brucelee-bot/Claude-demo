@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}评分预估 — 申报助手{% endblock %}
+{% block content %}
+
+<h1 style="margin-bottom: 8px">📊 评分预估</h1>
+<p class="text-muted mb-2">选择申报类型，填写企业数据，自动计算评分</p>
+
+<div class="dashboard-grid" style="margin-top: 28px">
+  <div class="card" style="text-align: center">
+    <div style="font-size: 48px; margin-bottom: 12px">🔬</div>
+    <h3>国家高新技术企业</h3>
+    <p class="text-muted" style="margin-bottom: 20px">
+      知识产权 · 成果转化 · 研发管理 · 成长性<br>
+      满分 100 分，达标线 71 分
+    </p>
+    <a href="{{ url_for('scoring.gaoxin') }}" class="btn btn-primary btn-lg">开始评分 →</a>
+  </div>
+
+  <div class="card" style="text-align: center">
+    <div style="font-size: 48px; margin-bottom: 12px">🏭</div>
+    <h3>专精特新中小企业</h3>
+    <p class="text-muted" style="margin-bottom: 20px">
+      专业化 · 精细化 · 特色化 · 创新能力<br>
+      满分 100 分，达标线 50 分
+    </p>
+    <a href="{{ url_for('scoring.zhuanjing') }}" class="btn btn-primary btn-lg">开始评分 →</a>
+  </div>
+
+  <div class="card" style="text-align: center">
+    <div style="font-size: 48px; margin-bottom: 12px">🏆</div>
+    <h3>专精特新"小巨人"</h3>
+    <p class="text-muted" style="margin-bottom: 20px">
+      专业化 · 精细化 · 特色化 · 创新能力<br>
+      满分 100 分，达标线 60 分<br>
+      <small style="color: var(--warning)">需同步满足7项基本条件</small>
+    </p>
+    <a href="{{ url_for('scoring.xiaojuren') }}" class="btn btn-primary btn-lg">开始评分 →</a>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <h3>📋 历史记录</h3>
+  <p class="text-muted">查看之前的评分记录</p>
+  <a href="{{ url_for('scoring.history') }}" class="btn btn-secondary btn-sm mt-1">查看历史</a>
+</div>
+
+{% endblock %}

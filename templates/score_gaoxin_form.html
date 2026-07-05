@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% block title %}国家高新技术企业评分 — 申报助手{% endblock %}
+{% block head_extra %}
+<style>
+  .score-fine { width: 100px; display: inline; margin-left: 8px; }
+</style>
+{% endblock %}
+{% block content %}
+
+{% set ip = ip_eval or {} %}
+{% macro sel(name, val, default) %}{{ 'selected' if ip[name] == val else ('selected' if not ip_eval and val == default else '') }}{% endmacro %}
+{% macro sc(name, default) %}{{ ip[name] if ip_eval else default }}{% endmacro %}
+
+<h1 style="margin-bottom:4px">🔬 国家高新技术企业评分</h1>
+<p class="text-muted mb-2">满分 100 分，达标线 71 分 · 共 5 步</p>
+
+
+<form method="POST" action="{{ url_for('scoring.gaoxin') }}" id="score-form">
+
+  <!-- Step 1: 基本信息 + 财报上传 -->
+  <div class="step-panel active" data-step="1">
+    {% include "_upload_component.html" %}
+    <div class="card">
+      <h3>📌 企业基本信息</h3>
+      <div class="form-group">
+        <label for="company_name">企业名称 *</label>
+        <input type="text" id="company_name" name="company_name" placeholder="请输入企业全称" required />
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: 知识产权 ≤30 -->
+  <div class="step-panel" data-step="2">
+    <div class="card">
+      <h3>1️⃣ 知识产权（≤30分）</h3>
+      <p class="text-muted" style="font-size:13px;margin-bottom:16px">由技术专家进行定性与定量结合评价</p>
+
+      <div class="form-group" style="padding:12px;border:1px dashed var(--accent);border-radius:8px;background:var(--bg-primary)">
+        <label>上传专利证书 PDF（可多次上传）</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="file" id="ip-pdf-file" accept=".pdf,application/pdf" multiple style="max-width:360px" />
+          <button type="button" class="btn btn-secondary btn-sm" onclick="uploadPatentPdf(this)">上传并识别</button>
+          <span id="ip-upload-status" class="text-muted" style="font-size:12px"></span>
+        </div>
+        <div class="text-muted" style="font-size:12px;margin-top:6px">
+          系统会识别专利类型、法律状态、专利号、申请日期、专利权人、授权日期，并自动给出知识产权评分建议；“核心支持作用”仍建议人工确认。
+        </div>
+        <div id="ip-recognition-preview" style="display:none;margin-top:10px;font-size:12px;line-height:1.7"></div>
+      </div>
+
+      <div class="form-group">
+        <label>（1）技术的先进程度 <span class="text-muted">（≤8分）</span></label>
+        <select name="ip_tech_level" class="grade-select">
+          <option value="">— 请选择 —</option>
+          <option value="A" {{ sel('ip_tech_level','A','B') }}>A. 高（7-8分）</option>
+          <option value="B" {{ sel('ip_tech_level','B','B') }}>B. 较高（5-6分）</option>
+          <option value="C" {{ sel('ip_tech_level','C','B') }}>C. 一般（3-4分）</option>
+          <option value="D" {{ sel('ip_tech_level','D','B') }}>D. 较低（1-2分）</option>
+          <option value="E" {{ sel('ip_tech_level','E','B') }}>E. 无（0分）</option>
+        </select>
+        <input type="number" name="ip_tech_level_score" class="score-fine" placeholder="分数" min="0" max="8" value="{{ sc('ip_tech_level_score', 6) }}" />
+      </div>
+
+      <div class="form-group">
+        <label>（2）对主要产品核心支持作用 <span class="text-muted">（≤8分）</span></label>
+        <select name="ip_core_support">
+          <option value="">— 请选择 —</option>
+          <option value="A" {{ sel('ip_core_support','A','B') }}>A. 强（7-8分）</option>
+          <option value="B" {{ sel('ip_core_support','B','B') }}>B. 较强（5-6分）</option>
+          <option value="C" {{ sel('ip_core_support','C','B') }}>C. 一般（3-4分）</option>
+          <option value="D" {{ sel('ip_core_support','D','B') }}>D. 较弱（1-2分）</option>
+          <option value="E" {{ sel('ip_core_support','E','B') }}>E. 无（0分）</option>
+        </select>
+        <input type="number" name="ip_core_support_score" class="score-fine" placeholder="分数" min="0" max="8" value="{{ sc('ip_core_support_score', 6) }}" />
+      </div>
+
+      <div class="form-group">
+        <label>（3）知识产权数量 <span class="text-muted">（≤8分）</span></label>
+        <select name="ip_quantity">
+          <option value="">— 请选择 —</option>
+          <option value="A" {{ sel('ip_quantity','A','') }}>A. 1项及以上（Ⅰ类）（7-8分）</option>
+          <option value="B" {{ sel('ip_quantity','B','') }}>B. 5项及以上（Ⅱ类）（5-6分）</option>
+          <option value="C" {{ sel('ip_quantity','C','') }}>C. 3～4项（Ⅱ类）（3-4分）</option>
+          <option value="D" {{ sel('ip_quantity','D','') }}>D. 1～2项（Ⅱ类）（1-2分）</option>
+          <option value="E" {{ sel('ip_quantity','E','') }}>E. 0项（0分）</option>
+        </select>
+        <input type="number" name="ip_quantity_score" class="score-fine" placeholder="分数" min="0" max="8" value="{{ sc('ip_quantity_score', '') }}" />
+      </div>
+
+      <div class="form-group">
+        <label>（4）知识产权获得方式 <span class="text-muted">（≤6分）</span></label>
+        <select name="ip_acquisition">
+          <option value="">— 请选择 —</option>
+          <option value="A" {{ sel('ip_acquisition','A','') }}>A. 有自主研发（1-6分）</option>
+          <option value="B" {{ sel('ip_acquisition','B','') }}>B. 仅有受让、受赠和并购等（1-3分）</option>
+        </select>
+        <input type="number" name="ip_acquisition_score" class="score-fine" placeholder="分数" min="0" max="6" value="{{ sc('ip_acquisition_score', '') }}" />
+      </div>
+
+      <div class="form-group">
+        <label>（5）参与编制国家/行业标准等 <span class="text-muted">（加分 ≤2分）</span></label>
+        <select name="ip_standard">
+          <option value="B" {{ sel('ip_standard','B','B') }}>B. 否（0分）</option>
+          <option value="A" {{ sel('ip_standard','A','B') }}>A. 是（1-2分）</option>
+        </select>
+        <input type="number" name="ip_standard_score" class="score-fine" placeholder="分数" min="0" max="2" value="{{ sc('ip_standard_score', 0) }}" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: 科技成果转化 ≤30 -->
+  <div class="step-panel" data-step="3">
+    <div class="card">
+      <h3>2️⃣ 科技成果转化能力（≤30分）</h3>
+      <p class="text-muted" style="font-size:13px;margin-bottom:16px">近3年科技成果转化年平均数 = 专利数量 ÷ 3</p>
+      <div class="form-group">
+        <label>近3年科技成果转化年平均数 *</label>
+        <input type="number" name="transform_count" id="transform_count"
+               placeholder="由专利数量自动计算" min="0" value="0" step="0.01" required readonly style="max-width:300px;background:var(--bg-tertiary)" />
+        <input type="hidden" name="patent_count" id="patent_count" value="0" />
+        <input type="number" name="transform_score" class="score-fine"
+               placeholder="自动生成分数" min="0" max="30" readonly style="background:var(--bg-tertiary)" />
+        <div class="text-muted" style="font-size:12px;margin-top:4px">
+          专利数量÷3 后按档位计分：≥5项→30 | ≥4项→24 | ≥3项→18 | ≥2项→12 | ≥1项→6 | 0项→0
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: 研发管理 ≤20 -->
+  <div class="step-panel" data-step="4">
+    <div class="card">
+      <h3>3️⃣ 研究开发组织管理水平（≤20分）</h3>
+      <p class="text-muted" style="font-size:13px;margin-bottom:16px">每项由技术专家综合评价打分</p>
+
+      <div class="form-group">
+        <label>（1）组织管理制度 + 研发投入核算 + 研发费用辅助账 <span class="text-muted">（≤6分）</span></label>
+        <input type="number" name="rd_system" value="5" min="0" max="6" required style="max-width:200px" />
+      </div>
+      <div class="form-group">
+        <label>（2）内部研发机构 + 产学研合作 <span class="text-muted">（≤6分）</span></label>
+        <input type="number" name="rd_institution" value="5" min="0" max="6" required style="max-width:200px" />
+      </div>
+      <div class="form-group">
+        <label>（3）成果转化激励制度 + 创新创业平台 <span class="text-muted">（≤4分）</span></label>
+        <input type="number" name="rd_transform_incentive" value="3" min="0" max="4" required style="max-width:200px" />
+      </div>
+      <div class="form-group">
+        <label>（4）人才培养进修 + 人才引进 + 绩效奖励 <span class="text-muted">（≤4分）</span></label>
+        <input type="number" name="rd_talent" value="3" min="0" max="4" required style="max-width:200px" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 5: 企业成长性 ≤20 -->
+  <div class="step-panel" data-step="5">
+    <div class="card">
+      <h3>4️⃣ 企业成长性（≤20分）</h3>
+      <p class="text-muted" style="font-size:13px;margin-bottom:16px">
+        填入 2023/2024/2025 三年财务数据，系统自动计算增长率
+      </p>
+
+      <div class="split-layout">
+        <div>
+          <h4 style="margin-bottom:12px;color:var(--text-secondary)">📈 净资产</h4>
+          <div class="form-group">
+            <label>2023年末净资产（万元）</label>
+            <input type="number" name="year1_net_assets" placeholder="0" step="0.01" />
+          </div>
+          <div class="form-group">
+            <label>2024年末净资产（万元）</label>
+            <input type="number" name="year2_net_assets" placeholder="0" step="0.01" />
+          </div>
+          <div class="form-group">
+            <label>2025年末净资产（万元）</label>
+            <input type="number" name="year3_net_assets" placeholder="0" step="0.01" />
+          </div>
+          <div class="form-group">
+            <label>或直接输入增长率（%）</label>
+            <input type="number" name="growth_net_assets_rate" placeholder="如 28 表示 28%" step="0.01" style="max-width:200px" />
+          </div>
+          <div class="form-group">
+            <label>自动生成分数 <span class="text-muted">（按增长率档位，≤10分）</span></label>
+            <input type="number" name="growth_net_assets_score" placeholder="0" min="0" max="10" readonly style="max-width:200px;background:var(--bg-tertiary)" />
+          </div>
+        </div>
+        <div>
+          <h4 style="margin-bottom:12px;color:var(--text-secondary)">💰 销售收入</h4>
+          <div class="form-group">
+            <label>2023年销售收入（万元）</label>
+            <input type="number" name="year1_sales" placeholder="0" step="0.01" />
+          </div>
+          <div class="form-group">
+            <label>2024年销售收入（万元）</label>
+            <input type="number" name="year2_sales" placeholder="0" step="0.01" />
+          </div>
+          <div class="form-group">
+            <label>2025年销售收入（万元）</label>
+            <input type="number" name="year3_sales" placeholder="0" step="0.01" />
+          </div>
+          <div class="form-group">
+            <label>或直接输入增长率（%）</label>
+            <input type="number" name="growth_sales_rate" placeholder="如 32 表示 32%" step="0.01" style="max-width:200px" />
+          </div>
+          <div class="form-group">
+            <label>自动生成分数 <span class="text-muted">（按增长率档位，≤10分）</span></label>
+            <input type="number" name="growth_sales_score" placeholder="0" min="0" max="10" readonly style="max-width:200px;background:var(--bg-tertiary)" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 导航按钮 -->
+  <div class="step-actions">
+    <button type="button" class="btn btn-secondary" id="btn-prev" onclick="prevStep()">← 上一步</button>
+    <button type="button" class="btn btn-primary" id="btn-next" onclick="nextStep()">下一步 →</button>
+    <button type="submit" class="btn btn-success btn-lg" id="btn-submit" style="display:none">📊 计算评分</button>
+  </div>
+</form>
+
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/score_wizard.js') }}?v=5"></script>
+<script>
+function setFieldValue(name, value) {
+  const el = document.querySelector('[name="' + name + '"]');
+  if (!el || value === undefined || value === null || value === '') return;
+  el.value = value;
+  el.style.borderColor = 'var(--success)';
+  setTimeout(function() { el.style.borderColor = ''; }, 1800);
+  el.dispatchEvent(new Event('input', {bubbles: true}));
+  el.dispatchEvent(new Event('change', {bubbles: true}));
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+
+function scoreTransformAverage(avg) {
+  if (avg >= 5) return 30;
+  if (avg >= 4) return 24;
+  if (avg >= 3) return 18;
+  if (avg >= 2) return 12;
+  if (avg >= 1) return 6;
+  return 0;
+}
+
+function updateTransformFromPatentCount(count) {
+  const patentCount = Math.max(0, parseInt(count || 0, 10) || 0);
+  const avg = patentCount / 3;
+  setFieldValue('patent_count', patentCount);
+  setFieldValue('transform_count', avg.toFixed(2));
+  setFieldValue('transform_score', scoreTransformAverage(avg));
+}
+
+function patentTypeLabel(type) {
+  return {
+    invention: '发明',
+    utility: '实用新型',
+    design: '外观设计',
+    copyright: '软著'
+  }[type] || '未识别';
+}
+
+let patentPreviewCertificates = [];
+let patentPreviewEvaluation = null;
+let patentPreviewDateAsc = false;
+
+function patentDateValue(cert) {
+  const d = (cert && cert.parsed && cert.parsed.details) || {};
+  return d.app_date || '9999-99-99';
+}
+
+async function sortPatentPreviewByDate() {
+  if (!patentPreviewCertificates.length) return;
+  patentPreviewDateAsc = !patentPreviewDateAsc;
+  const direction = patentPreviewDateAsc ? 'asc' : 'desc';
+  try {
+    const resp = await fetch('/parser/sort_ip_certs', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({direction: direction, certificates: patentPreviewCertificates})
+    });
+    const result = await resp.json().catch(function() { return {}; });
+    if (resp.ok && result.success) {
+      renderPatentPreview(result.certificates, result.evaluation);
+      return;
+    }
+  } catch (err) {}
+  const sorted = patentPreviewCertificates.slice().sort(function(a, b) {
+    return patentDateValue(a).localeCompare(patentDateValue(b)) * (direction === 'asc' ? 1 : -1);
+  });
+  renderPatentPreview(sorted, patentPreviewEvaluation);
+}
+
+function renderPatentPreview(certificates, evaluation) {
+  patentPreviewCertificates = certificates || [];
+  patentPreviewEvaluation = evaluation || null;
+  const box = document.getElementById('ip-recognition-preview');
+  if (!box) return;
+  const rows = (certificates || []).map(function(cert, idx) {
+    const parsed = cert.parsed || {};
+    const d = parsed.details || {};
+    return '<tr>' +
+      '<td>IP' + String(idx + 1).padStart(2, '0') + '</td>' +
+      '<td>' + escapeHtml(d.name || cert.filename || '-') + '</td>' +
+      '<td>' + escapeHtml(patentTypeLabel(parsed.patent_type)) + '</td>' +
+      '<td>' + escapeHtml(d.legal_status || (parsed.is_granted ? '授权' : '审查')) + '</td>' +
+      '<td>' + escapeHtml(d.patent_no || d.grant_no || '-') + '</td>' +
+      '<td>' + escapeHtml(d.app_date || '-') + '</td>' +
+      '<td>' + escapeHtml(d.applicant || '-') + '</td>' +
+      '<td>' + escapeHtml(d.grant_date || '-') + '</td>' +
+    '</tr>';
+  }).join('');
+  box.style.display = 'block';
+  updateTransformFromPatentCount((certificates || []).length);
+  const scoreSummary = evaluation ? (
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:8px 0">' +
+      '<div><b>技术先进程度</b><br>' + escapeHtml(evaluation.ip_tech_level || '-') + ' / ' + escapeHtml(evaluation.ip_tech_level_score ?? '-') + '分</div>' +
+      '<div><b>核心支持作用</b><br>' + escapeHtml(evaluation.ip_core_support || '-') + ' / ' + escapeHtml(evaluation.ip_core_support_score ?? '-') + '分</div>' +
+      '<div><b>知识产权数量</b><br>' + escapeHtml(evaluation.ip_quantity || '-') + ' / ' + escapeHtml(evaluation.ip_quantity_score ?? '-') + '分</div>' +
+      '<div><b>获取方式</b><br>' + escapeHtml(evaluation.ip_acquisition || '-') + ' / ' + escapeHtml(evaluation.ip_acquisition_score ?? '-') + '分</div>' +
+    '</div>'
+  ) : '';
+  box.innerHTML =
+    '<div style="margin-bottom:6px;color:var(--success)">已识别 ' + (certificates || []).length + ' 份专利 PDF，并已自动填入评分建议和成果转化年平均数。</div>' +
+    scoreSummary +
+    (evaluation && evaluation.details ? '<pre style="white-space:pre-wrap;margin:6px 0;color:var(--text-secondary)">' + escapeHtml(evaluation.details) + '</pre>' : '') +
+    '<div style="overflow-x:auto"><table class="book-table" style="font-size:12px"><thead><tr>' +
+    '<th>编号</th><th>名称</th><th>专利类型</th><th>法律状态</th><th>专利号</th><th style="cursor:pointer;color:var(--accent)" onclick="sortPatentPreviewByDate()">申请日期 ↕</th><th>专利权人</th><th>授权日期</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<div class="text-muted" style="margin-top:6px">不确定项：对主要产品的核心支持作用需要结合主营产品人工确认，系统默认按“较强”填入。</div>';
+}
+
+function applyPatentEvaluation(evaluation) {
+  if (!evaluation) return;
+  ['ip_tech_level', 'ip_core_support', 'ip_quantity', 'ip_acquisition', 'ip_standard'].forEach(function(name) {
+    setFieldValue(name, evaluation[name]);
+  });
+  ['ip_tech_level', 'ip_core_support', 'ip_quantity', 'ip_acquisition', 'ip_standard'].forEach(function(name) {
+    setFieldValue(name + '_score', evaluation[name + '_score']);
+  });
+}
+
+async function uploadPatentPdf(btn) {
+  const input = document.getElementById('ip-pdf-file');
+  const status = document.getElementById('ip-upload-status');
+  const files = Array.from(input && input.files ? input.files : []);
+  if (!files.length) {
+    alert('请先选择专利 PDF 文件');
+    return;
+  }
+  const nonPdf = files.find(function(file) { return !file.name.toLowerCase().endsWith('.pdf'); });
+  if (nonPdf) {
+    alert('仅支持上传 PDF 文件：' + nonPdf.name);
+    return;
+  }
+
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '识别中...';
+  if (status) status.textContent = '正在上传并识别 ' + files.length + ' 个文件';
+
+  try {
+    let latest = null;
+    let duplicateCount = 0;
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append('file', file);
+      const resp = await fetch('/parser/upload_ip', {method: 'POST', body: fd});
+      const result = await resp.json().catch(function() { return {}; });
+      if (!resp.ok || !result.success) {
+        throw new Error((result.error || '识别失败') + '：' + file.name);
+      }
+      if (result.duplicate) duplicateCount += 1;
+      latest = result;
+    }
+    applyPatentEvaluation(latest.evaluation);
+    renderPatentPreview(latest.certificates, latest.evaluation);
+    if (status) {
+      status.textContent = '识别完成，共 ' + latest.count + ' 份' + (duplicateCount ? '，跳过重复 ' + duplicateCount + ' 份' : '');
+    }
+    if (duplicateCount) alert('已跳过 ' + duplicateCount + ' 份同名专利，不会重复添加。');
+    input.value = '';
+  } catch (err) {
+    if (status) status.textContent = '';
+    alert('专利识别失败: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+</script>
+{% endblock %}

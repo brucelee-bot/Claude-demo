@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}生成申报书 — 申报助手{% endblock %}
+{% block content %}
+
+<h1 style="margin-bottom:8px">📝 生成申报书</h1>
+<p class="text-muted mb-2">选择已评分的企业，在线填写认定申请书</p>
+
+{% if companies %}
+<table>
+  <thead>
+    <tr>
+      <th>企业名称</th>
+      <th>类型</th>
+      <th>最近评分</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in companies %}
+    <tr>
+      <td><strong>{{ c.name }}</strong></td>
+      <td>{{ c.app_type }}</td>
+      <td>
+        {% if c.latest_score %}
+        <span class="score-badge {{ 'pass' if c.latest_score.total_score >= 71 else 'fail' }}">
+          {{ c.latest_score.total_score }}分
+        </span>
+        {% else %}
+        <span class="text-muted">未评分</span>
+        {% endif %}
+      </td>
+      <td>
+        <a href="{{ url_for('docgen.gaoxin_relation_table', company_id=c.id) }}" class="btn btn-primary btn-sm">📋 填写关系表并申报</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="card" style="text-align:center;padding:40px">
+  <p class="text-muted">暂无企业数据，请先完成评分</p>
+  <a href="{{ url_for('scoring.index') }}" class="btn btn-primary mt-2">去评分</a>
+</div>
+{% endif %}
+
+<div class="card mt-3">
+  <h3>📋 历史申报书</h3>
+  <a href="{{ url_for('docgen.history') }}" class="btn btn-secondary btn-sm">查看历史</a>
+</div>
+
+{% endblock %}

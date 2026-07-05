@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑' if rule else '新建' }}规则 — 申报助手{% endblock %}
+{% block content %}
+
+<h1 style="margin-bottom:8px">{{ '✏️ 编辑' if rule else '➕ 新建' }}评分规则</h1>
+
+<form method="POST">
+  <div class="card">
+    <div class="split-layout">
+      <div class="form-group">
+        <label>规则名称</label>
+        <input type="text" name="rule_name" value="{{ rule.rule_name if rule else '' }}" required
+               placeholder="如：国家高新技术企业认定评分标准" />
+      </div>
+      <div class="form-group">
+        <label>规则类型</label>
+        <select name="rule_type" required>
+          <option value="">— 选择 —</option>
+          <option value="高新技术" {{ 'selected' if rule and rule.rule_type == '高新技术' }}>高新技术</option>
+          <option value="专精特新" {{ 'selected' if rule and rule.rule_type == '专精特新' }}>专精特新</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📋 评分规则 JSON 配置</h3>
+    <p class="text-muted" style="font-size:13px;margin-bottom:12px">
+      直接编辑 JSON 规则配置。包含指标定义、分值、评分标准等。
+    </p>
+    <div class="form-group">
+      <textarea name="config_json" rows="25" style="font-family:monospace;font-size:13px"
+                placeholder='{"rule_type":"高新技术","indicators":[...]}'>{{ rule.config_json if rule else '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:12px;justify-content:center;padding:20px 0">
+    <button type="submit" class="btn btn-primary btn-lg">💾 保存</button>
+    <a href="{{ url_for('rules.index') }}" class="btn btn-secondary btn-lg">取消</a>
+  </div>
+</form>
+
+{% endblock %}

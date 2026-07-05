@@ -1,0 +1,173 @@
+{
+  "rule_type": "高新技术",
+  "rule_name": "国家高新技术企业认定评分标准",
+  "version": 1,
+  "pass_score": 71,
+  "full_score": 100,
+  "indicators": [
+    {
+      "id": "ip",
+      "name": "知识产权",
+      "max_score": 30,
+      "weight": 30,
+      "sub_indicators": [
+        {
+          "id": "ip_tech_level",
+          "name": "技术的先进程度",
+          "max_score": 8,
+          "input_type": "grade",
+          "grades": {
+            "A": {"label": "高", "score_range": [7, 8]},
+            "B": {"label": "较高", "score_range": [5, 6]},
+            "C": {"label": "一般", "score_range": [3, 4]},
+            "D": {"label": "较低", "score_range": [1, 2]},
+            "E": {"label": "无", "score_range": [0, 0]}
+          }
+        },
+        {
+          "id": "ip_core_support",
+          "name": "对主要产品（服务）在技术上发挥核心支持作用",
+          "max_score": 8,
+          "input_type": "grade",
+          "grades": {
+            "A": {"label": "强", "score_range": [7, 8]},
+            "B": {"label": "较强", "score_range": [5, 6]},
+            "C": {"label": "一般", "score_range": [3, 4]},
+            "D": {"label": "较弱", "score_range": [1, 2]},
+            "E": {"label": "无", "score_range": [0, 0]}
+          }
+        },
+        {
+          "id": "ip_quantity",
+          "name": "知识产权数量",
+          "max_score": 8,
+          "input_type": "grade",
+          "grades": {
+            "A": {"label": "1项及以上（Ⅰ类）", "score_range": [7, 8]},
+            "B": {"label": "5项及以上（Ⅱ类）", "score_range": [5, 6]},
+            "C": {"label": "3～4项（Ⅱ类）", "score_range": [3, 4]},
+            "D": {"label": "1～2项（Ⅱ类）", "score_range": [1, 2]},
+            "E": {"label": "0项", "score_range": [0, 0]}
+          }
+        },
+        {
+          "id": "ip_acquisition",
+          "name": "知识产权获得方式",
+          "max_score": 6,
+          "input_type": "grade",
+          "grades": {
+            "A": {"label": "有自主研发", "score_range": [1, 6]},
+            "B": {"label": "仅有受让、受赠和并购等", "score_range": [1, 3]}
+          }
+        },
+        {
+          "id": "ip_standard",
+          "name": "参与编制国家标准/行业标准/检测方法/技术规范",
+          "max_score": 2,
+          "input_type": "grade",
+          "is_bonus": true,
+          "grades": {
+            "A": {"label": "是", "score_range": [1, 2]},
+            "B": {"label": "否", "score_range": [0, 0]}
+          }
+        }
+      ]
+    },
+    {
+      "id": "transformation",
+      "name": "科技成果转化能力",
+      "max_score": 30,
+      "weight": 30,
+      "sub_indicators": [
+        {
+          "id": "transform_count",
+          "name": "近3年科技成果转化年平均数",
+          "max_score": 30,
+          "input_type": "number",
+          "thresholds": [
+            {"min": 5, "max": 999, "label": "≥5项", "score_range": [25, 30]},
+            {"min": 4, "max": 4, "label": "4项", "score_range": [19, 24]},
+            {"min": 3, "max": 3, "label": "3项", "score_range": [13, 18]},
+            {"min": 2, "max": 2, "label": "2项", "score_range": [7, 12]},
+            {"min": 1, "max": 1, "label": "1项", "score_range": [1, 6]},
+            {"min": 0, "max": 0, "label": "0项", "score_range": [0, 0]}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rd_management",
+      "name": "研究开发组织管理水平",
+      "max_score": 20,
+      "weight": 20,
+      "sub_indicators": [
+        {
+          "id": "rd_system",
+          "name": "制定了企业研究开发的组织管理制度，建立了研发投入核算体系，编制了研发费用辅助账",
+          "max_score": 6,
+          "input_type": "score",
+          "score_range": [0, 6]
+        },
+        {
+          "id": "rd_institution",
+          "name": "设立了内部科学技术研究开发机构并具备相应的科研条件，与国内外研究开发机构开展多种形式产学研合作",
+          "max_score": 6,
+          "input_type": "score",
+          "score_range": [0, 6]
+        },
+        {
+          "id": "rd_transform_incentive",
+          "name": "建立了科技成果转化的组织实施与激励奖励制度，建立开放式的创新创业平台",
+          "max_score": 4,
+          "input_type": "score",
+          "score_range": [0, 4]
+        },
+        {
+          "id": "rd_talent",
+          "name": "建立了科技人员的培养进修、职工技能培训、优秀人才引进，以及人才绩效评价奖励制度",
+          "max_score": 4,
+          "input_type": "score",
+          "score_range": [0, 4]
+        }
+      ]
+    },
+    {
+      "id": "growth",
+      "name": "企业成长性",
+      "max_score": 20,
+      "weight": 20,
+      "sub_indicators": [
+        {
+          "id": "growth_net_assets",
+          "name": "净资产增长率",
+          "max_score": 10,
+          "input_type": "calculated",
+          "formula": "growth_rate_net_assets",
+          "thresholds": [
+            {"min": 0.35, "max": 999, "label": "≥35%", "score": [9, 10]},
+            {"min": 0.25, "max": 0.349, "label": "≥25%", "score": [7, 8]},
+            {"min": 0.15, "max": 0.249, "label": "≥15%", "score": [5, 6]},
+            {"min": 0.05, "max": 0.149, "label": "≥5%", "score": [3, 4]},
+            {"min": 0.001, "max": 0.049, "label": ">0", "score": [1, 2]},
+            {"min": -999, "max": 0, "label": "≤0", "score": [0, 0]}
+          ]
+        },
+        {
+          "id": "growth_sales",
+          "name": "销售收入增长率",
+          "max_score": 10,
+          "input_type": "calculated",
+          "formula": "growth_rate_sales",
+          "thresholds": [
+            {"min": 0.35, "max": 999, "label": "≥35%", "score": [9, 10]},
+            {"min": 0.25, "max": 0.349, "label": "≥25%", "score": [7, 8]},
+            {"min": 0.15, "max": 0.249, "label": "≥15%", "score": [5, 6]},
+            {"min": 0.05, "max": 0.149, "label": "≥5%", "score": [3, 4]},
+            {"min": 0.001, "max": 0.049, "label": ">0", "score": [1, 2]},
+            {"min": -999, "max": 0, "label": "≤0", "score": [0, 0]}
+          ]
+        }
+      ]
+    }
+  ]
+}

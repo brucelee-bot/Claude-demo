@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% set rt = rule_type or "专精特新" %}
+{% set title_text = '🏆 专精特新"小巨人"企业评分' if rt == "小巨人" else '🏭 专精特新中小企业评分' %}
+{% set pass_line = 60 if rt == "小巨人" else 50 %}
+{% set total_steps = "6" if rt == "小巨人" else "5" %}
+{% set action_url = url_for('scoring.xiaojuren') if rt == "小巨人" else url_for('scoring.zhuanjing') %}
+{% block title %}{{ "小巨人" if rt == "小巨人" else "专精特新" }}评分 — 申报助手{% endblock %}
+{% block head_extra %}
+<style>
+  .score-fine { width: 80px; display: inline; margin-left: 8px; }
+</style>
+{% endblock %}
+{% block content %}
+
+<form method="POST" action="{{ action_url }}" id="score-form">

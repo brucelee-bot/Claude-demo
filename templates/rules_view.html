@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}规则详情 — {{ rule.rule_name }}{% endblock %}
+{% block content %}
+
+<div class="flex-between mb-2">
+  <div>
+    <h1 style="margin-bottom:4px">{{ rule.rule_name }}</h1>
+    <p class="text-muted">
+      类型：{{ rule.rule_type }} | 版本：v{{ rule.version }} |
+      <span class="score-badge {{ 'pass' if rule.is_active else 'fail' }}">
+        {{ '激活' if rule.is_active else '停用' }}
+      </span>
+    </p>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="{{ url_for('rules.edit', rule_id=rule.id) }}" class="btn btn-secondary">编辑</a>
+    <a href="{{ url_for('rules.index') }}" class="btn btn-secondary">返回列表</a>
+  </div>
+</div>
+
+{% if indicators %}
+{% for ind in indicators %}
+<div class="card">
+  <div class="flex-between mb-1">
+    <h3>{{ ind.name }}</h3>
+    <span style="font-size:20px;font-weight:700;color:var(--accent)">{{ ind.max_score }}<span style="font-size:14px;color:var(--text-muted)">分</span></span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:5%">#</th>
+        <th style="width:40%">指标名称</th>
+        <th style="width:10%">满分</th>
+        <th style="width:10%">类型</th>
+        <th style="width:35%">评分标准</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sub in ind.sub_indicators %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ sub.name }}</td>
+        <td style="font-weight:700">{{ sub.max_score }}</td>
+        <td>
+          {% if sub.input_type == 'grade' %}等级制
+          {% elif sub.input_type == 'number' %}数值
+          {% elif sub.input_type == 'multi' %}多选
+          {% elif sub.input_type == 'score' %}打分
+          {% elif sub.input_type == 'dual_threshold' %}双阈值
+          {% else %}{{ sub.input_type }}
+          {% endif %}
+        </td>
+        <td style="font-size:12px">
+          {% if sub.grades %}
+            {% for k, v in sub.grades.items() %}
+            <span style="display:inline-block;margin:1px;padding:1px 6px;background:var(--bg-tertiary);border-radius:3px">
+              {{ k }}: {{ v.label }} ({{ v.score_range[0] }}-{{ v.score_range[1] }}分)
+            </span>
+            {% endfor %}
+          {% elif sub.thresholds %}
+            {% for t in sub.thresholds[:5] %}
+            <span style="display:inline-block;margin:1px;padding:1px 6px;background:var(--bg-tertiary);border-radius:3px">
+              {{ t.label }}: {{ t.get('score_range', t.get('score', [0]))[0] }}分
+            </span>
+            {% endfor %}
+            {% if sub.thresholds|length > 5 %}
+            <span style="color:var(--text-muted);font-size:11px">...共{{ sub.thresholds|length }}档</span>
+            {% endif %}
+          {% elif sub.options %}
+            {% for o in sub.options %}
+            <span style="display:inline-block;margin:1px;padding:1px 6px;background:var(--bg-tertiary);border-radius:3px">
+              {{ o.label[:20] }}
+            </span>
+            {% endfor %}
+          {% else %}
+            <span class="text-muted">{{ sub.score_range[0] if sub.score_range else 0 }}-{{ sub.score_range[1] if sub.score_range else sub.max_score }}分</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+{% else %}
+<div class="card" style="text-align:center;padding:40px">
+  <p class="text-muted">无法解析规则配置</p>
+</div>
+{% endif %}
+
+{% endblock %}

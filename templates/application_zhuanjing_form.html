@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}填写专精特新申请书 — {{ company.name }}{% endblock %}
+{% block content %}
+
+<h1 style="margin-bottom:4px">📝 专精特新中小企业申请书</h1>
+<p class="text-muted mb-2">企业：{{ company.name }}</p>
+
+<form method="POST" action="{{ url_for('docgen.fill', company_id=company.id) }}">
+
+  <!-- 一、基本信息 -->
+  <div class="card">
+    <h3>一、企业基本情况</h3>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:180px"><label class="text-muted" style="font-size:12px">省份</label><input name="province" placeholder="浙江" /></div>
+      <div style="flex:1;min-width:180px"><label class="text-muted" style="font-size:12px">城市</label><input name="city" placeholder="杭州" /></div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+      <div style="flex:2"><label class="text-muted" style="font-size:12px">通讯地址</label><input name="address" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">邮编</label><input name="zipcode" /></div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">法定代表人</label><input name="legal_rep" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">控股股东</label><input name="shareholder" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">实际控制人</label><input name="actual_controller" /></div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">联系人</label><input name="contact" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">电话</label><input name="phone" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">手机</label><input name="mobile" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">邮箱</label><input name="email" /></div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">注册时间</label><input name="register_date" placeholder="YYYY-MM" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">注册资本(万元)</label><input name="register_capital" /></div>
+      <div style="flex:2"><label class="text-muted" style="font-size:12px">统一社会信用代码</label><input name="credit_code" /></div>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:8px">
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">行业代码(2位)</label><input name="industry_code" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">细分领域(4位)</label><input name="sub_industry_code" /></div>
+    </div>
+  </div>
+
+  <!-- 二、经营数据 -->
+  <div class="card">
+    <h3>二、经济效益和经营情况</h3>
+    <p class="text-muted" style="font-size:12px;margin-bottom:12px">逐项填写 2023/2024/2025 三年数据（万元）</p>
+    {% set fields = [
+      ('employees','全职员工(人)'),('rd_staff','研发人员(人)'),
+      ('revenue','营业收入'),('main_revenue','主营业务收入'),('revenue_growth','主营业务收入增长率(%)'),
+      ('cost','营业成本'),('main_cost','主营业务成本'),('product_cost','产品销售成本'),
+      ('sales_expense','销售费用'),('admin_expense','管理费用'),
+      ('profit','利润总额'),('net_profit','净利润'),('net_profit_growth','净利润增长率(%)'),
+      ('assets','资产总额'),('net_assets','净资产'),('liabilities','负债总额'),('debt_ratio','资产负债率(%)'),
+      ('tax','上缴税金'),('equity_financing','股权融资'),('valuation','对应估值'),
+      ('bank_loan','银行贷款'),('domestic_bond','境内债券'),('foreign_bond','境外债券')
+    ] %}
+    {% for fid, flabel in fields %}
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+      <span style="width:160px;font-size:13px;color:var(--text-secondary);flex-shrink:0">{{ flabel }}</span>
+      <input name="fin_2023_{{ fid }}" placeholder="2023" style="flex:1;min-width:80px" />
+      <input name="fin_2024_{{ fid }}" placeholder="2024" style="flex:1;min-width:80px" />
+      <input name="fin_2025_{{ fid }}" placeholder="2025" style="flex:1;min-width:80px" />
+    </div>
+    {% endfor %}
+    <div class="form-group mt-2"><label class="text-muted" style="font-size:12px">审计报告编码</label><input name="audit_report_code" style="max-width:400px" /></div>
+  </div>
+
+  <!-- 三、专业化 -->
+  <div class="card">
+    <h3>三、专业化</h3>
+    <div style="display:flex;gap:12px">
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">从事细分市场年限</label><input name="market_years" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">主营收入占比(%)</label><input name="main_revenue_ratio" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">近两年营收复合增长率(%)</label><input name="revenue_cagr" /></div>
+    </div>
+    <h4 style="margin-top:16px">主导产品 (最多3个)</h4>
+    {% for i in range(3) %}
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <input name="product_{{ i }}_name" placeholder="产品名称" style="flex:2" />
+      <input name="product_{{ i }}_revenue" placeholder="收入(万元)" style="flex:1" />
+    </div>
+    {% endfor %}
+    <h4 style="margin-top:12px">标准制定</h4>
+    <div style="display:flex;gap:8px">
+      <input name="std_international" placeholder="国际标准数" style="flex:1" />
+      <input name="std_national" placeholder="国家标准数" style="flex:1" />
+      <input name="std_industry" placeholder="行业标准数" style="flex:1" />
+      <input name="std_names" placeholder="标准名称(逗号分隔)" style="flex:3" />
+    </div>
+  </div>
+
+  <!-- 四、创新能力 -->
+  <div class="card">
+    <h3>四、创新能力</h3>
+    <p class="text-muted" style="font-size:12px;margin-bottom:8px">研发机构(国/省/自建数量)</p>
+    {% for inst in [('tech_academy','技术研究院'),('tech_center','企业技术中心'),('eng_center','工程中心'),('design_center','工业设计中心'),('key_lab','重点实验室')] %}
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <span style="width:120px;font-size:13px;color:var(--text-secondary)">{{ inst[1] }}</span>
+      <input name="rd_inst_{{ inst[0] }}_national" placeholder="国家级" style="flex:1" />
+      <input name="rd_inst_{{ inst[0] }}_province" placeholder="省部级" style="flex:1" />
+      <input name="rd_inst_{{ inst[0] }}_self" placeholder="自建" style="flex:1" />
+    </div>
+    {% endfor %}
+    <div style="display:flex;gap:12px;margin-top:8px">
+      <div style="flex:1"><label class="text-muted" style="font-size:12px"><input type="checkbox" name="has_academician_station" value="1" /> 院士工作站</label></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px"><input type="checkbox" name="has_postdoc_station" value="1" /> 博士后工作站</label></div>
+    </div>
+    <div class="form-group mt-2"><label class="text-muted" style="font-size:12px">合作院校(逗号分隔,3个以内)</label><input name="partner_schools" style="max-width:500px" /></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input name="fin_2023_rd_expense" placeholder="2023研发费用(万元)" style="flex:1" />
+      <input name="fin_2024_rd_expense" placeholder="2024研发费用(万元)" style="flex:1" />
+      <input name="fin_2025_rd_expense" placeholder="2025研发费用(万元)" style="flex:1" />
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <input name="rd_ratio_2023" placeholder="2023研发占比(%)" style="flex:1" />
+      <input name="rd_ratio_2024" placeholder="2024研发占比(%)" style="flex:1" />
+      <input name="rd_ratio_2025" placeholder="2025研发占比(%)" style="flex:1" />
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <input name="rd_staff_ratio_2023" placeholder="2023研发人员占比(%)" style="flex:1" />
+      <input name="rd_staff_ratio_2024" placeholder="2024研发人员占比(%)" style="flex:1" />
+      <input name="rd_staff_ratio_2025" placeholder="2025研发人员占比(%)" style="flex:1" />
+    </div>
+  </div>
+
+  <!-- 五-九、文本描述 -->
+  <div class="card">
+    <h3>五-九、其他信息</h3>
+    <div class="form-group">
+      <label class="text-muted" style="font-size:12px">市场地位和占有率描述</label>
+      <textarea name="market_position_desc" rows="4" placeholder="细分市场范围、规模、占有率..."></textarea>
+    </div>
+    <div style="display:flex;gap:12px">
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">主导产品出口额(万元)</label><input name="export_amount" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">自有品牌数</label><input name="brand_count" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">品牌收入(万元)</label><input name="brand_revenue" /></div>
+    </div>
+    <div class="form-group mt-2"><label class="text-muted" style="font-size:12px">所属产业链</label><input name="industry_chain" /></div>
+    <div class="form-group"><label class="text-muted" style="font-size:12px">主导产品名称</label><input name="main_product_name" /></div>
+    <div class="form-group"><label class="text-muted" style="font-size:12px">主导产品类别</label><input name="main_product_category" /></div>
+    <div class="form-group">
+      <label class="text-muted" style="font-size:12px">企业总体情况介绍 (不超过2000字)</label>
+      <textarea name="company_overview" rows="10" placeholder="一、企业经营管理概况。从事细分领域及从业时间...&#10;二、企业主导产品情况...&#10;三、创新情况...&#10;四、商业规划..."></textarea>
+    </div>
+  </div>
+
+  <div style="text-align:center;padding:20px 0">
+    <button type="submit" class="btn btn-primary btn-lg">📄 生成专精特新申请书</button>
+  </div>
+</form>
+
+{% endblock %}

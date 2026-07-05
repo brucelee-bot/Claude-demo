@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}申报助手{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/light-theme.css') }}?v=3" />
+    {% block head_extra %}{% endblock %}
+  </head>
+  <body>
+    <nav class="navbar">
+      <a href="{{ url_for('dashboard') }}" class="brand">📋 <span>申报助手</span></a>
+      <div class="nav-links">
+        {% if current_user.is_authenticated %}
+        {% set active_page = request.endpoint %}
+        <a href="{{ url_for('dashboard') }}" class="{{ 'active' if active_page == 'dashboard' else '' }}">首页</a>
+        <a href="{{ url_for('scoring.index') }}" class="{{ 'active' if active_page and 'scoring' in active_page }}">评分</a>
+        <a href="{{ url_for('docgen.index') }}" class="{{ 'active' if active_page and 'docgen' in active_page }}">申报书</a>
+        <a href="{{ url_for('docgen.assistant') }}" class="{{ 'active' if active_page and 'assistant' in active_page }}">助手</a>
+        <a href="{{ url_for('rules.index') }}" class="{{ 'active' if active_page and 'rules' in active_page }}">规则</a>
+        <span class="nav-user">
+          <span>{{ current_user.username }}</span>
+          <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-secondary">退出</a>
+        </span>
+        {% else %}
+        <a href="{{ url_for('auth.login') }}">登录</a>
+        {% endif %}
+      </div>
+    </nav>
+    <main class="container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      {% for category, msg in messages %}
+      <div class="flash-msg flash-{{ category }}">{{ msg }}</div>
+      {% endfor %}
+      {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

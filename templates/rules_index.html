@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}规则管理 — 申报助手{% endblock %}
+{% block content %}
+
+<div class="flex-between mb-2">
+  <div>
+    <h1 style="margin-bottom:4px">⚙️ 规则管理</h1>
+    <p class="text-muted">管理评分规则配置，支持创建、编辑、激活/停用</p>
+  </div>
+  <a href="{{ url_for('rules.new') }}" class="btn btn-primary">+ 新建规则</a>
+</div>
+
+{% if rules %}
+<table>
+  <thead>
+    <tr>
+      <th>规则名称</th>
+      <th>类型</th>
+      <th>版本</th>
+      <th>状态</th>
+      <th>创建时间</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rules %}
+    <tr>
+      <td><strong>{{ r.rule_name }}</strong></td>
+      <td>{{ r.rule_type }}</td>
+      <td>v{{ r.version }}</td>
+      <td>
+        {% if r.is_active %}
+        <span class="score-badge pass">● 激活</span>
+        {% else %}
+        <span class="score-badge fail">○ 停用</span>
+        {% endif %}
+      </td>
+      <td class="text-muted">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <a href="{{ url_for('rules.view', rule_id=r.id) }}" class="btn btn-secondary btn-sm">查看</a>
+          <a href="{{ url_for('rules.edit', rule_id=r.id) }}" class="btn btn-secondary btn-sm">编辑</a>
+          <form method="POST" action="{{ url_for('rules.toggle', rule_id=r.id) }}" style="display:inline">
+            <button class="btn btn-sm {{ 'btn-secondary' if r.is_active else 'btn-success' }}">
+              {{ '停用' if r.is_active else '激活' }}
+            </button>
+          </form>
+          <form method="POST" action="{{ url_for('rules.delete', rule_id=r.id) }}" style="display:inline"
+                onsubmit="return confirm('确定删除？')">
+            <button class="btn btn-danger btn-sm">删除</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="card" style="text-align:center;padding:40px">
+  <p class="text-muted">暂无规则配置</p>
+  <a href="{{ url_for('rules.new') }}" class="btn btn-primary mt-2">创建第一条规则</a>
+</div>
+{% endif %}
+
+{% endblock %}

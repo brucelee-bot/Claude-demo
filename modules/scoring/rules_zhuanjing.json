@@ -1,0 +1,197 @@
+{
+  "rule_type": "专精特新",
+  "rule_name": "浙江省专精特新中小企业认定评分标准",
+  "version": 1,
+  "pass_score": 50,
+  "full_score": 100,
+  "indicators": [
+    {
+      "id": "specialization",
+      "name": "专业化",
+      "max_score": 25,
+      "weight": 25,
+      "sub_indicators": [
+        {
+          "id": "revenue_ratio",
+          "name": "上年度主营业务收入总额占营业收入总额比重",
+          "max_score": 5,
+          "input_type": "grade",
+          "grades": {
+            "A": {"label": "80%以上", "score_range": [5, 5]},
+            "B": {"label": "70%-80%", "score_range": [3, 3]},
+            "C": {"label": "60%-70%", "score_range": [1, 1]},
+            "D": {"label": "60%以下", "score_range": [0, 0]}
+          }
+        },
+        {
+          "id": "revenue_growth",
+          "name": "近2年主营业务收入平均增长率",
+          "max_score": 10,
+          "input_type": "number",
+          "thresholds": [
+            {"min": 0.10, "max": 999, "label": "≥10%", "score_range": [10, 10]},
+            {"min": 0.08, "max": 0.099, "label": "8%-10%", "score_range": [8, 8]},
+            {"min": 0.06, "max": 0.079, "label": "6%-8%", "score_range": [6, 6]},
+            {"min": 0.04, "max": 0.059, "label": "4%-6%", "score_range": [4, 4]},
+            {"min": 0.001, "max": 0.039, "label": "0%-4%", "score_range": [2, 2]},
+            {"min": -999, "max": 0, "label": "≤0%", "score_range": [0, 0]}
+          ]
+        },
+        {
+          "id": "market_years",
+          "name": "从事特定细分市场年限",
+          "max_score": 5,
+          "input_type": "number",
+          "formula": "min(floor(value/2), 5)",
+          "thresholds": [],
+          "description": "每满2年得1分，最高5分"
+        },
+        {
+          "id": "product_domain",
+          "name": "主导产品所属领域情况",
+          "max_score": 5,
+          "input_type": "grade",
+          "grades": {
+            "A": {"label": "补短板/锻长板/填空白", "score_range": [5, 5]},
+            "B": {"label": "工业六基/中华老字号/重点龙头", "score_range": [3, 3]},
+            "C": {"label": "不属于以上情况", "score_range": [0, 0]}
+          }
+        }
+      ]
+    },
+    {
+      "id": "refinement",
+      "name": "精细化",
+      "max_score": 25,
+      "weight": 25,
+      "sub_indicators": [
+        {
+          "id": "digital_level",
+          "name": "数字化水平",
+          "max_score": 5,
+          "input_type": "grade",
+          "grades": {
+            "A": {"label": "三级以上", "score_range": [5, 5]},
+            "B": {"label": "二级", "score_range": [3, 3]},
+            "C": {"label": "一级", "score_range": [0, 0]}
+          }
+        },
+        {
+          "id": "quality_management",
+          "name": "质量管理水平（多选，每项3分，最高5分）",
+          "max_score": 5,
+          "input_type": "multi",
+          "options": [
+            {"id": "quality_award", "label": "获得省级以上质量奖荣誉", "score": 3},
+            {"id": "iso9001", "label": "获得ISO9001等质量管理体系认证", "score": 3},
+            {"id": "own_brand", "label": "拥有自主品牌", "score": 3},
+            {"id": "standard_participation", "label": "参与制修订标准", "score": 3}
+          ]
+        },
+        {
+          "id": "net_profit_rate",
+          "name": "上年度净利润率",
+          "max_score": 10,
+          "input_type": "number",
+          "thresholds": [
+            {"min": 0.10, "max": 999, "label": "≥10%", "score_range": [10, 10]},
+            {"min": 0.08, "max": 0.099, "label": "8%-10%", "score_range": [8, 8]},
+            {"min": 0.06, "max": 0.079, "label": "6%-8%", "score_range": [6, 6]},
+            {"min": 0.04, "max": 0.059, "label": "4%-6%", "score_range": [4, 4]},
+            {"min": 0.02, "max": 0.039, "label": "2%-4%", "score_range": [2, 2]},
+            {"min": -999, "max": 0.019, "label": "<2%", "score_range": [0, 0]}
+          ]
+        },
+        {
+          "id": "debt_ratio",
+          "name": "上年度资产负债率",
+          "max_score": 5,
+          "input_type": "number",
+          "thresholds": [
+            {"min": 0, "max": 0.499, "label": "<50%", "score_range": [5, 5]},
+            {"min": 0.50, "max": 0.599, "label": "50%-60%", "score_range": [3, 3]},
+            {"min": 0.60, "max": 0.699, "label": "60%-70%", "score_range": [1, 1]},
+            {"min": 0.70, "max": 999, "label": "≥70%", "score_range": [0, 0]}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "distinctiveness",
+      "name": "特色化",
+      "max_score": 15,
+      "weight": 15,
+      "sub_indicators": [
+        {
+          "id": "local_feature",
+          "name": "地方特色指标（由省级主管部门自主设定）",
+          "max_score": 15,
+          "input_type": "score",
+          "score_range": [0, 15]
+        }
+      ]
+    },
+    {
+      "id": "innovation",
+      "name": "创新能力",
+      "max_score": 35,
+      "weight": 35,
+      "sub_indicators": [
+        {
+          "id": "ip_quality",
+          "name": "与主导产品相关的有效知识产权数量",
+          "max_score": 10,
+          "input_type": "grade",
+          "grades": {
+            "A": {"label": "Ⅰ类高价值知识产权1项以上", "score_range": [10, 10]},
+            "B": {"label": "自主研发Ⅰ类知识产权1项以上", "score_range": [8, 8]},
+            "C": {"label": "Ⅰ类知识产权1项以上", "score_range": [6, 6]},
+            "D": {"label": "Ⅱ类知识产权1项以上", "score_range": [2, 2]},
+            "E": {"label": "无", "score_range": [0, 0]}
+          }
+        },
+        {
+          "id": "rd_expense",
+          "name": "上年度研发费用投入",
+          "max_score": 10,
+          "input_type": "dual_threshold",
+          "amount_field": "rd_amount",
+          "ratio_field": "rd_ratio",
+          "thresholds": [
+            {"amount_min": 500, "amount_max": 999999, "ratio_min": 0.10, "ratio_max": 999, "label": "≥500万或≥10%", "score_range": [10, 10]},
+            {"amount_min": 400, "amount_max": 499, "ratio_min": 0.08, "ratio_max": 0.099, "label": "400-500万或8%-10%", "score_range": [8, 8]},
+            {"amount_min": 300, "amount_max": 399, "ratio_min": 0.06, "ratio_max": 0.079, "label": "300-400万或6%-8%", "score_range": [6, 6]},
+            {"amount_min": 200, "amount_max": 299, "ratio_min": 0.04, "ratio_max": 0.059, "label": "200-300万或4%-6%", "score_range": [4, 4]},
+            {"amount_min": 100, "amount_max": 199, "ratio_min": 0.03, "ratio_max": 0.039, "label": "100-200万或3%-4%", "score_range": [2, 2]},
+            {"amount_min": -1, "amount_max": 99, "ratio_min": -1, "ratio_max": 0.029, "label": "不属于以上", "score_range": [0, 0]}
+          ]
+        },
+        {
+          "id": "rd_staff_ratio",
+          "name": "上年度研发人员占比",
+          "max_score": 5,
+          "input_type": "number",
+          "thresholds": [
+            {"min": 0.20, "max": 999, "label": "≥20%", "score_range": [5, 5]},
+            {"min": 0.10, "max": 0.199, "label": "10%-20%", "score_range": [3, 3]},
+            {"min": 0.05, "max": 0.099, "label": "5%-10%", "score_range": [1, 1]},
+            {"min": 0, "max": 0.049, "label": "<5%", "score_range": [0, 0]}
+          ]
+        },
+        {
+          "id": "rd_institution_level",
+          "name": "建立研发机构级别",
+          "max_score": 10,
+          "input_type": "grade",
+          "grades": {
+            "A": {"label": "国家级", "score_range": [10, 10]},
+            "B": {"label": "省级", "score_range": [8, 8]},
+            "C": {"label": "市级", "score_range": [4, 4]},
+            "D": {"label": "市级以下", "score_range": [2, 2]},
+            "E": {"label": "未建立研发机构", "score_range": [0, 0]}
+          }
+        }
+      ]
+    }
+  ]
+}

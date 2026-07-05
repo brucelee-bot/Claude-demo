@@ -1,0 +1,55 @@
+{% extends "base.html" %} {% block title %}注册 — 申报助手{% endblock
+%} {% block content %}
+<div class="auth-container">
+  <div class="card">
+    <div class="brand">📋</div>
+    <h2 style="margin-bottom: 4px">创建账号</h2>
+    <p class="subtitle">注册后即可使用全部功能</p>
+
+    <form method="POST" action="{{ url_for('auth.register') }}">
+      <div class="form-group">
+        <label for="username">用户名</label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          placeholder="请输入用户名"
+          required
+          autofocus
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="password">密码</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          placeholder="请输入密码（至少6位）"
+          required
+          minlength="6"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="confirm">确认密码</label>
+        <input
+          type="password"
+          id="confirm"
+          name="confirm"
+          placeholder="再次输入密码"
+          required
+          minlength="6"
+        />
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg">注 册</button>
+    </form>
+
+    <div class="auth-footer">
+      已有账号？
+      <a href="{{ url_for('auth.login') }}">立即登录</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

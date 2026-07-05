@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}填写申报书 — {{ company.name }}{% endblock %}
+{% block content %}
+
+<h1 style="margin-bottom:4px">📝 填写申报书</h1>
+<p class="text-muted mb-2">企业：{{ company.name }} | 已有评分：
+{% if company.scores %}
+<span class="score-badge {{ 'pass' if company.scores[-1].total_score >= 71 else 'fail' }}">
+  {{ company.scores[-1].total_score }}分
+</span>
+{% else %}未评分{% endif %}</p>
+
+<form method="POST" action="{{ url_for('docgen.fill', company_id=company.id) }}">
+
+  <!-- 基本信息 -->
+  <div class="card">
+    <h3>📌 基本信息</h3>
+    <div class="split-layout">
+      <div class="form-group">
+        <label>省份</label>
+        <input type="text" name="province" placeholder="如：浙江" required />
+      </div>
+      <div class="form-group">
+        <label>城市</label>
+        <input type="text" name="city" placeholder="如：杭州" required />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>技术领域</label>
+      <input type="text" name="tech_field" placeholder="如：电子信息 / 生物与新医药 / 新材料..."
+             style="max-width:500px" required />
+    </div>
+  </div>
+
+  <!-- 一、知识产权 -->
+  <div class="card">
+    <h3>1️⃣ 知识产权汇总</h3>
+    <div class="split-layout">
+      <div class="form-group">
+        <label>Ⅰ类知识产权（发明/植物新品种/新药等）</label>
+        <input type="number" name="ip_class1_count" value="0" min="0" />
+      </div>
+      <div class="form-group">
+        <label>Ⅱ类知识产权（实用新型/外观/软著）</label>
+        <input type="number" name="ip_class2_count" value="0" min="0" />
+      </div>
+    </div>
+    <h4 style="margin-top:12px">知识产权明细（逐项填写）</h4>
+    {% for i in range(8) %}
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <input type="text" name="ip_name_{{ i }}" placeholder="名称" style="flex:2;min-width:150px" />
+      <input type="text" name="ip_type_{{ i }}" placeholder="类别" style="flex:1;min-width:100px" />
+      <input type="text" name="ip_date_{{ i }}" placeholder="授权日期" style="flex:1;min-width:100px" />
+      <input type="text" name="ip_auth_no_{{ i }}" placeholder="授权号" style="flex:1.5;min-width:130px" />
+      <select name="ip_method_{{ i }}" style="flex:1;min-width:100px">
+        <option value="">获得方式</option>
+        <option value="自主研发">自主研发</option>
+        <option value="受让">受让</option>
+        <option value="受赠">受赠</option>
+        <option value="并购">并购</option>
+      </select>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- 二、人力资源 -->
+  <div class="card">
+    <h3>2️⃣ 人力资源情况</h3>
+    <div class="split-layout">
+      <div class="form-group"><label>职工总数</label><input type="number" name="staff_total" value="0" /></div>
+      <div class="form-group"><label>科技人员数</label><input type="number" name="tech_staff" value="0" /></div>
+    </div>
+    <h4>人员构成</h4>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:120px"><label class="text-muted" style="font-size:12px">在职</label><input type="number" name="hr_onjob" value="0" /></div>
+      <div style="flex:1;min-width:120px"><label class="text-muted" style="font-size:12px">兼职</label><input type="number" name="hr_parttime" value="0" /></div>
+      <div style="flex:1;min-width:120px"><label class="text-muted" style="font-size:12px">临时</label><input type="number" name="hr_temp" value="0" /></div>
+      <div style="flex:1;min-width:120px"><label class="text-muted" style="font-size:12px">外籍</label><input type="number" name="hr_foreign" value="0" /></div>
+      <div style="flex:1;min-width:120px"><label class="text-muted" style="font-size:12px">留学归国</label><input type="number" name="hr_returnee" value="0" /></div>
+      <div style="flex:1;min-width:120px"><label class="text-muted" style="font-size:12px">人才计划</label><input type="number" name="hr_talent_plan" value="0" /></div>
+    </div>
+    <h4 style="margin-top:16px">学历分布</h4>
+    <div style="display:flex;gap:12px">
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">博士</label><input type="number" name="hr_phd" value="0" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">硕士</label><input type="number" name="hr_master" value="0" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">本科</label><input type="number" name="hr_bachelor" value="0" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">大专及以下</label><input type="number" name="hr_college" value="0" /></div>
+    </div>
+    <h4 style="margin-top:12px">职称分布</h4>
+    <div style="display:flex;gap:12px">
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">高级</label><input type="number" name="hr_title_senior" value="0" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">中级</label><input type="number" name="hr_title_mid" value="0" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">初级</label><input type="number" name="hr_title_junior" value="0" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">高级技工</label><input type="number" name="hr_title_tech" value="0" /></div>
+    </div>
+    <h4 style="margin-top:12px">年龄分布</h4>
+    <div style="display:flex;gap:12px">
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">≤30</label><input type="number" name="hr_age_30" value="0" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">31-40</label><input type="number" name="hr_age_40" value="0" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">41-50</label><input type="number" name="hr_age_50" value="0" /></div>
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">≥51</label><input type="number" name="hr_age_51" value="0" /></div>
+    </div>
+  </div>
+
+  <!-- 三、经营数据 -->
+  <div class="card">
+    <h3>3️⃣ 近三年经营数据（万元）</h3>
+    <div style="display:flex;gap:12px;margin-bottom:8px">
+      <div style="flex:1"><label class="text-muted" style="font-size:12px">年度</label></div>
+      <div style="flex:2"><label class="text-muted" style="font-size:12px">净资产</label></div>
+      <div style="flex:2"><label class="text-muted" style="font-size:12px">销售收入</label></div>
+      <div style="flex:2"><label class="text-muted" style="font-size:12px">利润总额</label></div>
+    </div>
+    {% for y in [('year1','2023年'), ('year2','2024年'), ('year3','2025年')] %}
+    <div style="display:flex;gap:12px;margin-bottom:8px">
+      <div style="flex:1"><input type="text" name="fin_{{ y[0] }}" placeholder="{{ y[1] }}年份" /></div>
+      <div style="flex:2"><input type="number" name="fin_{{ y[0] }}_net_assets" placeholder="净资产" step="0.01" /></div>
+      <div style="flex:2"><input type="number" name="fin_{{ y[0] }}_sales" placeholder="销售收入" step="0.01" /></div>
+      <div style="flex:2"><input type="number" name="fin_{{ y[0] }}_profit" placeholder="利润总额" step="0.01" /></div>
+    </div>
+    {% endfor %}
+    <div class="split-layout mt-2">
+      <div class="form-group"><label>近三年研发费用总额</label><input type="number" name="fin_rd_total" step="0.01" /></div>
+      <div class="form-group"><label>其中：境内研发费用</label><input type="number" name="fin_rd_domestic" step="0.01" /></div>
+      <div class="form-group"><label>基础研究投入</label><input type="number" name="fin_rd_basic" step="0.01" /></div>
+    </div>
+    <div class="split-layout">
+      <div class="form-group"><label>近一年总收入</label><input type="number" name="fin_revenue" step="0.01" /></div>
+      <div class="form-group"><label>近一年高新技术产品收入</label><input type="number" name="fin_hitech_revenue" step="0.01" /></div>
+    </div>
+    <div class="form-group">
+      <label>申请认定前一年内是否发生重大安全/质量事故或严重环境违法</label>
+      <select name="no_violation">
+        <option value="□否">□否</option>
+        <option value="□是">□是</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 四、创新能力（文字描述） -->
+  <div class="card">
+    <h3>4️⃣ 企业创新能力（限400字/项）</h3>
+    <div class="form-group">
+      <label>知识产权对企业竞争力的作用</label>
+      <textarea name="innovation_ip_role" rows="6" maxlength="400"
+                placeholder="描述知识产权如何提升企业竞争力..."></textarea>
+      <span class="text-muted" style="font-size:11px">限400字</span>
+    </div>
+    <div class="form-group">
+      <label>科技成果转化情况</label>
+      <textarea name="innovation_transform" rows="6" maxlength="400"
+                placeholder="描述近三年科技成果转化情况..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>研究开发与技术创新组织管理情况</label>
+      <textarea name="innovation_rd_mgmt" rows="6" maxlength="400"
+                placeholder="描述研发组织架构、管理制度、产学研合作..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>管理与科技人员情况</label>
+      <textarea name="innovation_talent" rows="6" maxlength="400"
+                placeholder="描述人才结构、培养引进、激励制度..."></textarea>
+    </div>
+  </div>
+
+  <!-- 五、标准制定（加分项） -->
+  <div class="card">
+    <h3>5️⃣ 参与标准制定（加分项，最多3项）</h3>
+    {% for i in range(3) %}
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <input type="text" name="std_name_{{ i }}" placeholder="标准名称" style="flex:2;min-width:180px" />
+      <input type="text" name="std_no_{{ i }}" placeholder="标准编号" style="flex:1;min-width:120px" />
+      <select name="std_role_{{ i }}" style="flex:1;min-width:100px">
+        <option value="">参与方式</option>
+        <option value="□主持">□主持</option>
+        <option value="□参与">□参与</option>
+      </select>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div style="text-align:center;padding:20px 0">
+    <button type="submit" class="btn btn-primary btn-lg">📄 生成申报书</button>
+  </div>
+</form>
+
+{% endblock %}

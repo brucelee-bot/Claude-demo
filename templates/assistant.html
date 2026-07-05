@@ -1,0 +1,482 @@
+{% extends "base.html" %}
+{% block title %}项目申报助手 — 申报助手{% endblock %}
+{% block head_extra %}
+<style>
+  .assistant-shell {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  .assistant-rail {
+    position: sticky;
+    top: 76px;
+    display: grid;
+    gap: 16px;
+  }
+  .hero-panel {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    padding: 24px;
+    color: #0f172a;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.94), rgba(239,246,255,0.98)),
+      radial-gradient(circle at top right, rgba(37,99,235,0.14), transparent 40%),
+      linear-gradient(140deg, #f8fafc 0%, #eef4ff 100%);
+    border: 1px solid #dbe7ff;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  }
+  .hero-panel::after {
+    content: '';
+    position: absolute;
+    inset: auto 18px 18px auto;
+    width: 92px;
+    height: 92px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, rgba(37,99,235,0.14), rgba(59,130,246,0.04));
+    transform: rotate(12deg);
+    pointer-events: none;
+  }
+  .hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(37,99,235,0.1);
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+  .hero-panel h1 {
+    font-size: 26px;
+    line-height: 1.2;
+    margin-bottom: 10px;
+    letter-spacing: 0;
+    max-width: 12ch;
+  }
+  .hero-panel p {
+    color: #475569;
+    font-size: 13px;
+    line-height: 1.8;
+    max-width: 28ch;
+    margin-bottom: 18px;
+  }
+  .hero-stats {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .hero-stat {
+    background: rgba(255,255,255,0.85);
+    border: 1px solid rgba(191,219,254,0.85);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .hero-stat .value {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    color: #0f172a;
+  }
+  .hero-stat .label {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 6px;
+  }
+  .surface {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+  .surface-hd {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .surface-hd h2 {
+    margin: 0;
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+  .surface-hd p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .surface-bd { padding: 16px 18px; }
+  .type-switch {
+    display: grid;
+    gap: 8px;
+  }
+  .type-switch a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-light);
+    text-decoration: none;
+    color: var(--text-primary);
+    background: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    transition: var(--transition);
+  }
+  .type-switch a::after { content: '→'; color: var(--text-muted); }
+  .type-switch a.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+  }
+  .type-switch a.active::after { color: #1d4ed8; }
+  .company-list { display: grid; gap: 10px; }
+  .company-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    text-decoration: none;
+    color: inherit;
+    background: #fff;
+    transition: var(--transition);
+  }
+  .company-item:hover { border-color: #bfdbfe; box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .company-item.active { border-color: #93c5fd; background: #eff6ff; }
+  .company-item .name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .company-item .meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .company-item .right { text-align: right; font-size: 12px; color: var(--text-muted); }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge.pass { background: var(--success-bg); color: var(--success); }
+  .badge.fail { background: var(--danger-bg); color: var(--danger); }
+  .badge.neutral { background: var(--bg-tertiary); color: var(--text-secondary); }
+  .work-surface {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .work-hero {
+    padding: 22px 24px;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  }
+  .work-hero h2 {
+    font-size: 22px;
+    margin: 2px 0 8px;
+    letter-spacing: 0;
+  }
+  .work-hero p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    max-width: 56ch;
+  }
+  .work-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #f8fafc;
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .metric {
+    background: linear-gradient(180deg, #fff 0%, #fbfdff 100%);
+    border: 1px solid var(--border-light);
+    border-radius: 14px;
+    padding: 14px;
+  }
+  .metric .v {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+  .metric .l {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+    gap: 18px;
+  }
+  .panel {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .panel .hd {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border-light);
+    background: #fcfdff;
+  }
+  .panel .hd h3 {
+    margin: 0;
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+  .panel .hd .sub {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .panel .bd { padding: 18px; }
+  .roadmap { display: grid; gap: 12px; }
+  .roadmap-item {
+    border: 1px solid var(--border-light);
+    background: linear-gradient(180deg, #fff 0%, #fbfdff 100%);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .roadmap-item h4 { font-size: 14px; margin-bottom: 6px; letter-spacing: 0; }
+  .roadmap-item p { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
+  .doc-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .doc-row:last-child { border-bottom: 0; padding-bottom: 0; }
+  .doc-row .title { font-size: 14px; font-weight: 600; }
+  .doc-row .desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .hint {
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 13px;
+    line-height: 1.7;
+    border: 1px solid #bfdbfe;
+  }
+  .ghost-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: var(--transition);
+  }
+  .ghost-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .ghost-btn:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  @media (max-width: 1120px) {
+    .assistant-shell { grid-template-columns: 1fr; }
+    .assistant-rail { position: static; }
+    .split { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    .work-hero { flex-direction: column; }
+    .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hero-stats { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 480px) {
+    .metrics { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="assistant-shell">
+  <aside class="assistant-rail">
+    <section class="hero-panel">
+      <div class="hero-kicker">项目申报助手</div>
+      <h1>评分、材料、申报书一起看</h1>
+      <p>先看企业当前状态，再进入评分、申报书填报和历史下载。助手页只保留最关键的决策信息。</p>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="value">{{ total_companies }}</div><div class="label">企业</div></div>
+        <div class="hero-stat"><div class="value">{{ total_scores }}</div><div class="label">评分记录</div></div>
+        <div class="hero-stat"><div class="value">{{ total_drafts }}</div><div class="label">申报书</div></div>
+        <div class="hero-stat"><div class="value">{{ avg_score }}</div><div class="label">平均分</div></div>
+      </div>
+    </section>
+
+    <section class="surface">
+      <div class="surface-hd">
+        <div>
+          <h2>申报类型</h2>
+          <p>切换主流程</p>
+        </div>
+      </div>
+      <div class="surface-bd">
+        <div class="type-switch">
+          <a href="{{ url_for('docgen.assistant', type='高新技术') }}" class="{{ 'active' if app_type == '高新技术' else '' }}">高新技术</a>
+          <a href="{{ url_for('docgen.assistant', type='专精特新') }}" class="{{ 'active' if app_type == '专精特新' else '' }}">专精特新</a>
+          <a href="{{ url_for('docgen.assistant', type='小巨人') }}" class="{{ 'active' if app_type == '小巨人' else '' }}">小巨人</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="surface">
+      <div class="surface-hd">
+        <div>
+          <h2>企业列表</h2>
+          <p>点选一家企业查看建议</p>
+        </div>
+      </div>
+      <div class="surface-bd">
+        {% if score_cards %}
+        <div class="company-list">
+          {% for item in score_cards %}
+          <a href="{{ url_for('docgen.assistant', company_id=item.company.id, type=app_type) }}" class="company-item {{ 'active' if selected_company and selected_company.id == item.company.id else '' }}">
+            <div>
+              <div class="name">{{ item.company.name }}</div>
+              <div class="meta">{{ item.company.app_type }} · {{ item.company.created_at.strftime('%Y-%m-%d') }}</div>
+            </div>
+            <div class="right">
+              {% if item.score %}
+                {% set pass_score = 71 if item.score.score_type == '高新技术' else (60 if item.score.score_type == '小巨人' else 50) %}
+                <div class="badge {{ 'pass' if item.score.total_score >= pass_score else 'fail' }}">{{ item.score.total_score }}分</div>
+                <div style="margin-top:6px;">{{ item.score.score_type }}</div>
+              {% else %}
+                <div class="badge neutral">未评分</div>
+                <div style="margin-top:6px;">待补数据</div>
+              {% endif %}
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="hint">还没有企业数据。先去评分页录入一家公司，助手页才会显示建议和申报路径。</div>
+        {% endif %}
+      </div>
+    </section>
+  </aside>
+
+  <main class="split">
+    <section class="work-surface">
+      <div class="work-hero">
+        <div>
+          <div class="work-chip">当前企业</div>
+          <h2>{{ selected_company.name if selected_company else '未选择企业' }}</h2>
+          <p>{% if selected_analysis %}{{ selected_analysis.overall }}{% else %}从左侧选择一个企业，助手会显示评分结果、材料状态和下一步建议。{% endif %}</p>
+        </div>
+        {% if selected_company %}
+        <div class="work-chip">{{ selected_company.app_type }}</div>
+        {% endif %}
+      </div>
+      <div class="bd" style="padding:18px 24px 24px;">
+        {% if selected_company %}
+        <div class="metrics" style="margin-bottom:16px;">
+          <div class="metric"><div class="v">{{ selected_score.total_score if selected_score else '—' }}</div><div class="l">当前得分</div></div>
+          <div class="metric"><div class="v">{{ selected_score.score_type if selected_score else '—' }}</div><div class="l">申报类型</div></div>
+          <div class="metric"><div class="v">{{ '已生成' if selected_draft else '未生成' }}</div><div class="l">申报书</div></div>
+          <div class="metric"><div class="v">{{ pass_count }}</div><div class="l">已达标企业</div></div>
+        </div>
+
+        <div class="roadmap">
+          <div class="roadmap-item">
+            <h4>下一步优先级</h4>
+            <p>{{ selected_analysis.priority if selected_analysis else '先完成评分，再看申报建议。' }}</p>
+          </div>
+          <div class="roadmap-item">
+            <h4>建议先补的材料</h4>
+            <p>{{ selected_recommendations|join('；') if selected_recommendations else '先完成评分，再看申报建议。' }}</p>
+          </div>
+          <div class="roadmap-item">
+            <h4>材料状态</h4>
+            <p>评分记录 {{ '已存在' if selected_score else '未录入' }}，申报书 {{ '已生成' if selected_draft else '未生成' }}。{% if selected_draft %}最新文件可直接下载。{% endif %}</p>
+          </div>
+        </div>
+        {% else %}
+        <div class="hint">没有选中的企业时，这里只展示总览。先从左侧选择一家公司。</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="hd">
+        <h3>操作入口</h3>
+        <div class="sub">直接进入评分或申报书</div>
+      </div>
+      <div class="bd">
+        {% if selected_company %}
+        <div class="doc-row">
+          <div>
+            <div class="title">继续评分</div>
+            <div class="desc">回到对应评分页，更新企业得分</div>
+          </div>
+          {% if selected_score and selected_score.score_type == '高新技术' %}
+          <a href="{{ url_for('scoring.gaoxin') }}" class="ghost-btn primary">打开</a>
+          {% elif selected_score and selected_score.score_type == '小巨人' %}
+          <a href="{{ url_for('scoring.xiaojuren') }}" class="ghost-btn primary">打开</a>
+          {% else %}
+          <a href="{{ url_for('scoring.zhuanjing') }}" class="ghost-btn primary">打开</a>
+          {% endif %}
+        </div>
+        <div class="doc-row">
+          <div>
+            <div class="title">填写申报书</div>
+            <div class="desc">进入对应申报表单，补齐正文材料</div>
+          </div>
+          <a href="{{ url_for('docgen.index') }}" class="ghost-btn">打开</a>
+        </div>
+        <div class="doc-row">
+          <div>
+            <div class="title">智能建议页</div>
+            <div class="desc">查看更完整的补强建议和材料清单</div>
+          </div>
+          <a href="{{ url_for('docgen.assistant_brief', company_id=selected_company.id) }}" class="ghost-btn">打开</a>
+        </div>
+        <div class="doc-row">
+          <div>
+            <div class="title">下载申报书</div>
+            <div class="desc">如果已经生成文件，可直接下载</div>
+          </div>
+          {% if selected_draft %}
+          <a href="{{ url_for('docgen.download', draft_id=selected_draft.id) }}" class="ghost-btn primary">下载</a>
+          {% else %}
+          <span class="badge neutral">未生成</span>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="hint">没有可用企业时，这里会显示快速入口。先从评分页添加一家公司。</div>
+        {% endif %}
+      </div>
+    </section>
+  </main>
+</div>
+{% endblock %}

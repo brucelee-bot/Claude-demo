@@ -1,0 +1,797 @@
+{% extends "base.html" %}
+{% block title %}首页 — 项目申报助手{% endblock %}
+{% block head_extra %}
+<style>
+  .workbench {
+    display: grid;
+    gap: 18px;
+  }
+
+  .topline {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 2px;
+  }
+
+  .topline h1 {
+    margin: 0 0 6px;
+    font-size: 26px;
+    line-height: 1.25;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: #0f172a;
+  }
+
+  .topline p {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+  }
+
+  .project-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border: 1px solid #dbeafe;
+    border-radius: 10px;
+    background: #fff;
+    color: #1d4ed8;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: var(--shadow);
+  }
+
+  .score-hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+    gap: 22px;
+    padding: 26px;
+    overflow: hidden;
+    border: 1px solid #c7ddff;
+    border-radius: 18px;
+    background:
+      linear-gradient(90deg, rgba(37, 99, 235, 0.08) 1px, transparent 1px),
+      linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    background-size: 44px 44px, auto;
+    box-shadow: 0 18px 46px rgba(15, 23, 42, 0.08);
+  }
+
+  .score-hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 0%, transparent 54%, rgba(37, 99, 235, 0.07) 54%, rgba(37, 99, 235, 0.07) 100%);
+    pointer-events: none;
+  }
+
+  .score-main,
+  .score-side {
+    position: relative;
+    z-index: 1;
+  }
+
+  .meta-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .pill.pass {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #a7f3d0;
+  }
+
+  .pill.fail {
+    background: #fff7ed;
+    color: #c2410c;
+    border-color: #fed7aa;
+  }
+
+  .company-name {
+    margin: 0 0 12px;
+    font-size: 18px;
+    font-weight: 650;
+    color: #0f172a;
+  }
+
+  .score-line {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  .score-value {
+    font-size: clamp(60px, 9vw, 92px);
+    line-height: 0.9;
+    font-weight: 750;
+    letter-spacing: 0;
+    color: #1d4ed8;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .score-total {
+    margin-bottom: 10px;
+    color: #64748b;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .score-caption {
+    max-width: 680px;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.8;
+  }
+
+  .score-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .metric-box {
+    padding: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.78);
+  }
+
+  .metric-label {
+    margin-bottom: 5px;
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .metric-value {
+    color: #0f172a;
+    font-size: 22px;
+    line-height: 1.1;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .score-side {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 20px;
+    border: 1px solid #dbeafe;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.86);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
+  }
+
+  .next-label {
+    margin-bottom: 6px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .next-title {
+    margin: 0 0 8px;
+    color: #0f172a;
+    font-size: 22px;
+    line-height: 1.3;
+    font-weight: 700;
+  }
+
+  .next-hint {
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .action-stack {
+    display: grid;
+    gap: 10px;
+  }
+
+  .btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border: 1px solid #cbd5e1;
+    border-radius: var(--radius-sm);
+    background: #fff;
+    color: #334155;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: var(--transition);
+    white-space: nowrap;
+  }
+
+  .btn-outline:hover {
+    border-color: #93c5fd;
+    color: #1d4ed8;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+
+  .btn-block {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .panel {
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .panel-hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #fff;
+  }
+
+  .panel-hd h2 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 16px;
+    font-weight: 650;
+  }
+
+  .panel-hd p {
+    margin: 4px 0 0;
+    color: #94a3b8;
+    font-size: 12px;
+  }
+
+  .panel-bd {
+    padding: 18px;
+  }
+
+  .flow-steps {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .flow-step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    min-height: 54px;
+  }
+
+  .flow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 34px;
+    right: 10px;
+    top: 17px;
+    height: 2px;
+    background: #e2e8f0;
+  }
+
+  .flow-step.done:not(:last-child)::after {
+    background: #93c5fd;
+  }
+
+  .step-dot {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #94a3b8;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .flow-step.done .step-dot {
+    border-color: #2563eb;
+    background: #2563eb;
+    color: #fff;
+  }
+
+  .flow-step.current .step-dot {
+    border-color: #2563eb;
+    color: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.10);
+  }
+
+  .step-title {
+    color: #334155;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .flow-step.todo .step-title {
+    color: #94a3b8;
+  }
+
+  .quick-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .quick-action {
+    display: grid;
+    gap: 12px;
+    align-content: space-between;
+    min-height: 138px;
+    padding: 18px;
+    border: 1px solid #dbeafe;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    text-decoration: none;
+    color: inherit;
+    transition: var(--transition);
+  }
+
+  .quick-action:hover {
+    border-color: #93c5fd;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  .quick-action h3 {
+    margin: 0 0 6px;
+    color: #0f172a;
+    font-size: 16px;
+    font-weight: 650;
+  }
+
+  .quick-action p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.65;
+  }
+
+  .quick-action .mini-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    padding: 7px 12px;
+    border-radius: 8px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .small-stat {
+    padding: 14px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .small-stat .label {
+    margin-bottom: 7px;
+    color: #94a3b8;
+    font-size: 12px;
+  }
+
+  .small-stat .value {
+    color: #0f172a;
+    font-size: 24px;
+    line-height: 1;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .company-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .company-table th,
+  .company-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+    font-size: 13px;
+  }
+
+  .company-table th {
+    color: #94a3b8;
+    font-weight: 600;
+    background: #fcfdff;
+  }
+
+  .company-table td {
+    color: #334155;
+  }
+
+  .company-table tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .company-cell {
+    display: grid;
+    gap: 2px;
+  }
+
+  .company-cell strong {
+    color: #0f172a;
+    font-weight: 650;
+  }
+
+  .company-cell span {
+    color: #94a3b8;
+    font-size: 12px;
+  }
+
+  .empty-card {
+    padding: 34px 24px;
+    border: 1px dashed #bfdbfe;
+    border-radius: 14px;
+    background: #f8fbff;
+    text-align: center;
+  }
+
+  .empty-card h2 {
+    margin: 0 0 8px;
+    color: #0f172a;
+    font-size: 22px;
+  }
+
+  .empty-card p {
+    margin: 0 auto 18px;
+    max-width: 520px;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.8;
+  }
+
+  .landing-hero {
+    max-width: 760px;
+    margin: 86px auto 0;
+    padding: 48px;
+    border: 1px solid #dbeafe;
+    border-radius: 18px;
+    background: #fff;
+    text-align: center;
+    box-shadow: 0 18px 46px rgba(15, 23, 42, 0.08);
+  }
+
+  .landing-hero h1 {
+    margin: 0 0 12px;
+    color: #0f172a;
+    font-size: 38px;
+    letter-spacing: 0;
+  }
+
+  .landing-hero .sub {
+    margin: 0 0 26px;
+    color: #64748b;
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  @media (max-width: 980px) {
+    .score-hero,
+    .quick-grid,
+    .stat-row {
+      grid-template-columns: 1fr;
+    }
+
+    .flow-steps {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .flow-step:not(:last-child)::after {
+      left: 17px;
+      right: auto;
+      top: 34px;
+      bottom: -10px;
+      width: 2px;
+      height: auto;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .topline {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .score-hero {
+      padding: 20px;
+    }
+
+    .score-line {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .score-total {
+      margin-bottom: 0;
+    }
+
+    .score-metrics {
+      grid-template-columns: 1fr;
+    }
+
+    .company-table,
+    .company-table thead,
+    .company-table tbody,
+    .company-table th,
+    .company-table td,
+    .company-table tr {
+      display: block;
+    }
+
+    .company-table thead {
+      display: none;
+    }
+
+    .company-table tr {
+      padding: 12px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .company-table td {
+      border-bottom: 0;
+      padding: 5px 0;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if current_user.is_authenticated %}
+{% set score_url = url_for('scoring.gaoxin') %}
+{% set diagnosis_url = url_for('docgen.assistant_brief', company_id=current_company.id) if current_company else url_for('docgen.assistant') %}
+{% set doc_url = url_for('docgen.gaoxin_relation_table', company_id=current_company.id) if current_company and current_app_type == '高新技术' else (url_for('docgen.fill', company_id=current_company.id) if current_company else url_for('docgen.index')) %}
+{% if next_action.endpoint in ['docgen.fill', 'docgen.gaoxin_book', 'docgen.gaoxin_relation_table'] and current_company %}
+  {% set next_url = url_for(next_action.endpoint, company_id=current_company.id) %}
+{% elif next_action.endpoint == 'docgen.download' and current_draft %}
+  {% set next_url = url_for(next_action.endpoint, draft_id=current_draft.id) %}
+{% elif next_action.endpoint == 'docgen.assistant_brief' and current_company %}
+  {% set next_url = url_for(next_action.endpoint, company_id=current_company.id) %}
+{% else %}
+  {% set next_url = url_for(next_action.endpoint) %}
+{% endif %}
+
+<div class="workbench">
+  <section class="topline">
+    <div>
+      <h1>欢迎回来，{{ current_user.username }}</h1>
+      <p>当前项目：{{ current_app_type }}认定{% if current_company %} · {{ current_company.name }}{% endif %}</p>
+    </div>
+    <div class="project-switcher">项目申报助手</div>
+  </section>
+
+  {% if not current_company %}
+  <section class="empty-card">
+    <h2>从第一次企业评分开始</h2>
+    <p>首页会在评分完成后自动显示企业当前得分、达标状态、通过概率和下一步动作。</p>
+    <a href="{{ url_for('scoring.gaoxin') }}" class="btn btn-primary btn-lg">立即评分</a>
+  </section>
+  {% else %}
+  <section class="score-hero">
+    <div class="score-main">
+      <div class="meta-row">
+        <span class="pill">{{ current_app_type }}认定</span>
+        <span class="pill {{ 'pass' if is_passed else 'fail' }}">{{ '已达标' if is_passed else '未达标' }}</span>
+        <span class="pill">当前企业</span>
+      </div>
+      <h2 class="company-name">{{ current_company.name }}</h2>
+      <div class="score-line">
+        <div class="score-value">{{ current_total_score if current_score else '--' }}</div>
+        <div class="score-total">/ 100 分</div>
+      </div>
+      <div class="score-caption">
+        {% if current_score %}
+        达标线为 {{ pass_score }} 分，当前通过概率约 {{ pass_probability }}%。{% if is_passed %}建议继续完善诊断与申报书，降低材料审核风险。{% else %}建议先补强关键短板，再进入申报书生成。{% endif %}
+        {% else %}
+        该企业尚未完成评分。完成评分后，系统会在这里显示达标情况、通过概率和申报建议。
+        {% endif %}
+      </div>
+      <div class="score-metrics">
+        <div class="metric-box">
+          <div class="metric-label">达标情况</div>
+          <div class="metric-value">{{ '达标' if is_passed else '待提升' }}</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">通过概率</div>
+          <div class="metric-value">{{ pass_probability }}%</div>
+        </div>
+      </div>
+    </div>
+    <aside class="score-side">
+      <div>
+        <div class="next-label">下一步行动</div>
+        <h3 class="next-title">{{ next_action.label }}</h3>
+        <div class="next-hint">{{ next_action.hint }}</div>
+      </div>
+      <div class="action-stack">
+        <a href="{{ next_url }}" class="btn btn-primary btn-lg btn-block">{{ next_action.label }}</a>
+        <a href="{{ diagnosis_url }}" class="btn-outline btn-block">查看诊断</a>
+      </div>
+    </aside>
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    <div class="panel-hd">
+      <div>
+        <h2>申报流程进度</h2>
+        <p>从资料录入到 PDF 导出的完整链路</p>
+      </div>
+    </div>
+    <div class="panel-bd">
+      <div class="flow-steps">
+        {% for step in progress_steps %}
+        <div class="flow-step {{ 'done' if step.done else 'current' if step.current else 'todo' }}">
+          <div class="step-dot">{{ '✓' if step.done else '○' }}</div>
+          <div class="step-title">{{ step.title }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hd">
+      <div>
+        <h2>快捷操作</h2>
+        <p>首页优先承接最常用的三个任务</p>
+      </div>
+    </div>
+    <div class="panel-bd">
+      <div class="quick-grid">
+        <a class="quick-action" href="{{ score_url }}">
+          <div>
+            <h3>立即评分</h3>
+            <p>录入企业资料，计算当前申报得分和达标状态。</p>
+          </div>
+          <span class="mini-btn">开始评分</span>
+        </a>
+        <a class="quick-action" href="{{ diagnosis_url }}">
+          <div>
+            <h3>AI诊断</h3>
+            <p>查看评分短板、风险等级和优先补强建议。</p>
+          </div>
+          <span class="mini-btn">查看诊断</span>
+        </a>
+        <a class="quick-action" href="{{ doc_url }}">
+          <div>
+            <h3>生成申报书</h3>
+            <p>基于企业资料与评分结果生成申报材料。</p>
+          </div>
+          <span class="mini-btn">生成材料</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hd">
+      <div>
+        <h2>数据概览</h2>
+        <p>保留运营数据，但不占用核心决策区域</p>
+      </div>
+    </div>
+    <div class="panel-bd">
+      <div class="stat-row">
+        <div class="small-stat">
+          <div class="label">评分企业数</div>
+          <div class="value">{{ stats.total_companies }}</div>
+        </div>
+        <div class="small-stat">
+          <div class="label">已完成评分</div>
+          <div class="value">{{ stats.total_scores }}</div>
+        </div>
+        <div class="small-stat">
+          <div class="label">生成申报书数量</div>
+          <div class="value">{{ stats.total_drafts }}</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hd">
+      <div>
+        <h2>最近企业</h2>
+        <p>快速切换到最近处理的企业项目</p>
+      </div>
+    </div>
+    <div class="panel-bd">
+      {% if recent_companies %}
+      <table class="company-table">
+        <thead>
+          <tr>
+            <th>企业</th>
+            <th>申报类型</th>
+            <th>评分</th>
+            <th>状态</th>
+            <th>申报书</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in recent_companies %}
+          <tr>
+            <td>
+              <div class="company-cell">
+                <strong>{{ item.company.name }}</strong>
+                <span>{{ item.company.created_at.strftime('%Y-%m-%d') if item.company.created_at else '' }}</span>
+              </div>
+            </td>
+            <td>{{ item.score.score_type if item.score else item.company.app_type }}</td>
+            <td>{{ item.score.total_score if item.score else '--' }}</td>
+            <td><span class="pill {{ 'pass' if item.passed else 'fail' }}">{{ '达标' if item.passed else '未达标' }}</span></td>
+            <td>{{ '已生成' if item.draft else '未生成' }}</td>
+            <td><a href="{{ url_for('dashboard', company_id=item.company.id) }}" class="btn-outline">查看</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-card">
+        <h2>暂无企业记录</h2>
+        <p>完成一次评分后，企业会出现在这里。</p>
+        <a href="{{ url_for('scoring.gaoxin') }}" class="btn btn-primary">立即评分</a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% else %}
+<div class="landing-hero">
+  <h1>项目申报助手</h1>
+  <p class="sub">围绕高新技术企业认定，完成评分、诊断、申报书生成与导出。</p>
+  <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg">登录</a>
+    <a href="{{ url_for('auth.register') }}" class="btn-outline" style="padding:14px 28px;font-size:16px">注册</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

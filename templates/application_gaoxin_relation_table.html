@@ -1,0 +1,773 @@
+{% extends "base.html" %}
+{% block title %}RD-IP-PS-成果关联详情表 — 申报助手{% endblock %}
+{% block content %}
+
+<style>
+  .relation-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:16px 0; }
+  .relation-panel { overflow-x:auto; border:1px solid #e5e7eb; border-radius:8px; background:#fff; }
+  .relation-panel::after { content:"可横向滚动查看更多字段"; display:block; padding:8px 12px; color:#64748b; font-size:12px; background:#f8fafc; border-top:1px solid #e5e7eb; }
+  .relation-table { width:max-content; min-width:100%; border-collapse:collapse; table-layout:auto; }
+  .relation-table th, .relation-table td { border:1px solid #e5e7eb; padding:8px; vertical-align:middle; }
+  .relation-table th { height:40px; background:#f8fafc; font-weight:600; text-align:center; white-space:nowrap; }
+  .relation-table input, .relation-table textarea, .relation-table select { width:100%; height:54px; min-height:54px; box-sizing:border-box; border:1px solid #d1d5db; border-radius:6px; font:inherit; line-height:22px; background:#fff; vertical-align:middle; }
+  .relation-table input, .relation-table select { padding:0 10px; line-height:54px; }
+  .relation-table textarea { display:block; padding:15px 10px; resize:vertical; overflow:auto; }
+  .relation-table input:focus, .relation-table textarea:focus, .relation-table select:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 2px rgba(37,99,235,.12); }
+  .relation-table .w-year { width:88px; }
+  .relation-table .w-code { width:110px; }
+  .relation-table .w-ip-code { width:260px; }
+  .relation-table .w-period { width:220px; }
+  .relation-table .w-rd-name { width:360px; }
+  .relation-table .w-ip-name { width:360px; }
+  .relation-table .w-auth { width:250px; }
+  .relation-table .w-ps-name { width:300px; }
+  .relation-table .w-result-name { width:360px; }
+  .relation-table .w-tech { width:520px; }
+  .relation-actions { display:flex; gap:6px; align-items:center; justify-content:center; min-height:54px; white-space:nowrap; }
+  .relation-actions .btn { height:32px; line-height:18px; padding:6px 10px; display:inline-flex; align-items:center; justify-content:center; }
+  .relation-errors { display:none; border:1px solid #fecaca; background:#fef2f2; color:#991b1b; border-radius:8px; padding:12px 16px; margin:12px 0; }
+  .relation-errors ul { margin:8px 0 0 20px; }
+  .upload-panel { display:flex; gap:10px; flex-wrap:wrap; align-items:center; border:1px solid #e5e7eb; border-radius:8px; background:#fff; padding:12px; margin:14px 0; }
+  .upload-panel input[type="file"] { max-width:360px; }
+</style>
+
+<h1 style="margin-bottom:8px">RD-IP-PS-成果关联详情表</h1>
+<p class="text-muted mb-2">{{ company.name }}：先确认 RD、知识产权、PS 和成果之间的对应关系，再继续填写高新技术企业认定申请书。</p>
+
+<div id="relation-errors" class="relation-errors"></div>
+
+<div class="upload-panel">
+  <strong>上传已有关系表</strong>
+  <input type="file" id="relation-excel-file" accept=".xlsx,.xlsm" />
+  <button type="button" class="btn btn-secondary btn-sm" onclick="importRows()">上传识别</button>
+  <span class="text-muted">支持按模板表头识别，上传后会填入下方表格。</span>
+</div>
+
+<div class="upload-panel">
+  <strong>高新技术领域</strong>
+  <input type="text" id="tech-field-path" list="tech-field-options" value="{{ tech_field_path or '' }}" placeholder="搜索或选择高新技术领域" style="min-width:360px; flex:1" />
+  <span class="text-muted">选择一次即可应用于本关系表。</span>
+</div>
+
+<datalist id="tech-field-options"></datalist>
+
+<div class="relation-toolbar">
+  <button type="button" class="btn btn-secondary btn-sm" id="batch-generate-btn" onclick="generateAllResults(this)">批量AI生成成果</button>
+  <button type="button" class="btn btn-secondary btn-sm" id="batch-generate-ps-btn" onclick="generatePsName(this)">批量AI生成PS</button>
+  <button type="button" class="btn btn-secondary btn-sm" id="batch-generate-rd-btn" onclick="generateAllRdActivities(this)">批量AI生成RD</button>
+  <button type="button" class="btn btn-secondary btn-sm" onclick="addRow()">新增行</button>
+  <button type="button" class="btn btn-secondary btn-sm" onclick="clearRows()">一键清空</button>
+  <button type="button" class="btn btn-secondary btn-sm" onclick="saveRows(false)">保存</button>
+  <button type="button" class="btn btn-primary btn-sm" onclick="saveRows(true)">保存并继续填写认定申请书</button>
+  <button type="button" class="btn btn-secondary btn-sm" onclick="exportRows()">导出 Excel</button>
+  <a href="{{ url_for('docgen.index') }}" class="btn btn-secondary btn-sm">返回列表</a>
+</div>
+
+<div class="relation-panel">
+  <table class="relation-table" id="relation-table">
+    <thead>
+      <tr>
+        <th>年份</th>
+        <th>RD序号</th>
+        <th>研发活动</th>
+        <th>研发周期</th>
+        <th>相关知识产权</th>
+        <th>知识产权名称</th>
+        <th>授权号</th>
+        <th>PS编号</th>
+        <th>PS名称</th>
+        <th>成果序号</th>
+        <th>成果名称</th>
+        <th>成果技术内容</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="relation-body"></tbody>
+  </table>
+</div>
+
+<script>
+const initialRows = {{ (rows or [])|tojson }};
+const ipOptions = {{ (ip_options or [])|tojson }};
+const techFieldOptions = {{ (tech_field_options or [])|tojson }};
+const saveUrl = '{{ url_for("docgen.gaoxin_relation_table", company_id=company.id) }}';
+const exportUrl = '{{ url_for("docgen.gaoxin_relation_table_export", company_id=company.id) }}';
+const importUrl = '{{ url_for("docgen.gaoxin_relation_table_import", company_id=company.id) }}';
+const generateResultUrl = '{{ url_for("docgen.gaoxin_relation_table_generate_result", company_id=company.id) }}';
+const generateRdActivityUrl = '{{ url_for("docgen.gaoxin_relation_table_generate_rd_activity", company_id=company.id) }}';
+const generatePsNameUrl = '{{ url_for("docgen.gaoxin_relation_table_generate_ps_name", company_id=company.id) }}';
+const continueUrl = '{{ url_for("docgen.gaoxin_book", company_id=company.id) }}';
+const DEFAULT_YEAR = '2025';
+const columns = [
+  ['year', 'input', 'w-year', DEFAULT_YEAR],
+  ['rd_code', 'input', 'w-code', 'RD01'],
+  ['rd_activity', 'textarea', 'w-rd-name', '研发活动名称'],
+  ['rd_period', 'input', 'w-period', '2025.01-2025.12'],
+  ['ip_code', 'input', 'w-ip-code', 'IP01'],
+  ['ip_name', 'textarea', 'w-ip-name', '知识产权名称'],
+  ['ip_auth_no', 'input', 'w-auth', 'ZL...'],
+  ['ps_code', 'input', 'w-code', 'PS01'],
+  ['ps_name', 'input', 'w-ps-name', '高新技术产品名称'],
+  ['result_no', 'input', 'w-code', '成果01'],
+  ['result_name', 'textarea', 'w-result-name', '成果名称'],
+  ['technology', 'textarea', 'w-tech', '成果技术内容']
+];
+const rdKeys = ['year', 'rd_code', 'rd_activity', 'rd_period'];
+const branchKeys = ['ip_code', 'ip_name', 'ip_auth_no', 'ps_code', 'ps_name', 'result_no', 'result_name', 'technology'];
+
+function emptyRow() {
+  return Object.fromEntries(columns.map(([key]) => [key, '']));
+}
+
+function defaultInitialRow() {
+  const row = {...emptyRow(), year: DEFAULT_YEAR, rd_code: 'RD01', ps_code: 'PS01', result_no: '成果01'};
+  row.rd_period = generateRdPeriod(row, [row]);
+  return row;
+}
+
+function getSequenceNumber(value, prefix) {
+  const text = String(value || '').trim();
+  if (!text.startsWith(prefix)) return 0;
+  const number = Number.parseInt(text.slice(prefix.length), 10);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function getNextSequenceValue(key, prefix) {
+  const maxNumber = collectRows().reduce((max, row) => Math.max(max, getSequenceNumber(row[key], prefix)), 0);
+  return prefix + String(maxNumber + 1).padStart(2, '0');
+}
+
+function seededNumber(seed) {
+  let hash = 0;
+  String(seed || '').split('').forEach(ch => hash = ((hash << 5) - hash + ch.charCodeAt(0)) | 0);
+  return Math.abs(hash);
+}
+
+function formatDate(year, month, day) {
+  return `${year}.${month}.${day}`;
+}
+
+function parseYear(value) {
+  const year = Number.parseInt(value || DEFAULT_YEAR, 10);
+  return Number.isFinite(year) ? year : Number.parseInt(DEFAULT_YEAR, 10);
+}
+
+function parseDateParts(value) {
+  const match = String(value || '').match(/(\d{4})[-./年](\d{1,2})[-./月](\d{1,2})/);
+  if (!match) return null;
+  return {year: Number(match[1]), month: Number(match[2]), day: Number(match[3])};
+}
+
+function getIpApplicationDate(row) {
+  const option = findIpOption(row);
+  return option ? (option.app_date || '') : '';
+}
+
+function generateRdPeriod(row, groupRows) {
+  const year = parseYear(row.year);
+  const dates = (groupRows || [row])
+    .map(getIpApplicationDate)
+    .map(parseDateParts)
+    .filter(date => date && date.year === year)
+    .sort((a, b) => (a.month - b.month) || (a.day - b.day));
+  const earliestApp = dates[0] || null;
+  const seed = seededNumber([row.rd_code, row.ip_name, row.result_name, earliestApp && `${earliestApp.month}-${earliestApp.day}`].filter(Boolean).join('|'));
+  const months = 8 + (seed % 3);
+  let startMonth = 1 + (Math.floor(seed / 7) % Math.max(1, 13 - months));
+  let startDay = 1 + (Math.floor(seed / 17) % 10);
+
+  if (earliestApp) {
+    const latestStartMonth = Math.max(1, Math.min(12, earliestApp.month - 1));
+    startMonth = Math.min(startMonth, latestStartMonth);
+    if (startMonth === earliestApp.month) startDay = Math.min(startDay, Math.max(1, earliestApp.day - 1));
+  }
+
+  const endMonth = Math.min(12, startMonth + months - 1);
+  const endDay = endMonth === 12 ? 31 : 28 + (Math.floor(seed / 31) % 3);
+  return `${formatDate(year, startMonth, startDay)}-${formatDate(year, endMonth, endDay)}`;
+}
+
+function initTechFieldOptions() {
+  const list = document.getElementById('tech-field-options');
+  if (!list) return;
+  list.innerHTML = '';
+  techFieldOptions.forEach(option => {
+    const item = document.createElement('option');
+    item.value = option.path || '';
+    item.label = [option.level1, option.level2, option.level3, option.level4].filter(Boolean).join(' / ');
+    list.appendChild(item);
+  });
+}
+
+function getTechFieldPath() {
+  const field = document.getElementById('tech-field-path');
+  return field ? field.value.trim() : '';
+}
+
+function setTechFieldPath(value) {
+  const field = document.getElementById('tech-field-path');
+  if (field) field.value = value || '';
+}
+
+function inferTechFieldPathFromRows(rows) {
+  for (const row of rows || []) {
+    if (row.tech_field_path) return row.tech_field_path;
+  }
+  return '';
+}
+
+function renderRows(rows) {
+  const body = document.getElementById('relation-body');
+  body.innerHTML = '';
+  buildGroups(rows).forEach((group, groupIndex) => {
+    group.rows.forEach((row, index) => body.appendChild(createRow(row, index > 0, groupIndex === 0 && index === 0)));
+  });
+  updateGroupRowspans();
+}
+
+function findIpOption(row) {
+  const selected = String(row.ip_code || '').trim();
+  const existingAuth = String(row.ip_auth_no || '').trim();
+  const existingName = String(row.ip_name || '').trim();
+  return ipOptions.find(option => option.code === selected)
+    || ipOptions.find(option => existingAuth && option.auth_no === existingAuth)
+    || ipOptions.find(option => existingName && option.name === existingName)
+    || null;
+}
+
+function fillIpFields(select) {
+  const tr = select.closest('tr');
+  const option = ipOptions.find(item => item.code === select.value);
+  if (!tr || !option) return;
+  const nameField = tr.querySelector('[data-key="ip_name"]');
+  const authField = tr.querySelector('[data-key="ip_auth_no"]');
+  if (nameField) nameField.value = option.name || '';
+  if (authField) authField.value = option.auth_no || '';
+  updateRdPeriodForGroup(findMainRow(tr));
+}
+
+function createIpSelect(row, widthClass, placeholder) {
+  const field = document.createElement('select');
+  field.dataset.key = 'ip_code';
+  field.className = widthClass;
+  field.title = placeholder;
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = ipOptions.length ? '请选择' : '暂无IP';
+  field.appendChild(blank);
+  ipOptions.forEach(option => {
+    const opt = document.createElement('option');
+    opt.value = option.code;
+    opt.textContent = [option.code, option.name || option.auth_no].filter(Boolean).join(' - ');
+    field.appendChild(opt);
+  });
+  const matched = findIpOption(row);
+  if (!matched && row.ip_code) {
+    const opt = document.createElement('option');
+    opt.value = row.ip_code;
+    opt.textContent = row.ip_code;
+    field.appendChild(opt);
+  }
+  field.value = matched ? matched.code : (row.ip_code || '');
+  field.addEventListener('change', function() { fillIpFields(field); });
+  return field;
+}
+
+function createField(key, type, widthClass, placeholder, row) {
+  const field = key === 'ip_code'
+    ? createIpSelect(row, widthClass, placeholder)
+    : document.createElement(type);
+  field.dataset.key = key;
+  field.className = widthClass;
+  field.placeholder = placeholder;
+  if (key === 'year') {
+    field.type = 'number';
+    field.step = '1';
+    field.min = '2000';
+    field.max = '2100';
+  }
+  if (key !== 'ip_code') field.value = key === 'year' ? (row[key] || DEFAULT_YEAR) : (row[key] || '');
+  return field;
+}
+
+function createCell(key, row) {
+  const column = columns.find(([colKey]) => colKey === key);
+  const [, type, widthClass, placeholder] = column;
+  const td = document.createElement('td');
+  td.appendChild(createField(key, type, widthClass, placeholder, row));
+  return td;
+}
+
+function getRdKey(row) {
+  return rdKeys.map(key => row[key] || '').join('|');
+}
+
+function buildGroups(rows) {
+  const source = rows.length ? rows : [defaultInitialRow()];
+  const groups = [];
+  source.forEach(row => {
+    const last = groups[groups.length - 1];
+    if (last && getRdKey(last.rd) === getRdKey(row)) {
+      last.rows.push(row);
+    } else {
+      groups.push({rd: row, rows: [row]});
+    }
+  });
+  return groups;
+}
+
+function updateGroupRowspans() {
+  const body = document.getElementById('relation-body');
+  Array.from(body.querySelectorAll('tr[data-rd-main="1"]')).forEach(mainRow => {
+    let count = 1;
+    let next = mainRow.nextElementSibling;
+    while (next && next.dataset.rdBranch === '1') {
+      count += 1;
+      next = next.nextElementSibling;
+    }
+    mainRow.querySelectorAll('td[data-rd-cell="1"]').forEach(td => td.rowSpan = count);
+  });
+}
+
+function createActionCell(isBranch, isFirstRow) {
+  const actionTd = document.createElement('td');
+  actionTd.innerHTML = '<div class="relation-actions"><button type="button" class="btn btn-secondary btn-sm" onclick="addBranchRow(this)">添加分支</button><button type="button" class="btn btn-secondary btn-sm" onclick="generateResult(this)">AI生成成果</button><button type="button" class="btn btn-secondary btn-sm" onclick="copyRow(this)">复制</button><button type="button" class="btn btn-secondary btn-sm" onclick="deleteRow(this)">删除行</button></div>';
+  return actionTd;
+}
+
+function createRow(row, isBranch, isFirstRow) {
+  const tr = document.createElement('tr');
+  if (isBranch) tr.dataset.rdBranch = '1';
+  else tr.dataset.rdMain = '1';
+
+  if (!isBranch) {
+    rdKeys.forEach(key => {
+      const td = createCell(key, row);
+      td.dataset.rdCell = '1';
+      tr.appendChild(td);
+    });
+  }
+
+  branchKeys.forEach(key => tr.appendChild(createCell(key, row)));
+  tr.appendChild(createActionCell(isBranch, isFirstRow));
+  return tr;
+}
+
+function findMainRow(tr) {
+  let cursor = tr;
+  while (cursor && cursor.dataset.rdMain !== '1') cursor = cursor.previousElementSibling;
+  return cursor;
+}
+
+function collectFieldsFromRow(tr) {
+  const row = {};
+  tr.querySelectorAll('[data-key]').forEach(field => row[field.dataset.key] = field.value.trim());
+  return row;
+}
+
+function collectRowFromElement(tr) {
+  const row = collectFieldsFromRow(tr);
+  const mainRow = findMainRow(tr);
+  if (mainRow && mainRow !== tr) {
+    const rdValues = collectFieldsFromRow(mainRow);
+    rdKeys.forEach(key => row[key] = rdValues[key] || '');
+  }
+  return row;
+}
+
+function collectRows() {
+  return Array.from(document.querySelectorAll('#relation-body tr')).map(collectRowFromElement);
+}
+
+function addRow(row) {
+  const nextRow = row || emptyRow();
+  if (!row) {
+    nextRow.year = nextRow.year || DEFAULT_YEAR;
+    nextRow.rd_code = getNextSequenceValue('rd_code', 'RD');
+    nextRow.ps_code = 'PS01';
+    nextRow.result_no = getNextSequenceValue('result_no', '成果');
+    nextRow.rd_period = generateRdPeriod(nextRow, [nextRow]);
+  }
+  document.getElementById('relation-body').appendChild(createRow(nextRow, false));
+  updateGroupRowspans();
+}
+
+function copyRow(button) {
+  const tr = button.closest('tr');
+  tr.after(createRow(collectRowFromElement(tr), false));
+  updateGroupRowspans();
+}
+
+function addBranchRow(button) {
+  const tr = button.closest('tr');
+  const source = collectRowFromElement(tr);
+  const branch = emptyRow();
+  rdKeys.forEach(key => branch[key] = source[key] || '');
+  branch.ps_code = 'PS01';
+  branch.result_no = getNextSequenceValue('result_no', '成果');
+
+  let insertAfter = tr;
+  while (insertAfter.nextElementSibling && insertAfter.nextElementSibling.dataset.rdBranch === '1') {
+    insertAfter = insertAfter.nextElementSibling;
+  }
+  insertAfter.after(createRow(branch, true));
+  updateGroupRowspans();
+  updateRdPeriodForGroup(findMainRow(insertAfter));
+}
+
+function deleteRow(button) {
+  const body = document.getElementById('relation-body');
+  if (!confirm('确定删除这一行吗？')) return;
+  if (body.children.length === 1) {
+    renderRows([]);
+    return;
+  }
+
+  const tr = button.closest('tr');
+  if (tr.dataset.rdMain === '1') {
+    let next = tr.nextElementSibling;
+    while (next && next.dataset.rdBranch === '1') {
+      const toRemove = next;
+      next = next.nextElementSibling;
+      toRemove.remove();
+    }
+  }
+  tr.remove();
+  if (!body.children.length) renderRows([]);
+  else updateGroupRowspans();
+}
+
+function clearRows() {
+  if (!confirm('确定清空当前表格中的所有内容吗？此操作不会自动保存。')) return;
+  showErrors([]);
+  renderRows([]);
+  const input = document.getElementById('relation-excel-file');
+  if (input) input.value = '';
+}
+
+function showErrors(errors) {
+  const box = document.getElementById('relation-errors');
+  if (!errors || !errors.length) {
+    box.style.display = 'none';
+    box.innerHTML = '';
+    return;
+  }
+  box.innerHTML = '<strong>请先修正以下问题：</strong><ul>' + errors.map(e => '<li>' + escapeHtml(e) + '</li>').join('') + '</ul>';
+  box.style.display = 'block';
+  box.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"]/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));
+}
+
+function setFieldValue(tr, key, value) {
+  const field = tr.querySelector(`[data-key="${key}"]`);
+  if (field) field.value = value || '';
+}
+
+function fieldIsBlank(tr, key) {
+  const field = tr.querySelector(`[data-key="${key}"]`);
+  return !field || !field.value.trim();
+}
+
+function setFieldValueIfBlank(tr, key, value) {
+  if (fieldIsBlank(tr, key)) setFieldValue(tr, key, value);
+}
+
+function hydrateRowFromIpOption(row) {
+  const option = findIpOption(row);
+  if (!option) return row;
+  if (!row.ip_code) row.ip_code = option.code || '';
+  if (!row.ip_name) row.ip_name = option.name || '';
+  if (!row.ip_auth_no) row.ip_auth_no = option.auth_no || '';
+  return row;
+}
+
+async function generateResultForRow(tr) {
+  const row = hydrateRowFromIpOption(collectRowFromElement(tr));
+  if (!row.ip_name) return {ok: false, skipped: true, errors: ['请先填写相关知识产权名称']};
+  if (!fieldIsBlank(tr, 'result_name') && !fieldIsBlank(tr, 'technology')) return {ok: true, skipped: true};
+
+  const response = await fetch(generateResultUrl, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({row})
+  });
+  const data = await response.json().catch(() => ({errors: ['AI 生成失败']}));
+  if (!response.ok || !data.ok) {
+    return {ok: false, errors: data.errors || ['AI 生成失败']};
+  }
+  setFieldValueIfBlank(tr, 'result_name', data.result_name);
+  setFieldValueIfBlank(tr, 'technology', data.technology);
+  return {ok: true};
+}
+
+async function generateResult(button) {
+  showErrors([]);
+  const tr = button.closest('tr');
+  const oldText = button.textContent;
+  button.disabled = true;
+  button.textContent = '生成中';
+  try {
+    const result = await generateResultForRow(tr);
+    if (!result.ok) showErrors(result.errors || ['AI 生成失败']);
+  } finally {
+    button.disabled = false;
+    button.textContent = oldText;
+  }
+}
+
+async function generateAllResults(button) {
+  showErrors([]);
+  const rows = Array.from(document.querySelectorAll('#relation-body tr'));
+  const targets = rows.filter(tr => {
+    const row = hydrateRowFromIpOption(collectRowFromElement(tr));
+    return row.ip_name && (fieldIsBlank(tr, 'result_name') || fieldIsBlank(tr, 'technology'));
+  });
+  if (!targets.length) {
+    showErrors(['请先填写至少一行相关知识产权名称，且成果名称或技术为空']);
+    return;
+  }
+
+  const oldText = button.textContent;
+  button.disabled = true;
+  let successCount = 0;
+  const errors = [];
+  try {
+    for (let index = 0; index < targets.length; index += 1) {
+      button.textContent = `生成中 ${index + 1}/${targets.length}`;
+      const result = await generateResultForRow(targets[index]);
+      if (result.ok) {
+        successCount += 1;
+      } else {
+        const rowNo = Array.from(document.querySelectorAll('#relation-body tr')).indexOf(targets[index]) + 1;
+        errors.push(`第${rowNo}行：${(result.errors || ['AI 生成失败']).join('；')}`);
+      }
+    }
+  } finally {
+    button.disabled = false;
+    button.textContent = oldText;
+  }
+
+  if (errors.length) {
+    errors.unshift(`已生成 ${successCount} 行，以下行生成失败`);
+    showErrors(errors);
+  }
+}
+
+function collectRdGroupRows(mainRow) {
+  const rows = [mainRow];
+  let next = mainRow.nextElementSibling;
+  while (next && next.dataset.rdBranch === '1') {
+    rows.push(next);
+    next = next.nextElementSibling;
+  }
+  return rows;
+}
+
+function getRdIdentity(row) {
+  return String(row.rd_code || row.rd_activity || '').trim();
+}
+
+function collectRowsForRd(mainRow) {
+  const main = collectRowFromElement(mainRow);
+  const identity = getRdIdentity(main);
+  if (!identity) return collectRdGroupRows(mainRow);
+  const rows = Array.from(document.querySelectorAll('#relation-body tr')).filter(tr => {
+    const row = collectRowFromElement(tr);
+    return getRdIdentity(row) === identity;
+  });
+  return rows.length ? rows : collectRdGroupRows(mainRow);
+}
+
+function updateRdPeriodForGroup(mainRow) {
+  if (!mainRow) return;
+  const groupRows = collectRowsForRd(mainRow).map(tr => hydrateRowFromIpOption(collectRowFromElement(tr)));
+  const mainData = groupRows[0] || collectRowFromElement(mainRow);
+  setFieldValue(mainRow, 'rd_period', generateRdPeriod(mainData, groupRows));
+}
+
+function getRdGroupLabel(mainRow) {
+  const row = collectRowFromElement(mainRow);
+  return row.rd_code || row.rd_activity || '当前项目';
+}
+
+async function generateRdActivityForGroup(mainRow) {
+  if (!fieldIsBlank(mainRow, 'rd_activity')) return {ok: true, skipped: true};
+  const rows = collectRowsForRd(mainRow).map(tr => hydrateRowFromIpOption(collectRowFromElement(tr)));
+  const hasSource = rows.some(row => row.ip_name || row.result_name);
+  if (!hasSource) return {ok: false, skipped: true, errors: ['请先填写该项目下的知识产权名称或成果名称']};
+
+  const response = await fetch(generateRdActivityUrl, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rows})
+  });
+  const data = await response.json().catch(() => ({errors: ['AI 生成研发活动失败']}));
+  if (!response.ok || !data.ok) {
+    return {ok: false, errors: data.errors || ['AI 生成研发活动失败']};
+  }
+  setFieldValueIfBlank(mainRow, 'rd_activity', data.rd_activity);
+  updateRdPeriodForGroup(mainRow);
+  return {ok: true};
+}
+
+async function generateRdActivity(button) {
+  showErrors([]);
+  const mainRow = findMainRow(button.closest('tr'));
+  if (!mainRow) {
+    showErrors(['未找到对应 RD 项目行']);
+    return;
+  }
+
+  const oldText = button.textContent;
+  button.disabled = true;
+  button.textContent = '生成中';
+  try {
+    const result = await generateRdActivityForGroup(mainRow);
+    if (!result.ok) showErrors(result.errors || ['AI 生成研发活动失败']);
+  } finally {
+    button.disabled = false;
+    button.textContent = oldText;
+  }
+}
+
+async function generateAllRdActivities(button) {
+  showErrors([]);
+  const mainRows = Array.from(document.querySelectorAll('#relation-body tr[data-rd-main="1"]'));
+  const targets = mainRows.filter(mainRow => fieldIsBlank(mainRow, 'rd_activity') && collectRowsForRd(mainRow).some(tr => {
+    const row = hydrateRowFromIpOption(collectRowFromElement(tr));
+    return row.ip_name || row.result_name;
+  }));
+  if (!targets.length) {
+    showErrors(['请先填写至少一个项目下的知识产权名称或成果名称，且研发活动名称为空']);
+    return;
+  }
+
+  const oldText = button.textContent;
+  button.disabled = true;
+  let successCount = 0;
+  const errors = [];
+  try {
+    for (let index = 0; index < targets.length; index += 1) {
+      button.textContent = `生成RD ${index + 1}/${targets.length}`;
+      const result = await generateRdActivityForGroup(targets[index]);
+      if (result.ok) {
+        successCount += 1;
+      } else {
+        errors.push(`${getRdGroupLabel(targets[index])}：${(result.errors || ['AI 生成研发活动失败']).join('；')}`);
+      }
+    }
+  } finally {
+    button.disabled = false;
+    button.textContent = oldText;
+  }
+
+  if (errors.length) {
+    errors.unshift(`已生成 ${successCount} 个 RD 项目，以下项目生成失败`);
+    showErrors(errors);
+  }
+}
+
+async function generatePsName(button) {
+  showErrors([]);
+  const trs = Array.from(document.querySelectorAll('#relation-body tr'));
+  const rows = trs.map(tr => hydrateRowFromIpOption(collectRowFromElement(tr)));
+  if (!rows.some((row, index) => (row.rd_activity || row.result_name || row.technology || row.ip_name) && fieldIsBlank(trs[index], 'ps_name'))) {
+    showErrors(['请先填写或生成 RD 名称、成果名称或技术内容，且至少有一行 PS 名称为空']);
+    return;
+  }
+
+  const oldText = button.textContent;
+  button.disabled = true;
+  button.textContent = '生成PS中';
+  try {
+    const response = await fetch(generatePsNameUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({rows})
+    });
+    const data = await response.json().catch(() => ({errors: ['AI 生成PS名称失败']}));
+    if (!response.ok || !data.ok) {
+      showErrors(data.errors || ['AI 生成PS名称失败']);
+      return;
+    }
+    trs.forEach(tr => {
+      setFieldValueIfBlank(tr, 'ps_code', 'PS01');
+      setFieldValueIfBlank(tr, 'ps_name', data.ps_name);
+    });
+  } finally {
+    button.disabled = false;
+    button.textContent = oldText;
+  }
+}
+
+async function importRows() {
+  showErrors([]);
+  const input = document.getElementById('relation-excel-file');
+  if (!input.files.length) {
+    showErrors(['请先选择要上传的 Excel 文件']);
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', input.files[0]);
+  const response = await fetch(importUrl, {method: 'POST', body: formData});
+  const data = await response.json().catch(() => ({errors: ['Excel 识别失败']}));
+  if (!response.ok || !data.ok) {
+    showErrors(data.errors || ['Excel 识别失败']);
+    return;
+  }
+
+  renderRows(data.rows || []);
+  setTechFieldPath(data.tech_field_path || inferTechFieldPathFromRows(data.rows || []) || getTechFieldPath());
+  if (data.validation_errors && data.validation_errors.length) {
+    showErrors(data.validation_errors);
+  }
+}
+
+async function saveRows(shouldContinue) {
+  showErrors([]);
+  const response = await fetch(saveUrl, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rows: collectRows(), tech_field_path: getTechFieldPath()})
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({errors: ['保存失败']}));
+    showErrors(data.errors || ['保存失败']);
+    return false;
+  }
+  if (shouldContinue) window.location.href = continueUrl;
+  return true;
+}
+
+async function exportRows() {
+  showErrors([]);
+  const response = await fetch(exportUrl, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rows: collectRows(), tech_field_path: getTechFieldPath()})
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({errors: ['导出失败']}));
+    showErrors(data.errors || ['导出失败']);
+    return;
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = '{{ company.name }}_RD-IP-PS-成果关联详情表.xlsx';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+initTechFieldOptions();
+renderRows(initialRows);
+</script>
+
+{% endblock %}

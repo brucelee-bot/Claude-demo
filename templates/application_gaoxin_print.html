@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>国家高新技术企业认定申请书 — {{ company.name }}</title>
+<style>
+  @page { size: A4; margin: 15mm 18mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "SimSun", "宋体", serif; font-size: 12pt; color: #000; line-height: 1.8; }
+  h1 { text-align: center; font-size: 18pt; margin-bottom: 8mm; }
+  h2 { font-size: 14pt; margin: 6mm 0 3mm; border-bottom: 1px solid #000; padding-bottom: 2mm; }
+  table { width: 100%; border-collapse: collapse; margin: 4mm 0; }
+  td, th { border: 1px solid #000; padding: 3mm 4mm; vertical-align: top; font-size: 10.5pt; }
+  th { background: #f0f0f0; text-align: center; font-weight: bold; }
+  .label { font-weight: bold; width: 20%; background: #f8f8f8; }
+  .value { word-break: break-all; }
+  .text-block { margin: 2mm 0; padding: 2mm; border: 1px solid #ccc; min-height: 15mm; white-space: pre-wrap; }
+  .section { margin-bottom: 8mm; page-break-inside: avoid; }
+  .page-break { page-break-before: always; }
+  .declaration { border: 2px solid #000; padding: 4mm; margin-bottom: 6mm; font-size: 10pt; }
+  .footer { text-align: right; font-size: 9pt; color: #666; margin-top: 4mm; }
+  .small { font-size: 9pt; }
+  .inline { display: inline-block; margin-right: 3mm; }
+  .center { text-align: center; }
+  .no-border td, .no-border th { border: none; }
+</style>
+</head>
+<body>
+
+<h1>国家高新技术企业认定申请书</h1>
+<p class="center">科技部、财政部、国家税务总局编制 · 二〇一六年六月</p>
+
+<div class="declaration">
+  <p><b>声明：</b>本申请书上填写的有关内容和提交的资料均准确、真实、合法、有效、无涉密信息，本企业愿为此承担有关法律责任。</p>
+  <p>法定代表人（签名）：______________ &nbsp;&nbsp;&nbsp;（企业公章）</p>
+  <p>填报号：<span class="value">{{ data.get('app_no', '') }}</span></p>
+</div>
+
+<!-- ===== 一、主要情况 ===== -->
+<div class="section">
+  <h2>一、主要情况</h2>
+  <table>
+    <tr><td class="label">企业名称</td><td class="value">{{ company.name }}</td><td class="label">系统填报号</td><td class="value">{{ data.get('app_no','') }}</td></tr>
+    <tr><td class="label">所在地区</td><td colspan="3" class="value">{{ data.get('province','') }} {{ data.get('city','') }} &nbsp;&nbsp; 认定机构：{{ data.get('cert_agency','') }}</td></tr>
+    <tr><td class="label">申请日期</td><td colspan="3" class="value">{{ data.get('app_year','') }}年{{ data.get('app_month','') }}月{{ data.get('app_day','') }}日</td></tr>
+    <tr><td class="label">技术领域</td><td colspan="3" class="value">{{ data.get('tech_field','') }}</td></tr>
+    <tr>
+      <td class="label" rowspan="2">知识产权数量</td>
+      <td class="value">Ⅰ类：{{ data.get('ip_class1_count','0') }}件</td>
+      <td class="label" rowspan="2">人力资源</td>
+      <td class="value">职工总数：{{ data.get('staff_total','0') }}人</td>
+    </tr>
+    <tr>
+      <td class="value">Ⅱ类：{{ data.get('ip_class2_count','0') }}件</td>
+      <td class="value">科技人员：{{ data.get('tech_staff','0') }}人</td>
+    </tr>
+    <tr><td colspan="4" class="label center">近三年经营情况（万元）</td></tr>
+    <tr>
+      <th>年度</th><th>净资产</th><th>销售收入</th><th>利润总额</th>
+    </tr>
+    <tr>
+      <td>{{ data.get('year1_label','第一年') }}</td>
+      <td>{{ data.get('year1_net_assets','') }}</td>
+      <td>{{ data.get('year1_sales','') }}</td>
+      <td>{{ data.get('year1_profit','') }}</td>
+    </tr>
+    <tr>
+      <td>{{ data.get('year2_label','第二年') }}</td>
+      <td>{{ data.get('year2_net_assets','') }}</td>
+      <td>{{ data.get('year2_sales','') }}</td>
+      <td>{{ data.get('year2_profit','') }}</td>
+    </tr>
+    <tr>
+      <td>{{ data.get('year3_label','第三年') }}</td>
+      <td>{{ data.get('year3_net_assets','') }}</td>
+      <td>{{ data.get('year3_sales','') }}</td>
+      <td>{{ data.get('year3_profit','') }}</td>
+    </tr>
+    <tr><td class="label">近三年研发费用总额</td><td class="value">{{ data.get('rd_total_3y','') }}</td><td class="label">境内研发费用</td><td class="value">{{ data.get('rd_domestic','') }}</td></tr>
+    <tr><td class="label">基础研究投入</td><td class="value">{{ data.get('rd_basic','0') }}</td><td class="label">近一年总收入</td><td class="value">{{ data.get('revenue_1y','') }}</td></tr>
+    <tr><td class="label">近一年高新收入</td><td class="value">{{ data.get('hitech_revenue','') }}</td><td class="label">重大事故</td><td class="value">{{ data.get('accident','否') }}</td></tr>
+  </table>
+</div>
+
+<!-- ===== 二、知识产权 ===== -->
+<div class="section">
+  <h2>二、知识产权汇总表</h2>
+  <table>
+    <tr><th>类别</th><th>数量</th><th>类别</th><th>数量</th></tr>
+    <tr><td>发明专利</td><td>{{ data.get('ip_invention','0') }}</td><td>实用新型</td><td>{{ data.get('ip_utility','0') }}</td></tr>
+    <tr><td>国防专利</td><td>{{ data.get('ip_defense','0') }}</td><td>外观设计</td><td>{{ data.get('ip_design','0') }}</td></tr>
+    <tr><td>植物新品种</td><td>{{ data.get('ip_plant','0') }}</td><td>软件著作权</td><td>{{ data.get('ip_copyright','0') }}</td></tr>
+    <tr><td>国家级农作物品种</td><td>{{ data.get('ip_crop','0') }}</td><td>集成电路布图</td><td>{{ data.get('ip_ic','0') }}</td></tr>
+    <tr><td>国家新药</td><td>{{ data.get('ip_pharma','0') }}</td><td>中药保护品种</td><td>{{ data.get('ip_tcm','0') }}</td></tr>
+  </table>
+  <table>
+    <tr><th>编号</th><th>名称</th><th>专利类型</th><th>法律状态</th><th>专利号</th><th>申请日期</th><th>专利权人</th><th>授权日期</th></tr>
+    {% for i in range(10) %}
+    {% if data.get('ip_'+i|string+'_name','') or data.get('ip_'+i|string+'_no','') %}
+    <tr>
+      <td>{{ data.get('ip_'+i|string+'_no','') }}</td>
+      <td>{{ data.get('ip_'+i|string+'_name','') }}</td>
+      <td>{{ data.get('ip_'+i|string+'_type','') }}</td>
+      <td>{{ data.get('ip_'+i|string+'_status','') }}</td>
+      <td>{{ data.get('ip_'+i|string+'_app_date','') }}</td>
+      <td>{{ data.get('ip_'+i|string+'_date','') }}</td>
+      <td>{{ data.get('ip_'+i|string+'_inventor','') }}</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+  </table>
+</div>
+
+<!-- ===== 三、人力资源 ===== -->
+<div class="section">
+  <h2>三、人力资源情况表</h2>
+  <table>
+    <tr><th width="50%">类别</th><th>人数</th></tr>
+    <tr><td>企业职工总数</td><td>{{ data.get('hr_total','0') }}</td></tr>
+    <tr><td>科技人员</td><td>{{ data.get('hr_tech','0') }}</td></tr>
+    <tr><td>在职</td><td>{{ data.get('hr_fulltime','0') }}</td></tr>
+    <tr><td>兼职</td><td>{{ data.get('hr_parttime','0') }}</td></tr>
+    <tr><td>临时聘用</td><td>{{ data.get('hr_temp','0') }}</td></tr>
+    <tr><td>外籍</td><td>{{ data.get('hr_foreign','0') }}</td></tr>
+    <tr><td>留学归国</td><td>{{ data.get('hr_returnee','0') }}</td></tr>
+    <tr><td>人才计划</td><td>{{ data.get('hr_talent_plan','0') }}</td></tr>
+  </table>
+  <table>
+    <tr><th colspan="2">学历</th><th>博士</th><th>硕士</th><th>本科</th><th>大专及以下</th></tr>
+    <tr><td colspan="2">人数</td><td>{{ data.get('edu_phd','0') }}</td><td>{{ data.get('edu_master','0') }}</td><td>{{ data.get('edu_bachelor','0') }}</td><td>{{ data.get('edu_diploma','0') }}</td></tr>
+  </table>
+</div>
+
+<div class="page-break"></div>
+
+<!-- ===== 四、研发活动 ===== -->
+<div class="section">
+  <h2>四、企业研究开发活动情况表（近三年）</h2>
+  {% for i in range(20) %}
+  {% set name = data.get('rd_'+i|string+'_name','') %}
+  {% if name %}
+  <div class="section">
+    <table>
+      <tr><td class="label">研发活动编号</td><td class="value">{{ data.get('rd_'+i|string+'_no','RD%02d'%(i+1)) }}</td><td class="label">起止时间</td><td class="value">{{ data.get('rd_'+i|string+'_period','') }}</td></tr>
+      <tr><td class="label">技术领域</td><td class="value">{{ data.get('rd_'+i|string+'_field','') }}</td><td class="label">技术来源</td><td class="value">{{ data.get('rd_'+i|string+'_source','') }}</td></tr>
+      <tr><td class="label">知识产权编号</td><td class="value">{{ data.get('rd_'+i|string+'_ip_no','') }}</td><td class="label">研发经费总预算</td><td class="value">{{ data.get('rd_'+i|string+'_budget','') }}万元</td></tr>
+      <tr>
+        <td class="label">近三年总支出</td><td class="value">{{ data.get('rd_'+i|string+'_total','') }}</td>
+        <td class="label">分年支出</td>
+        <td class="value">第一年{{ data.get('rd_'+i|string+'_y1','') }} / 第二年{{ data.get('rd_'+i|string+'_y2','') }} / 第三年{{ data.get('rd_'+i|string+'_y3','') }}</td>
+      </tr>
+    </table>
+    <p><b>目的及组织实施方式：</b></p>
+    <div class="text-block">{{ data.get('rd_'+i|string+'_purpose','') }}</div>
+    <p><b>核心技术及创新点：</b></p>
+    <div class="text-block">{{ data.get('rd_'+i|string+'_innovation','') }}</div>
+    <p><b>取得的阶段性成果：</b></p>
+    <div class="text-block">{{ data.get('rd_'+i|string+'_result','') }}</div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<div class="page-break"></div>
+
+<!-- ===== 五、费用明细 ===== -->
+<div class="section">
+  <h2>五、企业年度研究开发费用结构明细表</h2>
+  {% for yi in range(3) %}
+  {% set ylabel = ['第一年','第二年','第三年'][yi] %}
+  <p><b>{{ ylabel }}（万元）</b></p>
+  <table>
+    <tr><th>科目</th><th>RD01</th><th>RD02</th><th>RD03</th><th>RD04</th><th>RD05</th><th>合计</th></tr>
+    <tr><td>人员人工费用</td>
+      {% for rd in range(5) %}<td>{{ data.get('fee_'+yi|string+'_labor_rd'+rd|string,'') }}</td>{% endfor %}
+      <td>{{ data.get('fee_'+yi|string+'_labor_total','') }}</td></tr>
+    <tr><td>直接投入费用</td><td colspan="6">{{ data.get('fee_'+yi|string+'_direct','') }}</td></tr>
+    <tr><td>折旧与长期待摊</td><td colspan="6">{{ data.get('fee_'+yi|string+'_depreciation','') }}</td></tr>
+    <tr><td>无形资产摊销</td><td colspan="6">{{ data.get('fee_'+yi|string+'_amortization','') }}</td></tr>
+    <tr><td>设计费用</td><td colspan="6">{{ data.get('fee_'+yi|string+'_design','') }}</td></tr>
+    <tr><td>装备调试与试验</td><td colspan="6">{{ data.get('fee_'+yi|string+'_testing','') }}</td></tr>
+    <tr><td>其他费用</td><td colspan="6">{{ data.get('fee_'+yi|string+'_other','') }}</td></tr>
+    <tr><td><b>内部研发小计</b></td><td colspan="6">{{ data.get('fee_'+yi|string+'_internal','') }}</td></tr>
+    <tr><td>委托外部研发</td><td colspan="6">{{ data.get('fee_'+yi|string+'_outsource','') }}</td></tr>
+    <tr><td>境内外部研发</td><td colspan="6">{{ data.get('fee_'+yi|string+'_outsource_cn','') }}</td></tr>
+    <tr><td><b>研发费用合计</b></td><td colspan="6">{{ data.get('fee_'+yi|string+'_total','') }}</td></tr>
+  </table>
+  {% endfor %}
+</div>
+
+<div class="page-break"></div>
+
+<!-- ===== 六、PS ===== -->
+<div class="section">
+  <h2>六、上年度高新技术产品（服务）情况表</h2>
+  {% for i in range(20) %}
+  {% set psname = data.get('ps_'+i|string+'_name','') %}
+  {% if psname %}
+  <div class="section">
+    <table>
+      <tr><td class="label">编号</td><td class="value">{{ data.get('ps_'+i|string+'_no','PS%02d'%(i+1)) }}</td><td class="label">产品名称</td><td class="value">{{ psname }}</td></tr>
+      <tr><td class="label">技术领域</td><td class="value">{{ data.get('ps_'+i|string+'_field','') }}</td><td class="label">技术来源</td><td class="value">{{ data.get('ps_'+i|string+'_source','') }}</td></tr>
+      <tr><td class="label">销售收入</td><td class="value">{{ data.get('ps_'+i|string+'_revenue','') }}万元</td><td class="label">主要产品</td><td class="value">{{ '是' if data.get('ps_'+i|string+'_is_main','')=='yes' else '否' }}</td></tr>
+      <tr><td class="label">关联RD</td><td class="value">{{ data.get('ps_'+i|string+'_rds','') }}</td><td class="label">知识产权编号</td><td class="value">{{ data.get('ps_'+i|string+'_ip_no','') }}</td></tr>
+    </table>
+    <p><b>关键技术及主要技术指标：</b></p><div class="text-block">{{ data.get('ps_'+i|string+'_tech','') }}</div>
+    <p><b>与同类产品的竞争优势：</b></p><div class="text-block">{{ data.get('ps_'+i|string+'_advantage','') }}</div>
+    <p><b>知识产权对产品的支持作用：</b></p><div class="text-block">{{ data.get('ps_'+i|string+'_ip_support','') }}</div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<!-- ===== 七、创新能力 ===== -->
+<div class="section">
+  <h2>七、企业创新能力</h2>
+  <p><b>知识产权对企业竞争力的作用：</b></p>
+  <div class="text-block">{{ data.get('innovation_ip','') }}</div>
+  <p><b>科技成果转化情况：</b></p>
+  <div class="text-block">{{ data.get('innovation_transform','') }}</div>
+  <p><b>研究开发与技术创新组织管理情况：</b></p>
+  <div class="text-block">{{ data.get('innovation_rd_mgmt','') }}</div>
+  <p><b>管理与科技人员情况：</b></p>
+  <div class="text-block">{{ data.get('innovation_staff','') }}</div>
+</div>
+
+<!-- ===== 八、标准 ===== -->
+<div class="section">
+  <h2>八、（加分项）企业参与国家标准或行业标准制定情况</h2>
+  <table>
+    <tr><th>序号</th><th>标准名称</th><th>标准级别</th><th>标准编号</th><th>参与方式</th></tr>
+    {% for i in range(5) %}
+    {% if data.get('std_'+i|string+'_name','') %}
+    <tr>
+      <td>{{ i+1 }}</td>
+      <td>{{ data.get('std_'+i|string+'_name','') }}</td>
+      <td>{{ data.get('std_'+i|string+'_level','') }}</td>
+      <td>{{ data.get('std_'+i|string+'_no','') }}</td>
+      <td>{{ data.get('std_'+i|string+'_role','') }}</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+  </table>
+</div>
+
+</body>
+</html>

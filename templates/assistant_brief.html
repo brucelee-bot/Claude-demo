@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}申报建议 — {{ company.name }}{% endblock %}
+{% block head_extra %}
+<style>
+  .brief-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) 360px;
+    gap: 20px;
+    align-items: start;
+  }
+  .headline {
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+  }
+  .headline-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+  .headline h1 {
+    font-size: 26px;
+    letter-spacing: 0;
+    margin: 4px 0 10px;
+  }
+  .headline p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+    max-width: 64ch;
+  }
+  .headline-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 18px;
+  }
+  .stat {
+    background: #fff;
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .stat .v {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-primary);
+  }
+  .stat .l {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+  .panel {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .panel .hd {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border-light);
+    background: #fcfdff;
+  }
+  .panel .hd h2, .panel .hd h3 { margin: 0; font-size: 15px; }
+  .panel .hd .sub { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
+  .panel .bd { padding: 18px; }
+  .stack { display: grid; gap: 12px; }
+  .cardline {
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #fff 0%, #fbfdff 100%);
+    border: 1px solid var(--border-light);
+  }
+  .cardline h4 { font-size: 14px; margin-bottom: 6px; }
+  .cardline p { font-size: 13px; color: var(--text-secondary); line-height: 1.8; white-space: pre-line; }
+  .checklist { display: grid; gap: 10px; }
+  .check-item {
+    padding: 12px 14px;
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    background: #fff;
+  }
+  .check-item .title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .check-item .meta { font-size: 12px; color: var(--text-muted); line-height: 1.7; }
+  .muted-box {
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .side-list { display: grid; gap: 12px; }
+  .side-item {
+    background: #fff;
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .side-item .title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .side-item .value { font-size: 13px; color: var(--text-secondary); line-height: 1.8; white-space: pre-line; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge.pass { background: var(--success-bg); color: var(--success); }
+  .badge.fail { background: var(--danger-bg); color: var(--danger); }
+  .badge.neutral { background: var(--bg-tertiary); color: var(--text-secondary); }
+  .ghost-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: var(--transition);
+  }
+  .ghost-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .ghost-btn:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  @media (max-width: 1080px) {
+    .brief-shell { grid-template-columns: 1fr; }
+    .headline-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="brief-shell">
+  <main class="stack">
+    <section class="headline">
+      <div class="headline-top">
+        <div>
+          <span class="badge neutral">申报建议</span>
+          <h1>{{ company.name }}</h1>
+          <p>{{ analysis.overall }}</p>
+        </div>
+        <div class="badge neutral">{{ score.score_type if score else company.app_type }}</div>
+      </div>
+      <div class="headline-grid">
+        <div class="stat"><div class="v">{{ score.total_score if score else '—' }}</div><div class="l">当前得分</div></div>
+        <div class="stat"><div class="v">{{ '已生成' if draft else '未生成' }}</div><div class="l">申报书</div></div>
+        <div class="stat"><div class="v">{{ analysis.risk_level if analysis else '—' }}</div><div class="l">风险等级</div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="hd">
+        <h2>优先补强</h2>
+        <div class="sub">按当前评分和分析结果排序</div>
+      </div>
+      <div class="bd">
+        <div class="stack">
+          {% if analysis.priority %}
+          <div class="muted-box">{{ analysis.priority }}</div>
+          {% endif %}
+          {% if analysis.weaknesses %}
+            {% for item in analysis.weaknesses[:3] %}
+            <div class="cardline">
+              <h4>短板 {{ loop.index }}</h4>
+              <p>{{ item }}</p>
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="muted-box">当前没有明显短板，优先整理附件和证明材料。</div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="hd">
+        <h3>建议动作</h3>
+        <div class="sub">直接可执行的补充项</div>
+      </div>
+      <div class="bd">
+        <div class="checklist">
+          {% for item in suggestions %}
+          <div class="check-item">
+            <div class="title">建议 {{ loop.index }}</div>
+            <div class="meta">{{ item }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="stack">
+    <section class="panel">
+      <div class="hd">
+        <h3>材料清单</h3>
+        <div class="sub">当前企业已录入的信息</div>
+      </div>
+      <div class="bd">
+        <div class="side-list">
+          <div class="side-item">
+            <div class="title">评分状态</div>
+            <div class="value">{% if score %}{{ score.total_score }}分 · {{ '已达标' if score.total_score >= (71 if score.score_type == '高新技术' else 50) else '未达标' }}{% else %}未评分{% endif %}</div>
+          </div>
+          <div class="side-item">
+            <div class="title">申报书状态</div>
+            <div class="value">{% if draft %}{{ draft.created_at.strftime('%Y-%m-%d %H:%M') }} 已生成{% else %}未生成{% endif %}</div>
+          </div>
+          <div class="side-item">
+            <div class="title">基础数据</div>
+            <div class="value">{{ '已录入' if data else '空' }}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="hd">
+        <h3>快捷操作</h3>
+        <div class="sub">下一步常用动作</div>
+      </div>
+      <div class="bd">
+        <div class="stack">
+          {% if score and score.score_type == '高新技术' %}
+          <a href="{{ url_for('scoring.gaoxin') }}" class="ghost-btn primary">继续高新评分</a>
+          {% elif score and score.score_type == '小巨人' %}
+          <a href="{{ url_for('scoring.xiaojuren') }}" class="ghost-btn primary">继续小巨人评分</a>
+          {% elif score and score.score_type == '专精特新' %}
+          <a href="{{ url_for('scoring.zhuanjing') }}" class="ghost-btn primary">继续专精特新评分</a>
+          {% else %}
+          <a href="{{ url_for('scoring.index') }}" class="ghost-btn primary">去评分</a>
+          {% endif %}
+          <a href="{{ url_for('docgen.index') }}" class="ghost-btn">去填申报书</a>
+          {% if draft %}
+          <a href="{{ url_for('docgen.download', draft_id=draft.id) }}" class="ghost-btn">下载申报书</a>
+          {% endif %}
+          <a href="{{ url_for('docgen.assistant', company_id=company.id) }}" class="ghost-btn">返回总览</a>
+        </div>
+      </div>
+    </section>
+  </aside>
+</div>
+{% endblock %}
