@@ -152,7 +152,51 @@
   .inline-group { display: flex; gap: 8px; align-items: center; }
   .inline-group input { flex: 1; }
   .subsection-title { font-size: 15px; font-weight: 600; margin: 18px 0 10px; color: var(--gaoxin-cyan); border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  .system-framework-table th:first-child { width: 22%; }
+  .system-framework-table th:nth-child(2) { width: 28%; }
+  .system-framework-table textarea { min-height: 118px; }
   .auto-filled { border-color: var(--success) !important; background: rgba(5,150,105,0.06) !important; }
+  .rd-batch-write {
+    display: grid;
+    gap: 10px;
+    margin: -4px 0 20px;
+    padding: 0 0 18px;
+    border-bottom: 1px solid var(--gaoxin-line);
+  }
+  .rd-batch-write-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .rd-batch-write-button { position: relative; overflow: hidden; min-width: 230px; }
+  .rd-batch-write-button::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: 0 auto 0 0;
+    width: var(--rd-batch-progress, 0%);
+    background: rgba(255, 255, 255, 0.22);
+    transition: width 0.25s ease;
+    pointer-events: none;
+  }
+  .rd-batch-write-button > span { position: relative; z-index: 1; }
+  .rd-batch-write-button.is-running { cursor: wait; }
+  .rd-batch-write-status { min-height: 20px; color: var(--text-secondary); font-size: 13px; }
+  .rd-batch-progress {
+    position: relative;
+    width: 100%;
+    height: 8px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #e2e8f0;
+  }
+  .rd-batch-progress-fill {
+    width: 0;
+    height: 100%;
+    background: var(--gaoxin-green);
+    transition: width 0.25s ease;
+  }
+  .rd-item.is-batch-writing { border-color: var(--gaoxin-cyan) !important; }
+  .rd-item textarea.is-writing {
+    border-color: var(--gaoxin-cyan) !important;
+    box-shadow: 0 0 0 3px rgba(8,145,178,0.12);
+  }
   .print-btn { float: right; margin-top: -40px; }
   .action-dock {
     display: flex;
@@ -243,6 +287,7 @@
     <p>按照官方申请书模板组织 IP、RD、研发费用、PS 产品和成果转化材料，先补齐证据链，再导出 Word 申报书。</p>
   </div>
   <div class="gaoxin-actions">
+    <a href="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}" class="btn btn-secondary btn-sm">附件制作</a>
     <button type="button" class="btn btn-secondary btn-sm" onclick="saveForm()">保存草稿</button>
     <button type="button" class="btn btn-primary btn-sm" onclick="validateAndExport()">校验并导出 Word</button>
   </div>
@@ -278,16 +323,6 @@
       <div class="material-metric"><span>导出方式</span><strong>Word</strong><small>保存后生成申报书文件</small></div>
     </div>
 
-<!-- ============ 声明 ============ -->
-<div class="declaration-card">
-  <p>
-    声明：本申请书上填写的有关内容和提交的资料均准确、真实、合法、有效、无涉密信息，本企业愿为此承担有关法律责任。<br>
-    法定代表人（签名）：<input type="text" name="legal_rep" placeholder="法定代表人" style="width:120px;display:inline;margin:0 8px" />
-    （企业公章）
-  </p>
-</div>
-
-
 {# ============ 企业简介（注册信息） ============ #}
 <div class="book-section" id="material-profile" data-material-section="profile">
   <h2 data-material="PROFILE">企业简介</h2>
@@ -309,16 +344,19 @@
       <textarea name="company_intro" rows="8" style="margin-top:6px" class="ai-textarea" oninput="updateCompanyIntroCount()" placeholder="描述企业成立背景、主营业务、核心产品、技术水平、行业地位等"></textarea>
     </div>
     <div style="margin-bottom:12px">
-      <b>经营范围：</b>
-      <input type="text" name="business_scope" style="width:100%" placeholder="如：包装材料研发、生产、加工、销售及相关配套服务" />
-    </div>
-    <div class="inline-group" style="gap:16px;flex-wrap:wrap">
-      <span><b>成立年份：</b><input type="text" name="established_year" style="width:80px" placeholder="如：2018" /></span>
-      <span><b>注册资本（万元）：</b><input type="number" name="registered_capital" step="0.01" style="width:120px" /></span>
-      <span><b>是否国家高新技术企业：</b>
-        <label style="margin-left:8px"><input type="radio" name="is_hitech" value="yes" /> 是（复审）</label>
-        <label style="margin-left:8px"><input type="radio" name="is_hitech" value="no" checked /> 否（首次认定）</label>
-      </span>
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+        <b>经营范围：</b>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin:0">
+          目标字数
+          <input type="number" name="business_scope_target_words" value="180" min="50" max="800" step="50" style="width:82px;padding:4px 8px;font-size:12px" />
+          字
+        </label>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:6px;align-items:center;flex-wrap:wrap">
+        <button type="button" class="btn btn-sm" style="background:linear-gradient(135deg, #b8860b22, #daa52022);color:#daa520;font-size:11px;padding:2px 10px;border:1px solid #daa52044;border-radius:12px;font-weight:500;white-space:nowrap" onclick="fillBusinessScopeTemplate(this)">📋 模板</button>
+        <button type="button" class="btn btn-sm" style="background:var(--accent);color:#fff;font-size:11px;padding:2px 10px" onclick="aiPolishBusinessScope(this)">✨ AI润色</button>
+      </div>
+      <textarea name="business_scope" rows="4" style="margin-top:6px" class="ai-textarea" placeholder="如：包装材料研发、生产、加工、销售及相关配套服务"></textarea>
     </div>
   </div>
 </div>
@@ -331,27 +369,6 @@
       <tr>
         <td width="15%"><b>企业名称</b></td>
         <td width="85%"><input type="text" name="company_name" value="{{ company.name }}" class="auto-filled" /></td>
-      </tr>
-      <tr>
-        <td><b>所在地区</b></td>
-        <td colspan="3">
-          <div class="inline-group">
-            <input type="text" name="province" placeholder="省" style="width:100px" />
-            <input type="text" name="city" placeholder="市(区)" style="width:150px" />
-            <span style="margin-left:16px"><b>认定机构：</b></span>
-            <input type="text" name="cert_agency" placeholder="认定机构" style="flex:1" />
-          </div>
-        </td>
-      </tr>
-      <tr>
-        <td><b>申请日期</b></td>
-        <td colspan="3">
-          <div class="inline-group">
-            <input type="number" name="app_year" placeholder="年" style="width:80px" value="2026" />
-            年 <input type="number" name="app_month" placeholder="月" style="width:60px" /> 月
-            <input type="number" name="app_day" placeholder="日" style="width:60px" /> 日
-          </div>
-        </td>
       </tr>
     </table>
 
@@ -385,19 +402,19 @@
         <th>年度</th><th>净资产</th><th>销售收入</th><th>利润总额</th>
       </tr>
       <tr>
-        <td><b>第一年</b><br><input type="text" name="year1_label" placeholder="如：2023" value="2023" style="width:60px" /></td>
+        <td><b>2023年度</b><input type="hidden" name="year1_label" value="2023" /></td>
         <td><input type="number" name="year1_net_assets" step="0.01" value="0" class="auto-filled" /></td>
         <td><input type="number" name="year1_sales" step="0.01" value="0" class="auto-filled" /></td>
         <td><input type="number" name="year1_profit" step="0.01" value="0" class="auto-filled" /></td>
       </tr>
       <tr>
-        <td><b>第二年</b><br><input type="text" name="year2_label" placeholder="2024" value="2024" style="width:60px" /></td>
+        <td><b>2024年度</b><input type="hidden" name="year2_label" value="2024" /></td>
         <td><input type="number" name="year2_net_assets" step="0.01" value="0" class="auto-filled" /></td>
         <td><input type="number" name="year2_sales" step="0.01" value="0" class="auto-filled" /></td>
         <td><input type="number" name="year2_profit" step="0.01" value="0" class="auto-filled" /></td>
       </tr>
       <tr>
-        <td><b>第三年</b><br><input type="text" name="year3_label" placeholder="2025" value="2025" style="width:60px" /></td>
+        <td><b>2025年度</b><input type="hidden" name="year3_label" value="2025" /></td>
         <td><input type="number" name="year3_net_assets" step="0.01" value="0" class="auto-filled" /></td>
         <td><input type="number" name="year3_sales" step="0.01" value="0" class="auto-filled" /></td>
         <td><input type="number" name="year3_profit" step="0.01" value="0" class="auto-filled" /></td>
@@ -479,7 +496,7 @@
         {% set ip = ips[i] if i < ips|length else {} %}
         {% set d = ip.get('parsed', {}).get('details', {}) if ip else {} %}
         <tr>
-          <td><input type="text" name="ip_{{i}}_seq" value="IP{{'%02d' % (i+1)}}" readonly style="width:62px;text-align:center;background:var(--bg-tertiary)" /></td>
+          <td><input type="text" name="ip_{{i}}_seq" value="IP{{'%02d' % (i+1)}}" readonly style="width:62px;text-align:center;background:var(--bg-tertiary)" /><input type="hidden" name="ip_{{i}}_cert_id" value="{{ ip.get('id', '') if ip else '' }}" /></td>
           <td><input type="text" name="ip_{{i}}_name" value="{{ d.get('name', '') }}" /></td>
           <td><select name="ip_{{i}}_type">
             <option value="">—</option>
@@ -508,7 +525,16 @@
 <div class="book-section" id="material-hr" data-material-section="hr">
   <h2 data-material="HR">三、人力资源情况表</h2>
   <div class="book-card">
-    <div class="subsection-title">（一）总体情况</div>
+    <div class="subsection-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <span>（一）总体情况</span>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <a class="btn btn-secondary btn-sm" href="{{ url_for('docgen.gaoxin_book_hr_staff_template', company_id=company.id) }}">下载人员模板</a>
+        <label class="btn btn-secondary btn-sm" style="margin:0;cursor:pointer">上传人员Excel
+          <input type="file" id="hr-staff-file" accept=".xlsx,.xlsm" style="display:none" onchange="uploadHrStaffExcel(this)" />
+        </label>
+      </span>
+    </div>
+    <div id="hr-staff-upload-status" style="font-size:12px;color:var(--text-secondary);margin:0 0 10px">Excel字段：序号、姓名、身份证号、是否签订合同、入职时间、是否缴纳社保、工作性质、学历、是否科技人员。</div>
     <table class="book-table">
       <tr><th width="60%">类别</th><th>人数</th></tr>
       <tr><td>企业职工总数</td><td><input type="number" name="hr_total" value="0" class="auto-filled" /></td></tr>
@@ -545,6 +571,30 @@
         <td><input type="number" name="age_51" value="0" style="width:60px" /></td>
       </tr>
     </table>
+
+    <div class="subsection-title">（三）企业人员明细</div>
+    <table class="book-table" id="hr-staff-table">
+      <thead>
+        <tr><th>序号</th><th>姓名</th><th>身份证号</th><th>是否签订合同</th><th>入职时间</th><th>是否缴纳社保</th><th>工作性质</th><th>学历</th><th>是否科技人员</th></tr>
+      </thead>
+      <tbody id="hr-staff-body">
+        {% for row in auto_data.get('hr_staff_rows', []) %}
+        <tr>
+          <td>{{ row.get('序号', '') }}</td>
+          <td>{{ row.get('姓名', '') }}</td>
+          <td>{{ row.get('身份证号', '') or row.get('身份证', '') }}</td>
+          <td>{{ row.get('是否签订合同', '') }}</td>
+          <td>{{ row.get('入职时间', '') }}</td>
+          <td>{{ row.get('是否缴纳社保', '') }}</td>
+          <td>{{ row.get('工作性质', '') }}</td>
+          <td>{{ row.get('学历', '') }}</td>
+          <td>{{ row.get('是否科技人员', '') }}</td>
+        </tr>
+        {% else %}
+        <tr data-empty-row><td colspan="9" style="text-align:center;color:var(--text-secondary)">尚未上传企业人员情况 Excel</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 
@@ -552,6 +602,17 @@
 <div class="book-section" id="material-rd" data-material-section="rd">
   <h2 data-material="RD">四、企业研究开发活动情况表（近三年）</h2>
   <div class="book-card" id="rd-container">
+    <div class="rd-batch-write">
+      <div class="rd-batch-write-controls">
+        <button type="button" id="rd-batch-write-button" class="btn btn-primary rd-batch-write-button" onclick="generateAllRdDescriptions(this)">
+          <span id="rd-batch-write-label">一键撰写全部研发活动</span>
+        </button>
+        <span id="rd-batch-write-status" class="rd-batch-write-status" aria-live="polite">等待开始</span>
+      </div>
+      <div id="rd-batch-progress" class="rd-batch-progress" role="progressbar" aria-label="研发活动撰写进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="rd-batch-progress-fill" class="rd-batch-progress-fill"></div>
+      </div>
+    </div>
     <!-- RD 条目模板 -->
     <template id="rd-template">
       <div class="rd-item" style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)">
@@ -566,7 +627,7 @@
           <span><b>起止时间：</b><input type="text" name="rd_{i}_period" style="width:180px" placeholder="如：2023.01-2025.12" /></span>
           <span><b>技术领域：</b><input type="text" name="rd_{i}_field" style="width:200px" /></span>
           <span><b>技术来源：</b><input type="text" name="rd_{i}_source" style="width:150px" placeholder="如：自主研发" value="自主研发" /></span>
-          <span style="display:flex;align-items:flex-start;gap:6px"><b>对应知识产权：</b><input type="hidden" name="rd_{i}_ip_no" /><div class="relation-ip-display" data-field="rd_{i}_ip_no"><span class="relation-empty">由关系表自动带出</span></div></span>
+          <span style="display:flex;align-items:flex-start;gap:6px"><b>对应知识产权：</b><input type="hidden" name="rd_{i}_ip_no" /><input type="hidden" name="rd_{i}_ps_no" /><div class="relation-ip-display" data-field="rd_{i}_ip_no"><span class="relation-empty">由关系表自动带出</span></div></span>
         </div>
         <div class="inline-group" style="margin-bottom:10px;gap:8px;flex-wrap:wrap">
           <b>研发经费预算：</b><input type="number" name="rd_{i}_budget" step="0.01" style="width:100px" placeholder="万元" />
@@ -614,7 +675,7 @@
         <span><b>起止时间：</b><input type="text" name="rd_0_period" style="width:180px" placeholder="如：2023.01-2025.12" /></span>
         <span><b>技术领域：</b><input type="text" name="rd_0_field" style="width:200px" /></span>
         <span><b>技术来源：</b><input type="text" name="rd_0_source" style="width:150px" placeholder="如：自主研发" value="自主研发" /></span>
-        <span style="display:flex;align-items:flex-start;gap:6px"><b>对应知识产权：</b><input type="hidden" name="rd_0_ip_no" /><div class="relation-ip-display" data-field="rd_0_ip_no"><span class="relation-empty">由关系表自动带出</span></div></span>
+        <span style="display:flex;align-items:flex-start;gap:6px"><b>对应知识产权：</b><input type="hidden" name="rd_0_ip_no" /><input type="hidden" name="rd_0_ps_no" /><div class="relation-ip-display" data-field="rd_0_ip_no"><span class="relation-empty">由关系表自动带出</span></div></span>
       </div>
       <div class="inline-group" style="margin-bottom:10px;gap:8px;flex-wrap:wrap">
         <b>研发经费预算：</b><input type="number" name="rd_0_budget" step="0.01" style="width:100px" placeholder="万元" />
@@ -805,59 +866,6 @@
   <h2 data-material="CHAIN">七、企业创新能力</h2>
   <div class="book-card">
 
-    <div class="subsection-title" style="display:flex;justify-content:space-between;align-items:center;margin-top:16px">
-      <span>📊 成果转化明细表（RD→IP→PS 转化链路）</span>
-    </div>
-<div id="cv-container">
-
-    <template id="cv-template">
-      <div class="cv-item" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-        <div class="inline-group" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <b>序号 {no}：</b>
-          <span><b>RD项目：</b><select class="cv-rd-select" name="cv_{i}_rd" style="width:130px"><option value="">— 选择RD —</option></select></span>
-          <span style="color:var(--accent);font-weight:600">→</span>
-          <span><b>知识产权：</b><select class="cv-ip-select" name="cv_{i}_ip" style="width:160px"><option value="">— 选择IP —</option></select></span>
-          <span style="color:var(--accent);font-weight:600">→</span>
-          <span><b>PS产品：</b><select class="cv-ps-select" name="cv_{i}_ps" style="width:150px"><option value="">— 选择PS —</option></select></span>
-          <span><b>成果名称：</b><input type="text" name="cv_{i}_result_name" style="width:220px" placeholder="从关联表提取" /></span>
-          <button type="button" class="btn btn-danger btn-sm cv-remove" onclick="removeCV(this)" title="删除此转化记录">×</button>
-        </div>
-        <div style="margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
-          <b>转化结果描述（限200字）：</b>
-          <div style="display:flex;gap:4px">
-            <button type="button" class="btn btn-sm" style="background:linear-gradient(135deg, #b8860b22, #daa52022);color:#daa520;font-size:11px;padding:2px 10px;border:1px solid #daa52044;border-radius:12px;font-weight:500;white-space:nowrap" onclick="fillTemplateCV(this)">📋 模板</button>
-            <button type="button" class="btn btn-sm" style="background:var(--accent);color:#fff;font-size:11px;padding:2px 10px" onclick="aiWriteCV(this)">✨ AI撰写</button>
-          </div>
-        </div>
-        <textarea name="cv_{i}_desc" rows="4" placeholder="描述该RD成果如何通过IP转化为PS产品，包括转化时间、转化形式、产生的经济效益等"></textarea>
-      </div>
-    </template>
-    <!-- 初始转化记录 CV01 -->
-    <div class="cv-item" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-      <div class="inline-group" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-        <b>序号 01：</b>
-        <span><b>RD项目：</b><select class="cv-rd-select" name="cv_0_rd" style="width:130px"><option value="">— 选择RD —</option></select></span>
-        <span style="color:var(--accent);font-weight:600">→</span>
-        <span><b>知识产权：</b><select class="cv-ip-select" name="cv_0_ip" style="width:160px"><option value="">— 选择IP —</option></select></span>
-        <span style="color:var(--accent);font-weight:600">→</span>
-        <span><b>PS产品：</b><select class="cv-ps-select" name="cv_0_ps" style="width:150px"><option value="">— 选择PS —</option></select></span>
-        <span><b>成果名称：</b><input type="text" name="cv_0_result_name" style="width:220px" placeholder="从关联表提取" /></span>
-        <button type="button" class="btn btn-danger btn-sm cv-remove" onclick="removeCV(this)" title="删除此转化记录">×</button>
-      </div>
-      <div style="margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
-        <b>转化结果描述（限200字）：</b>
-        <div style="display:flex;gap:4px">
-          <button type="button" class="btn btn-sm" style="background:linear-gradient(135deg, #b8860b22, #daa52022);color:#daa520;font-size:11px;padding:2px 10px;border:1px solid #daa52044;border-radius:12px;font-weight:500;white-space:nowrap" onclick="fillTemplateCV(this)">📋 模板</button>
-          <button type="button" class="btn btn-sm" style="background:var(--accent);color:#fff;font-size:11px;padding:2px 10px" onclick="aiWriteCV(this)">✨ AI撰写</button>
-        </div>
-      </div>
-      <textarea name="cv_0_desc" rows="4" placeholder="描述该RD成果如何通过IP转化为PS产品，包括转化时间、转化形式、产生的经济效益等"></textarea>
-    </div>
-    <div style="text-align:center;margin-top:16px" id="cv-add-area">
-      <button type="button" class="btn btn-secondary" onclick="addCV()">➕ 添加成果转化记录</button>
-    </div>
-</div>
-
     <div style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <b>知识产权对企业竞争力的作用（限400字）：</b>
@@ -937,6 +945,7 @@
   <button type="button" class="btn btn-success btn-lg" onclick="saveForm()">保存申请书</button>
   <button type="button" class="btn btn-primary btn-lg" onclick="validateAndExport()">校验并导出 Word</button>
   <button type="button" class="btn btn-secondary btn-lg" onclick="doExportWord()">直接导出 Word</button>
+  <a href="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}" class="btn btn-warning btn-lg">制作附件</a>
 </div>
 
   </div>
@@ -945,11 +954,14 @@
 </form>
 
 <div class="floating-action-bar" aria-label="申请书快捷操作">
+  <a href="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}" class="btn btn-secondary btn-sm">附件制作</a>
   <button type="button" class="btn btn-secondary btn-sm" onclick="saveForm()">保存草稿</button>
   <button type="button" class="btn btn-primary btn-sm" onclick="validateAndExport()">导出 Word</button>
 </div>
 
 <script>
+const relationTableSummary = {{ (relation_summary or {})|tojson }};
+
 // ===== 材料状态导航 =====
 function materialValue(name) {
   var el = document.querySelector('[name="' + name + '"]');
@@ -974,11 +986,72 @@ function setMaterialState(key, state) {
   if (text) text.textContent = state === 'ready' ? '就绪' : (state === 'draft' ? '进行中' : (key === 'standards' ? '可选' : '待补'));
 }
 
+function setFormValue(name, value) {
+  var el = document.querySelector('[name="' + name + '"]');
+  if (!el) return;
+  el.value = value === undefined || value === null ? '' : value;
+  el.classList.add('auto-filled');
+  el.dispatchEvent(new Event('input', {bubbles: true}));
+}
+
+function renderHrStaffRows(rows) {
+  var body = document.getElementById('hr-staff-body');
+  if (!body) return;
+  if (!rows || !rows.length) {
+    body.innerHTML = '<tr data-empty-row><td colspan="6" style="text-align:center;color:var(--text-secondary)">尚未上传企业人员情况 Excel</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(function(row) {
+    return '<tr>' + ['序号', '姓名', '身份证号', '是否签订合同', '入职时间', '是否缴纳社保', '工作性质', '学历', '是否科技人员'].map(function(key) {
+      var value = String(row[key] || (key === '身份证号' ? row['身份证'] : '') || '').replace(/[&<>\"]/g, function(ch) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];
+      });
+      return '<td>' + value + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+}
+
+function uploadHrStaffExcel(input) {
+  var status = document.getElementById('hr-staff-upload-status');
+  var file = input.files && input.files[0];
+  if (!file) return;
+  if (status) {
+    status.textContent = '正在识别人员 Excel...';
+    status.style.color = 'var(--text-secondary)';
+  }
+  var formData = new FormData();
+  formData.append('file', file);
+  fetch('{{ url_for("docgen.gaoxin_book_hr_staff_import", company_id=company.id) }}', {
+    method: 'POST',
+    body: formData
+  }).then(function(resp) {
+    return resp.json().then(function(data) { return {ok: resp.ok, data: data}; });
+  }).then(function(result) {
+    if (!result.ok || !result.data.ok) throw new Error(result.data.error || '人员 Excel 识别失败');
+    var summary = result.data.summary || {};
+    Object.keys(summary).forEach(function(key) { setFormValue(key, summary[key]); });
+    setFormValue('staff_total', summary.hr_total || 0);
+    renderHrStaffRows(result.data.rows || []);
+    if (status) {
+      status.textContent = '已导入 ' + (result.data.rows || []).length + ' 名人员，并自动汇总人数、科技人员数和学历结构。';
+      status.style.color = 'var(--success)';
+    }
+    autoCalcSummary();
+    updateMaterialStatus();
+  }).catch(function(err) {
+    if (status) {
+      status.textContent = err.message || '人员 Excel 识别失败';
+      status.style.color = 'var(--danger)';
+    }
+  }).finally(function() {
+    input.value = '';
+  });
+}
+
 function updateMaterialStatus() {
   var ipCount = countNamedRows('ip_', '_name');
   var rdCountFilled = countNamedRows('rd_', '_name');
   var psCountFilled = countNamedRows('ps_', '_name');
-  var cvCount = countNamedRows('cv_', '_desc');
 
   var states = {
     profile: materialValue('company_intro') && materialValue('business_scope') ? 'ready' : (materialValue('company_intro') || materialValue('business_scope') ? 'draft' : 'empty'),
@@ -988,7 +1061,7 @@ function updateMaterialStatus() {
     rd: rdCountFilled > 0 ? 'ready' : 'empty',
     fee: materialValue('rd_total_3y') || materialValue('fee_0_total') || materialValue('fee_1_total') || materialValue('fee_2_total') ? 'ready' : 'empty',
     ps: psCountFilled > 0 ? 'ready' : 'empty',
-    innovation: materialValue('innovation_ip') && materialValue('innovation_transform') ? 'ready' : (materialValue('innovation_ip') || materialValue('innovation_transform') || cvCount > 0 ? 'draft' : 'empty'),
+    innovation: (materialValue('innovation_ip') && materialValue('innovation_transform') && materialValue('innovation_rd_mgmt') && materialValue('innovation_staff')) ? 'ready' : (materialValue('innovation_ip') || materialValue('innovation_transform') || materialValue('innovation_rd_mgmt') || materialValue('innovation_staff') ? 'draft' : 'empty'),
     standards: countNamedRows('std_', '_name') > 0 ? 'ready' : 'empty'
   };
 
@@ -1023,10 +1096,8 @@ document.addEventListener('DOMContentLoaded', function() {
   function ensureRelationItems() {
     var rdTarget = parseInt(data._relation_rd_count || 1, 10);
     var psTarget = parseInt(data._relation_ps_count || 1, 10);
-    var cvTarget = parseInt(data._relation_cv_count || 1, 10);
     while (document.querySelectorAll('#rd-container .rd-item').length < rdTarget) addRD();
     while (document.querySelectorAll('#ps-container .ps-item').length < psTarget) addPS();
-    while (document.querySelectorAll('#cv-container .cv-item').length < cvTarget) addCV();
   }
 
   function setValue(name, value) {
@@ -1085,8 +1156,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function isRelationSelectField(key) {
     return /^ps_\d+_rds$/.test(key)
-      || /^ps_\d+_ip_no$/.test(key)
-      || /^cv_\d+_(rd|ip|ps)$/.test(key);
+      || /^ps_\d+_ip_no$/.test(key);
   }
 
   ensureRelationItems();
@@ -1099,25 +1169,17 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   if (typeof refreshAllDropdowns === 'function') refreshAllDropdowns();
 
-  var years = Object.keys(data)
-    .map(function(key) {
-      var m = key.match(/^fin_(20\d{2})_/);
-      return m ? m[1] : null;
-    })
-    .filter(Boolean)
-    .filter(function(v, i, arr) { return arr.indexOf(v) === i; })
-    .sort()
-    .slice(-3);
+  var years = ['2023', '2024', '2025'];
 
   years.forEach(function(year, idx) {
     var n = idx + 1;
     setValue('year' + n + '_label', year);
-    setValue('year' + n + '_net_assets', data['fin_' + year + '_net_assets'] || data['fin_' + year + '_assets']);
+    setValue('year' + n + '_net_assets', data['fin_' + year + '_net_assets']);
     setValue('year' + n + '_sales', data['fin_' + year + '_sales'] || data['fin_' + year + '_revenue'] || data['fin_' + year + '_main_revenue']);
     setValue('year' + n + '_profit', data['fin_' + year + '_profit'] || data['fin_' + year + '_net_profit'] || data['fin_' + year + '_operating_profit']);
   });
 
-  var latestYear = years[years.length - 1];
+  var latestYear = '2025';
   if (latestYear) {
     setValue('revenue_1y', data['fin_' + latestYear + '_sales'] || data['fin_' + latestYear + '_revenue'] || data['fin_' + latestYear + '_main_revenue']);
     setValue('staff_total', data['fin_' + latestYear + '_employees']);
@@ -1312,7 +1374,7 @@ function reindexIpRows() {
 function createIPRow(index) {
   var tr = document.createElement('tr');
   tr.innerHTML =
-    '<td><input type="text" name="ip_' + index + '_seq" value="IP' + String(index + 1).padStart(2, '0') + '" readonly style="width:62px;text-align:center;background:var(--bg-tertiary)" /></td>' +
+    '<td><input type="text" name="ip_' + index + '_seq" value="IP' + String(index + 1).padStart(2, '0') + '" readonly style="width:62px;text-align:center;background:var(--bg-tertiary)" /><input type="hidden" name="ip_' + index + '_cert_id" value="" /></td>' +
     '<td><input type="text" name="ip_' + index + '_name" /></td>' +
     '<td><select name="ip_' + index + '_type">' +
       '<option value="">—</option><option value="发明">发明</option><option value="实用新型">实用新型</option><option value="外观设计">外观设计</option><option value="软著">软著</option>' +
@@ -1447,13 +1509,7 @@ function refreshIPSelects() {
     });
   }
   _fillSelects('.ip-select');
-  _fillSelects('.cv-ip-select');
 }
-
-// ===== 成果转化管理 =====
-let cvCount = 1;
-
-function padCV(n) { return String(n + 1).padStart(2, '0'); }
 
 function refreshAllDropdowns() {
   refreshIPSelects();
@@ -1462,94 +1518,9 @@ function refreshAllDropdowns() {
 }
 
 function refreshRDSelects() {
-  // 收集所有 RD 条目
-  var rdOptions = [];
-  document.querySelectorAll('#rd-container .rd-item').forEach(function(item, i) {
-    var noEl = item.querySelector('[name^="rd_"][name$="_no"]');
-    var nameEl = item.querySelector('[name^="rd_"][name$="_name"]');
-    var noVal = noEl ? noEl.value.trim() : 'RD' + String(i+1).padStart(2,'0');
-    var nameVal = nameEl ? nameEl.value.trim() : '';
-    var label = noVal;
-    if (nameVal) label += ' - ' + (nameVal.length > 12 ? nameVal.substring(0, 12) + '…' : nameVal);
-    rdOptions.push({value: label, text: label});
-  });
-  
-  // 更新 CV 和 PS 的 RD 下拉
-  document.querySelectorAll('.cv-rd-select').forEach(function(sel) {
-    var currentVal = sel.value;
-    sel.innerHTML = '<option value="">— 选择RD —</option>';
-    rdOptions.forEach(function(opt) {
-      var o = document.createElement('option');
-      o.value = opt.value;
-      o.textContent = opt.text;
-      if (opt.value === currentVal) o.selected = true;
-      sel.appendChild(o);
-    });
-  });
 }
 
 function refreshPSSelects() {
-  var psOptions = [];
-  document.querySelectorAll('#ps-container .ps-item').forEach(function(item, i) {
-    var noEl = item.querySelector('[name^="ps_"][name$="_no"]');
-    var nameEl = item.querySelector('[name^="ps_"][name$="_name"]');
-    var noVal = noEl ? noEl.value.trim() : 'PS' + String(i+1).padStart(2,'0');
-    var nameVal = nameEl ? nameEl.value.trim() : '';
-    var label = noVal;
-    if (nameVal) label += ' - ' + (nameVal.length > 12 ? nameVal.substring(0, 12) + '…' : nameVal);
-    psOptions.push({value: label, text: label});
-  });
-  
-  document.querySelectorAll('.cv-ps-select').forEach(function(sel) {
-    var currentVal = sel.value;
-    sel.innerHTML = '<option value="">— 选择PS —</option>';
-    psOptions.forEach(function(opt) {
-      var o = document.createElement('option');
-      o.value = opt.value;
-      o.textContent = opt.text;
-      if (opt.value === currentVal) o.selected = true;
-      sel.appendChild(o);
-    });
-  });
-}
-
-function addCV() {
-  var tmpl = document.getElementById('cv-template');
-  var clone = tmpl.content.cloneNode(true);
-  var html = clone.querySelector('.cv-item').outerHTML;
-  var idx = cvCount;
-  html = html.replace(/\{i\}/g, idx).replace(/\{no\}/g, padCV(idx));
-  
-  var container = document.getElementById('cv-container');
-  var addArea = document.getElementById('cv-add-area');
-  var div = document.createElement('div');
-  div.innerHTML = html;
-  container.insertBefore(div.firstElementChild, addArea);
-  
-  cvCount++;
-  refreshAllDropdowns();
-}
-
-function removeCV(btn) {
-  var items = document.querySelectorAll('#cv-container .cv-item');
-  if (items.length <= 1) {
-    alert('至少保留一条转化记录');
-    return;
-  }
-  btn.closest('.cv-item').remove();
-  cvCount--;
-  reindexCV();
-  refreshAllDropdowns();
-}
-
-function reindexCV() {
-  var items = document.querySelectorAll('#cv-container .cv-item');
-  items.forEach(function(item, i) {
-    item.querySelectorAll('[name]').forEach(function(el) {
-      el.name = el.name.replace(/^cv_\d+_/, 'cv_' + i + '_');
-    });
-  });
-  cvCount = items.length;
 }
 
 // ===== 扩展 addRD/addPS/reindexRDs/reindexPS 触发下拉刷新 =====
@@ -1641,6 +1612,63 @@ function normalizeAiTextSpacing(text) {
     .replace(/\n[ \t　]*\n+/g, '\n');
 }
 
+function currentItemValue(item, suffix) {
+  var el = item ? item.querySelector('[name$="_' + suffix + '"]') : null;
+  return el && el.value ? el.value.trim() : '';
+}
+
+function splitRelationText(value) {
+  return String(value || '').split(/[；;,，\n]+/).map(function(v) { return v.trim(); }).filter(Boolean);
+}
+
+function relationCode(value) {
+  return String(value || '').split(' - ')[0].trim();
+}
+
+function getRelatedPSForRD(rdItem) {
+  if (!rdItem) return [];
+  var rdNo = currentItemValue(rdItem, 'no');
+  var rdName = currentItemValue(rdItem, 'name');
+  var matches = [];
+  document.querySelectorAll('#ps-container .ps-item').forEach(function(psItem) {
+    var rds = splitRelationText(currentItemValue(psItem, 'rds'));
+    var matched = rds.some(function(rd) {
+      var rdCode = relationCode(rd);
+      return (rdNo && rdCode === rdNo) || (rdName && rd.indexOf(rdName) !== -1);
+    });
+    if (matched) {
+      var psNo = currentItemValue(psItem, 'no');
+      var psName = currentItemValue(psItem, 'name');
+      var label = psNo || psName;
+      if (psNo && psName) label += ' - ' + psName;
+      if (label && matches.indexOf(label) === -1) matches.push(label);
+    }
+  });
+  return matches;
+}
+
+function syncRDRelatedPS() {
+  document.querySelectorAll('#rd-container .rd-item').forEach(function(rdItem) {
+    var psField = rdItem.querySelector('[name$="_ps_no"]');
+    if (psField) psField.value = getRelatedPSForRD(rdItem).join('；') || psField.value.trim();
+  });
+}
+
+function buildRdAiContext(rdItem) {
+  syncRDRelatedPS();
+  return {
+    company_name: document.querySelector('[name="company_name"]') ?
+                  document.querySelector('[name="company_name"]').value.trim() : '',
+    rd_name: currentItemValue(rdItem, 'name'),
+    rd_period: currentItemValue(rdItem, 'period'),
+    rd_field: currentItemValue(rdItem, 'field'),
+    rd_source: currentItemValue(rdItem, 'source') || '自主研发',
+    rd_ip: currentItemValue(rdItem, 'ip_no'),
+    rd_ps: currentItemValue(rdItem, 'ps_no') || getRelatedPSForRD(rdItem).join('；'),
+    type: 'rd'
+  };
+}
+
 function aiWrite(btn, field) {
   // 判断是 RD 还是 PS 条目
   var rdItem = btn.closest('.rd-item');
@@ -1654,10 +1682,7 @@ function aiWrite(btn, field) {
   };
   
   if (rdItem) {
-    context.rd_name = (item.querySelector('[name$="_name"]') || {}).value || '';
-    context.rd_field = (item.querySelector('[name$="_field"]') || {}).value || '';
-    context.rd_source = (item.querySelector('[name$="_source"]') || {}).value || '自主研发';
-    context.type = 'rd';
+    context = buildRdAiContext(rdItem);
   } else {
     context.ps_name = (item.querySelector('[name$="_name"]') || {}).value || '';
     context.ps_field = (item.querySelector('[name$="_field"]') || {}).value || '';
@@ -1684,7 +1709,7 @@ function aiWrite(btn, field) {
   fetch('/parser/ai_write', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({field: field, context: context, target_words: targetWordsForButton(btn)})
+    body: JSON.stringify({field: field, context: context, template: textarea.value || '', target_words: targetWordsForButton(btn)})
   })
   .then(function(r) { return r.json(); })
   .then(function(result) {
@@ -1703,6 +1728,152 @@ function aiWrite(btn, field) {
     btn.textContent = origText;
     btn.disabled = false;
   });
+}
+
+var rdBatchWriteFields = [
+  {key: 'purpose', label: '目的及组织实施方式'},
+  {key: 'innovation', label: '核心技术及创新点'},
+  {key: 'result', label: '取得的阶段性成果'}
+];
+
+function rdFieldButton(item, field) {
+  return Array.from(item.querySelectorAll('button[onclick^="aiWrite"]')).find(function(button) {
+    return button.getAttribute('onclick') === "aiWrite(this,'" + field + "')";
+  }) || null;
+}
+
+function updateRdBatchProgress(completed, total) {
+  var percent = total ? Math.round((completed / total) * 100) : 0;
+  var button = document.getElementById('rd-batch-write-button');
+  var progress = document.getElementById('rd-batch-progress');
+  var fill = document.getElementById('rd-batch-progress-fill');
+  if (button) button.style.setProperty('--rd-batch-progress', percent + '%');
+  if (fill) fill.style.width = percent + '%';
+  if (progress) progress.setAttribute('aria-valuenow', String(percent));
+}
+
+async function generateRdDescriptionField(item, field) {
+  var textarea = item.querySelector('[name$="_' + field + '"]');
+  if (!textarea) throw new Error('未找到对应填写栏');
+  var fieldButton = rdFieldButton(item, field);
+  var targetWords = fieldButton ? targetWordsForButton(fieldButton) : 400;
+  textarea.classList.add('is-writing');
+  try {
+    var response = await fetch('/parser/ai_write', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        field: field,
+        context: buildRdAiContext(item),
+        template: textarea.value || '',
+        target_words: targetWords
+      })
+    });
+    var result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'AI撰写失败');
+    }
+    var text = normalizeAiTextSpacing(result.text || '');
+    if (!text) throw new Error('AI返回内容为空');
+    textarea.value = text;
+    textarea.classList.add('auto-filled');
+    textarea.dispatchEvent(new Event('input', {bubbles: true}));
+  } finally {
+    textarea.classList.remove('is-writing');
+  }
+}
+
+async function saveRdBatchContent() {
+  var form = document.getElementById('gaoxin-book');
+  if (!form) throw new Error('未找到申请书表单');
+  syncRDRelatedPS();
+  var response = await fetch(form.action, {method: 'POST', body: new FormData(form)});
+  if (!response.ok) throw new Error('自动保存失败');
+}
+
+async function generateAllRdDescriptions(button) {
+  if (!button || button.disabled) return;
+  var items = Array.from(document.querySelectorAll('#rd-container .rd-item')).filter(function(item) {
+    return Boolean(currentItemValue(item, 'name'));
+  });
+  if (!items.length) {
+    alert('请先填写至少一个研发活动名称');
+    return;
+  }
+
+  var existingCount = items.reduce(function(total, item) {
+    return total + rdBatchWriteFields.filter(function(field) {
+      return Boolean(currentItemValue(item, field.key));
+    }).length;
+  }, 0);
+  if (existingCount && !confirm('已有 ' + existingCount + ' 个研发活动栏目存在内容，本次一键撰写会覆盖这些内容。确定继续吗？')) return;
+
+  var tasks = [];
+  items.forEach(function(item, itemIndex) {
+    rdBatchWriteFields.forEach(function(field) {
+      tasks.push({item: item, itemIndex: itemIndex, field: field});
+    });
+  });
+
+  var label = document.getElementById('rd-batch-write-label');
+  var status = document.getElementById('rd-batch-write-status');
+  var fieldButtons = Array.from(document.querySelectorAll('#rd-container .rd-item button[onclick^="aiWrite"]'));
+  var previousDisabledStates = fieldButtons.map(function(fieldButton) {
+    return {button: fieldButton, disabled: fieldButton.disabled};
+  });
+  var errors = [];
+  var successCount = 0;
+
+  button.disabled = true;
+  button.classList.add('is-running');
+  button.setAttribute('aria-busy', 'true');
+  previousDisabledStates.forEach(function(state) { state.button.disabled = true; });
+  status.style.color = '';
+  updateRdBatchProgress(0, tasks.length);
+
+  for (var index = 0; index < tasks.length; index += 1) {
+    var task = tasks[index];
+    var position = index + 1;
+    var rdNo = currentItemValue(task.item, 'no') || ('RD' + String(task.itemIndex + 1).padStart(2, '0'));
+    label.textContent = '撰写中 ' + position + '/' + tasks.length;
+    status.textContent = '正在撰写：' + rdNo + ' ' + task.field.label;
+    task.item.classList.add('is-batch-writing');
+    try {
+      await generateRdDescriptionField(task.item, task.field.key);
+      successCount += 1;
+    } catch (error) {
+      errors.push(rdNo + ' ' + task.field.label + '：' + (error.message || '生成失败'));
+    }
+    task.item.classList.remove('is-batch-writing');
+    updateRdBatchProgress(position, tasks.length);
+  }
+
+  var saveError = '';
+  if (successCount) {
+    status.textContent = '正文生成完成，正在自动保存申请书...';
+    try {
+      await saveRdBatchContent();
+    } catch (error) {
+      saveError = error.message || '自动保存失败';
+    }
+  }
+
+  button.classList.remove('is-running');
+  button.removeAttribute('aria-busy');
+  button.disabled = false;
+  previousDisabledStates.forEach(function(state) { state.button.disabled = state.disabled; });
+
+  if (errors.length || saveError) {
+    label.textContent = '完成 ' + successCount + '/' + tasks.length;
+    status.style.color = 'var(--danger)';
+    status.textContent = '成功 ' + successCount + ' 项，失败 ' + errors.length + ' 项'
+      + (saveError ? '；' + saveError : '')
+      + (errors.length ? '；' + errors.join('；') : '');
+  } else {
+    label.textContent = '全部撰写完成';
+    status.style.color = 'var(--success)';
+    status.textContent = items.length + ' 个研发活动、' + successCount + ' 个栏目已生成并自动保存。';
+  }
 }
 
 
@@ -1777,6 +1948,67 @@ function aiPolishCompanyIntro(btn, field) {
   });
 }
 
+function fillBusinessScopeTemplate(btn) {
+  var textarea = document.querySelector('[name="business_scope"]');
+  if (!textarea) return;
+  if (textarea.value.trim() && !confirm('当前已有内容，覆盖吗？')) return;
+  textarea.value = '一般项目：技术服务、技术开发、技术咨询、技术交流、技术转让、技术推广；软件开发；信息系统集成服务；数据处理和存储支持服务；电子产品销售；计算机软硬件及辅助设备零售；企业管理咨询。许可项目：【按营业执照实际许可经营项目填写】。';
+  textarea.classList.add('auto-filled');
+  textarea.dispatchEvent(new Event('input', {bubbles: true}));
+  textarea.dispatchEvent(new Event('change', {bubbles: true}));
+}
+
+function aiPolishBusinessScope(btn) {
+  var textarea = document.querySelector('[name="business_scope"]');
+  if (!textarea) return;
+  var draft = textarea.value.trim();
+  if (!draft) {
+    alert('请先在经营范围框中输入草稿，再点击 AI润色。');
+    textarea.focus();
+    return;
+  }
+
+  var companyNameEl = document.querySelector('[name="company_name"]');
+  var companyName = companyNameEl ? (companyNameEl.value.trim() || '') : '';
+  var targetEl = document.querySelector('[name="business_scope_target_words"]');
+  var targetWords = parseInt(targetEl && targetEl.value ? targetEl.value : '180', 10);
+  if (isNaN(targetWords)) targetWords = 180;
+  targetWords = Math.max(50, Math.min(800, targetWords));
+  if (targetEl) targetEl.value = targetWords;
+  var origText = btn.textContent;
+  btn.textContent = '⏳ 润色中...';
+  btn.disabled = true;
+
+  fetch('/parser/ai_polish_business_scope', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      company_name: companyName,
+      draft: draft,
+      target_words: targetWords
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(result) {
+    if (result.success) {
+      textarea.value = normalizeAiTextSpacing(result.text);
+      textarea.classList.add('auto-filled');
+      textarea.dispatchEvent(new Event('input', {bubbles: true}));
+      textarea.dispatchEvent(new Event('change', {bubbles: true}));
+    } else {
+      alert('AI 润色失败: ' + (result.error || '未知错误'));
+    }
+  })
+  .catch(function(err) {
+    alert('网络错误，请重试');
+    console.error(err);
+  })
+  .finally(function() {
+    btn.textContent = origText;
+    btn.disabled = false;
+  });
+}
+
 function updateCompanyIntroCount() {
   var textarea = document.querySelector('[name="company_intro"]');
   var countEl = document.getElementById('company-intro-count');
@@ -1788,6 +2020,36 @@ document.addEventListener('DOMContentLoaded', updateCompanyIntroCount);
 
 
 // ===== RD 默认模板 =====
+const systemAsOfDate = {{ system_as_of_date | tojson | safe }};
+
+function rdTemporalStatus(period) {
+  const matches = Array.from(String(period || '').matchAll(/(20\d{2})(?:\s*(?:年|[./-])\s*(0?[1-9]|1[0-2])(?:\s*(?:月|[./-])\s*(0?[1-9]|[12]\d|3[01])\s*日?|\s*月)?)?/g));
+  if (!matches.length) return {status: '待补充', start: '待补充', end: '待补充'};
+
+  function boundaryDate(match, isEnd) {
+    const year = Number(match[1]);
+    const month = match[2] ? Number(match[2]) : (isEnd ? 12 : 1);
+    const day = match[3] ? Number(match[3]) : (isEnd ? new Date(year, month, 0).getDate() : 1);
+    return new Date(year, month - 1, day);
+  }
+
+  const first = matches[0];
+  const last = matches[matches.length - 1];
+  const start = boundaryDate(first, false);
+  const end = boundaryDate(last, true);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+    return {status: '待补充', start: '待补充', end: '待补充'};
+  }
+  const asOf = new Date(systemAsOfDate + 'T00:00:00');
+  const internalStatus = asOf < start ? '计划中' : (asOf < end ? '研发中' : '已完成');
+  return {
+    status: internalStatus,
+    statusDisplay: internalStatus === '已完成' ? '已到计划结束时间' : internalStatus,
+    start: first[0],
+    end: last[0]
+  };
+}
+
 function fillTemplate(btn, field) {
   var rdItem = btn.closest('.rd-item');
   if (!rdItem) return;
@@ -1797,13 +2059,40 @@ function fillTemplate(btn, field) {
   
   var nameEl = rdItem.querySelector('[name$="_name"]');
   var projectName = nameEl ? (nameEl.value.trim() || '【项目名称】') : '【项目名称】';
-  
+  var period = currentItemValue(rdItem, 'period') || '【起止时间】';
+  var temporal = rdTemporalStatus(period);
+  var startDate = temporal.start;
+  var endDate = temporal.end;
+  var rdIp = currentItemValue(rdItem, 'ip_no') || '【对应知识产权】';
+  var relatedPS = currentItemValue(rdItem, 'ps_no') || getRelatedPSForRD(rdItem).join('；') || '【对应PS】';
+  var fieldValue = currentItemValue(rdItem, 'field') || '相关核心技术';
+
+  var resultTemplate = '';
+  if (temporal.status === '已完成') {
+    resultTemplate = '1、项目计划周期为' + startDate + '至' + endDate + '，研发内容围绕' + projectName + '开展；\n' +
+      '2、项目已到计划结束时间，' + fieldValue + '相关研发任务的实际完成情况应依据研发、测试和归档记录核对；\n' +
+      '3、项目关联知识产权：' + rdIp + '。\n' +
+      '项目与' + relatedPS + '建立对应关系，成果是否已经形成并投入应用以实际证明材料为准。';
+  } else if (temporal.status === '研发中') {
+    resultTemplate = '1、项目计划周期自' + startDate + '开始，围绕' + projectName + '安排研发工作；\n' +
+      '2、项目正在推进' + fieldValue + '相关研发任务，并按阶段形成研发资料；\n' +
+      '3、项目计划形成或支撑知识产权：' + rdIp + '。\n' +
+      '后续拟将相关技术成果应用于' + relatedPS + '，实际转化情况以项目归档资料为准。';
+  } else if (temporal.status === '计划中') {
+    resultTemplate = '1、项目计划于' + startDate + '启动，围绕' + projectName + '组建研发团队；\n' +
+      '2、项目拟开展' + fieldValue + '相关研发任务，并按计划形成研发资料；\n' +
+      '3、项目拟形成或支撑知识产权：' + rdIp + '。\n' +
+      '项目成果拟应用于' + relatedPS + '，实际转化情况以实施记录为准。';
+  } else {
+    resultTemplate = '项目周期待补充，当前不得推断项目已经启动、完成或形成成果。请补充起止时间后，再结合实际研发记录填写阶段成果、知识产权和PS转化情况。';
+  }
+
   var templates = {
-    purpose: '现有的【行业痛点/技术瓶颈描述】，对此，我司决定进行' + projectName + '。\n\n组织管理方式：\n项目采用自主研发方式进行，由总经理提出研发方向，经研发中心可行性论证后，报由总经理审核批准。由研发中心负责组织、安排相应的人员与经费，根据项目要求由研发中心组建研发小组进行研发。研发中心研发所需设备、原料可直接向办公室申领。研发完成后，由总经理组织相关人员鉴定并验收。\n\n项目符合国家重点支持的高新技术领域：【请填写具体领域子类】。',
-    
-    innovation: '1. 【核心技术一名称】。针对【具体问题】，通过【技术手段】，实现了【具体效果】，【关键指标】达到【数值】。\n\n2. 【核心技术二名称】。对【具体对象】进行技术创新，采用【创新方法】，解决了【具体问题】，使【性能指标】提升至【数值】。',
-    
-    result: '1、【起始日期】由技术部成立项目组；\n2、【完成日期】完成"【核心技术一名称】""【核心技术二名称】"的研发工作；\n3、上述技术已向国家知识产权局申请并授权【专利类型】专利。\n上述技术已经实现成果转化，技术成果已应用到高新技术产品【PS编号】"【产品名称】"中，经过长时间的验证，均取得了较好的有益效果。'
+    purpose: '现有的【行业痛点/技术瓶颈描述】，对此，我司计划开展' + projectName + '。\n\n组织管理方式：\n项目拟采用自主研发方式，由企业提出研发方向，经研发中心开展可行性论证并履行内部审批程序。研发中心根据项目要求组织研发人员和经费，按实际需要申领设备、原料并保存过程记录。项目达到计划节点且具备验收条件后，再依据实际研发、测试和成果材料组织鉴定与验收。\n\n项目所属技术领域：' + fieldValue + '。',
+
+    innovation: '1. 【核心技术一名称】。针对【具体问题】，拟采用【技术手段】开展研发，目标效果及关键指标为【根据立项或测试资料填写】。\n2. 【核心技术二名称】。围绕【具体对象】设计【创新方法】，拟解决【具体问题】，性能指标及核验方式为【根据立项或测试资料填写】。\n3. 【核心技术三名称】。面向【应用场景/业务需求】，构建【技术方案】，重点研究【关键技术难点】，预期成果及核心指标为【根据立项或测试资料填写】。',
+
+    result: resultTemplate
   };
   
   textarea.value = normalizeAiTextSpacing(templates[field] || '');
@@ -1957,6 +2246,7 @@ function validateAndExport() {
   
   // 校验通过，保存后导出
   var form = document.getElementById('gaoxin-book');
+  syncRDRelatedPS();
   fetch(form.action, {method: 'POST', body: new FormData(form)})
     .then(function(r) { if (!r.ok) throw new Error('Save failed'); return fetch('/parser/save_ip_certs/{{ company.id }}', {method: 'POST'}); })
     .then(function(r) { if (!r.ok) throw new Error('IP save failed');
@@ -1981,7 +2271,7 @@ function fillTemplatePS(btn, field) {
   var nameEl = psItem.querySelector('[name$="_name"]');
   var pn = nameEl ? (nameEl.value.trim() || '【产品名称】') : '【产品名称】';
   var t = {
-    ps_tech: '1. 【关键技术一】。采用【技术方案】，使【性能指标】达到【数值】，较传统方案提升【百分比】。\n\n2. 【关键技术二】。创新引入【方法】，实现了【功能突破】，【参数】优于行业平均。',
+    ps_tech: '1. 【核心技术一名称】。针对【具体问题】，通过【技术手段】，实现了【具体效果】，【关键指标】达到【数值】。\n2. 【核心技术二名称】。对【具体对象】进行技术创新，采用【创新方法】，解决了【具体问题】，使【性能指标】提升至【数值】。\n3. 【核心技术三名称】。围绕【应用需求】，构建【技术方案】，突破了【关键技术难点】，实现了【技术目标】，【核心指标】达到【数值】。\n4. 【核心技术四名称】。基于【技术基础】，研发【创新技术】，解决了【核心问题】，实现了【技术效果】，达到【性能指标】【数值】。',
     ps_advantage: '1. 技术优势：拥有自主知识产权【核心技术】，在【指标】方面优于竞品。\n2. 成本优势：通过【工艺改进】，成本降低约【X%】。\n3. 服务优势：【定制化/快速响应】，客户满意度【X%】。',
     ps_support: '本产品受以下知识产权保护：\n1. 【专利名称】（【授权号】），保护【核心技术点】。\n2. IP与产品对应：【说明覆盖关系】。\n3. 形成【技术壁垒】，为【市场】销售提供法律保障。'
   };
@@ -1996,17 +2286,35 @@ function fillTemplateInnovation(btn, field) {
     if (ta.value.trim() && !confirm('当前已有内容，覆盖吗？')) return;
     var cn = (document.querySelector('[name="company_name"]')||{}).value||'【企业名称】';
     var bs = (document.querySelector('[name="business_scope"]')||{}).value||'【经营范围】';
-    ta.value = cn + '是一家集研发、生产、销售于一体的现代化企业，专注于【核心产品】的研发与制造。公司坐落于【地区】，致力于为【行业】提供高质量解决方案。\n\n公司坚持"技术引领、质量为本"理念，持续加大研发投入，建立了研发中心。研发团队长期致力于【技术方向】攻关，取得了多项自主知识产权，实现了多项成果产业化。\n\n经营范围：' + bs;
+    ta.value = cn + '是一家从事【主营业务】的企业，围绕【核心产品或服务】开展研发、生产或技术服务。公司所在地及主要应用行业为【根据企业登记和业务资料填写】。\n\n公司研发组织、研发投入、知识产权和成果转化情况应根据实际制度、财务数据、证书及应用材料填写，不以项目计划日期代替实际完成、授权或转化记录。\n\n经营范围：' + bs;
     updateCompanyIntroCount();
     return;
   }
   var textarea = document.querySelector('[name="' + field + '"]');
   if (!textarea) return;
   if (textarea.value.trim() && !confirm('当前已有内容，覆盖吗？')) return;
+  var relation = relationTableSummary || {};
+  var relationNames = function(key, fallback) {
+    var values = Array.isArray(relation[key]) ? relation[key].filter(Boolean) : [];
+    return values.length ? values.slice(0, 4).join('、') : fallback;
+  };
+  var rdCount = relation.rd_count || 0;
+  var ipCount = relation.ip_count || 0;
+  var psCount = relation.ps_count || 0;
+  var resultCount = relation.result_count || 0;
+  var rdNames = relationNames('rd_names', '【研发活动名称】');
+  var ipNames = relationNames('ip_names', '【知识产权名称】');
+  var psNames = relationNames('ps_names', '【高新技术产品（服务）名称】');
+  var resultNames = relationNames('result_names', '【科技成果名称】');
+  var relationChain = relation.links && relation.links.length
+    ? relation.links.slice(0, 3).map(function(row) {
+        return [row.rd_code || row.rd_activity, row.ip_code || row.ip_name, row.ps_code || row.ps_name, row.result_name].filter(Boolean).join(' - ');
+      }).filter(Boolean).join('；')
+    : '【RD-IP-PS-成果关联关系】';
   var t = {
-    innovation_ip: '公司拥有自主知识产权【X】项（发明【X】项、实用新型【X】项），覆盖【核心技术领域】，形成完善保护体系。\n\n专利有效保护了创新成果，防止模仿，强化技术壁垒。丰富的专利组合提升了品牌价值，在招投标中占据有利地位。知识产权带来显著经济效益，通过产品销售实现技术商业化。',
-    innovation_transform: '近三年公司共开展【RD数量】项研发活动，累计实现成果转化【CV数量】项。\n\n2022年转化【X】项，2023年【X】项，2024年【X】项，年均【X】项以上。转化形式包括新产品/新工艺，均应用于PS01【产品名】。通过持续推动研发产业化，提升了产品性能和市场竞争力。',
-    innovation_rd_mgmt: '公司成立研发中心，设立独立项目组，确保高效运作。制定并完善了《科研项目管理制度》《研发投入核算制度》《研发费用辅助账制度》《研发中心管理制度》《科技成果转化激励制度》《研发人员绩效考核制度》《人才培养进修制度》《人才引进制度》等系列文件。\n\n公司与【高校/院所】建立产学研合作，推动创新成果快速转化。',
+    innovation_ip: '公司围绕' + rdNames + '等研发活动，关联' + ipCount + '项知识产权，包括' + ipNames + '。上述知识产权与' + psNames + '等高新技术产品（服务）建立对应关系，用于说明研发方向、技术保护和成果应用之间的支撑链路。\n\n知识产权是否已经形成、取得授权或投入应用，应以各项目周期、证书和实际应用材料为准；未到期项目只记录计划或阶段关系。',
+    innovation_transform: '根据 RD-IP-PS-成果关联详情表，公司围绕' + rdCount + '项研发活动，登记' + resultCount + '项科技成果或预期成果，包括' + resultNames + '；相关成果与' + ipNames + '等知识产权及' + psCount + '项高新技术产品（服务）建立对应关系，包括' + psNames + '。\n\n典型对应关系为：' + relationChain + '。具体成果形成、转化和应用状态按各研发项目周期及证明材料分别认定，不将未来或在研项目写成已完成转化。',
+    innovation_rd_mgmt: '公司围绕' + rdNames + '等研发活动开展项目化管理，将研发任务、知识产权、科技成果和高新技术产品（服务）进行关联归集。针对' + relationChain + '等对应关系，记录从立项、实施、阶段成果到后续应用的管理链条。\n\n公司按项目周期跟踪研发、费用、知识产权和成果转化状态；已结束项目按实际归档材料评价，在研或计划项目仅记录阶段进展和后续安排。',
     innovation_staff: '公司职工总数【X】人，研发科技人员【X】人，占比【X%】。\n\n学历结构：博士【X】人、硕士【X】人、本科【X】人。职称：高级【X】人、中级【X】人。\n\n公司注重人才培养，建立完善引才、培养、激励机制。通过定期培训、绩效考核、晋升通道，提升团队素养。研发团队紧密结合市场，持续推动产品创新。'
   };
   textarea.value = t[field] || '';
@@ -2023,6 +2331,7 @@ async function doExportWord() {
   try {
     // Step 1: 保存表单
     var form = document.getElementById('gaoxin-book');
+    syncRDRelatedPS();
     var r1 = await fetch(form.action, {method: 'POST', body: new FormData(form)});
     if (!r1.ok) throw new Error('保存失败');
     
@@ -2045,38 +2354,32 @@ async function doExportWord() {
 }
 
 
-// ===== 成果转化模板 + AI =====
-function fillTemplateCV(btn) {
-  var cvItem = btn.closest('.cv-item');
-  if (!cvItem) return;
-  var ta = cvItem.querySelector('[name$="_desc"]');
-  if (!ta) return;
-  if (ta.value.trim() && !confirm('当前已有内容，覆盖吗？')) return;
-  
-  var rdSel = cvItem.querySelector('[name$="_rd"]');
-  var ipSel = cvItem.querySelector('[name$="_ip"]');
-  var psSel = cvItem.querySelector('[name$="_ps"]');
-  var rdName = rdSel ? (rdSel.value || '【RD项目】') : '【RD项目】';
-  var ipName = ipSel ? (ipSel.value || '【知识产权】') : '【知识产权】';
-  var psName = psSel ? (psSel.value || '【PS产品】') : '【PS产品】';
-  var resultEl = cvItem.querySelector('[name$="_result_name"]');
-  var resultName = resultEl ? (resultEl.value || '【技术成果名称】') : '【技术成果名称】';
-  
-  ta.value = normalizeAiTextSpacing('科技成果名称：' + resultName + '；\n成果转化方式：自行投资，实施转化；\n转化产品（服务）：' + psName + '；\n关键技术以及转化成效：【描述核心技术原理和实现方式，包括关键技术指标提升，如通过【工艺/材料】，使【指标】达到【数值】，较传统方案提升【百分比】；说明适用场景和领域】\n成果转化成功证明材料：专利证书、销售合同、销售发票、产品照片、检测报告、用户报告');
-}
-
 function aiWriteSection7(btn, field) {
   var textarea = document.querySelector('[name="' + field + '"]');
   if (!textarea) return;
+  var relation = relationTableSummary || {};
+  var relationSummaryText = (relation.links || []).slice(0, 20).map(function(row) {
+    var parts = [
+      row.rd_code && (row.rd_code + (row.rd_activity ? ' ' + row.rd_activity : '')),
+      row.rd_period && ('周期：' + row.rd_period),
+      row.ip_code && (row.ip_code + (row.ip_name ? ' ' + row.ip_name : '')),
+      row.ip_auth_no && ('授权号：' + row.ip_auth_no),
+      row.result_no && (row.result_no + (row.result_name ? ' ' + row.result_name : '')),
+      row.ps_code && (row.ps_code + (row.ps_name ? ' ' + row.ps_name : '')),
+      row.sales_contract_keywords && ('合同关键词：' + row.sales_contract_keywords)
+    ].filter(Boolean);
+    return parts.join('；');
+  }).join('\n');
   var context = {
     company_name: (document.querySelector('[name="company_name"]') || {}).value || '',
-    tech_field: (document.querySelector('[name="tech_field"]') || {}).value || '',
+    tech_field: relation.tech_field_path || (document.querySelector('[name="tech_field"]') || {}).value || '',
     staff_total: (document.querySelector('[name="staff_total"]') || {}).value || '',
     tech_staff: (document.querySelector('[name="tech_staff"]') || {}).value || '',
     ip_class1_count: (document.querySelector('[name="ip_class1_count"]') || {}).value || '',
     ip_class2_count: (document.querySelector('[name="ip_class2_count"]') || {}).value || '',
-    rd_count: document.querySelectorAll('#rd-container .rd-item').length,
-    ps_count: document.querySelectorAll('#ps-container .ps-item').length
+    rd_count: relation.rd_count || document.querySelectorAll('#rd-container .rd-item').length,
+    ps_count: relation.ps_count || document.querySelectorAll('#ps-container .ps-item').length,
+    relation_summary: relationSummaryText || '未填写 RD-IP-PS-成果关联详情表'
   };
   var origText = btn.textContent;
   btn.textContent = '⏳ 生成中...';
@@ -2085,7 +2388,7 @@ function aiWriteSection7(btn, field) {
   fetch('/parser/ai_write', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({field: field, context: context, target_words: targetWordsForButton(btn)})
+    body: JSON.stringify({field: field, context: context, template: textarea.value || '', target_words: targetWordsForButton(btn)})
   })
   .then(function(r) { return r.json(); })
   .then(function(result) {
@@ -2106,47 +2409,9 @@ function aiWriteSection7(btn, field) {
   });
 }
 
-
-function aiWriteCV(btn) {
-  var cvItem = btn.closest('.cv-item');
-  if (!cvItem) return;
-  var ta = cvItem.querySelector('[name$="_desc"]');
-  if (!ta) return;
-  
-  var rdSel = cvItem.querySelector('[name$="_rd"]');
-  var ipSel = cvItem.querySelector('[name$="_ip"]');
-  var psSel = cvItem.querySelector('[name$="_ps"]');
-  var resultEl = cvItem.querySelector('[name$="_result_name"]');
-  
-  var context = {
-    cv_rd: rdSel ? rdSel.value : '',
-    cv_ip: ipSel ? ipSel.value : '',
-    cv_ps: psSel ? psSel.value : '',
-    cv_result_name: resultEl ? resultEl.value : '',
-    company_name: (document.querySelector('[name="company_name"]')||{}).value||'',
-    type: 'cv'
-  };
-  
-  var origText = btn.textContent;
-  btn.textContent = '⏳ 生成中...';
-  btn.disabled = true;
-  
-  fetch('/parser/ai_write', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({field: 'cv_desc', context: context, target_words: targetWordsForButton(btn)})
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(result) {
-    if (result.success) ta.value = normalizeAiTextSpacing(result.text);
-    else alert('AI撰写失败: ' + (result.error || '未知错误'));
-  })
-  .catch(function(err) { alert('网络错误'); })
-  .finally(function() { btn.textContent = origText; btn.disabled = false; });
-}
-
 function saveForm() {
   var form = document.getElementById('gaoxin-book');
+  syncRDRelatedPS();
   var fd = new FormData(form);
   
   // 调试：检查 RD 和 PS 字段

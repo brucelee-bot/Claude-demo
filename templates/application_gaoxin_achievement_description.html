@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block title %}成果转化描述 — {{ company.name }}{% endblock %}
+{% block head_extra %}
+<style>
+.cv-doc-shell { max-width: 1100px; margin: 0 auto; padding-bottom: 40px; }
+.cv-doc-hero { background: linear-gradient(135deg, #0f766e 0%, #7c3aed 100%); color: #fff; border-radius: 22px; padding: 26px 30px; margin-bottom: 18px; box-shadow: 0 20px 50px rgba(37,99,235,.2); }
+.cv-doc-hero h1 { margin: 0 0 10px; font-size: 28px; }
+.cv-doc-hero p { margin: 0; opacity: .92; line-height: 1.7; }
+.cv-doc-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, .85fr); gap: 16px; align-items: start; }
+.cv-doc-card { background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(15,23,42,.05); }
+.cv-doc-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.cv-doc-meta div { background: var(--bg-secondary); border-radius: 12px; padding: 12px; }
+.cv-doc-meta b { display: block; margin-bottom: 4px; color: var(--text-muted); font-size: 12px; }
+.cv-doc-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 14px 0; }
+.cv-doc-editor { width: 100%; min-height: 420px; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1.7; }
+.cv-print-preview { width: 100%; height: 560px; border: 1px solid var(--border); border-radius: 12px; background: #f8fafc; }
+.status-text { color: var(--text-muted); font-size: 13px; }
+@media (max-width: 1100px) { .cv-doc-layout { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .cv-doc-meta { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .cv-doc-meta { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="cv-doc-shell">
+  <section class="cv-doc-hero">
+    <h1>{{ achievement.result_no or '成果' }} 转化结果描述</h1>
+    <p>{{ company.name }}：基于成果、RD、PS、起止时间和 IP 信息撰写成果转化描述，保存后同步回成果转化汇总表最后一列。</p>
+  </section>
+
+  <div class="cv-doc-card">
+    <div class="cv-doc-meta">
+      <div><b>成果序号</b>{{ achievement.result_no or '—' }}</div>
+      <div><b>成果名称</b>{{ achievement.result_name or '—' }}</div>
+      <div><b>对应RD编号</b>{{ achievement.rd_code or '—' }}</div>
+      <div><b>起止时间</b>{{ achievement.period or '—' }}</div>
+    </div>
+    <p class="status-text" style="margin-top:12px">对应RD名称：{{ achievement.rd_name or '—' }}；对应PS：{{ achievement.ps or '—' }}；对应IP：{{ achievement.ip or '—' }}{% if achievement.ip_auth_no %}（{{ achievement.ip_auth_no }}）{% endif %}</p>
+  </div>
+
+  <div class="cv-doc-layout">
+    <form method="POST" class="cv-doc-card" id="achievement-description-form">
+      <div class="cv-doc-actions">
+        <button type="button" class="btn btn-primary" onclick="writeAchievementDescription(this)">AI撰写转化结果描述</button>
+        <button type="button" class="btn btn-secondary" onclick="fillTemplateDescription()">套用模板</button>
+        <button type="submit" class="btn btn-success">保存</button>
+        <a class="btn btn-secondary" href="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}#attachment-achievement_transform">返回成果转化文件</a>
+        <span class="status-text" id="achievement-description-status"></span>
+      </div>
+      <textarea class="cv-doc-editor" name="{{ field_name }}" placeholder="点击“AI撰写转化结果描述”生成内容，或直接在此编辑。">{{ achievement.desc }}</textarea>
+    </form>
+
+    <section class="cv-doc-card">
+      <div class="cv-doc-actions">
+        <b>打印预览</b>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="refreshDescriptionPreview()">刷新预览</button>
+        <a class="btn btn-secondary btn-sm" target="_blank" href="{{ url_for('docgen.gaoxin_achievement_description_pdf', company_id=company.id, achievement_index=achievement_index) }}">新窗口打开</a>
+      </div>
+      <p class="status-text">预览使用已保存内容；编辑后请先保存再刷新。</p>
+      <iframe class="cv-print-preview" id="achievement-description-preview" src="{{ url_for('docgen.gaoxin_achievement_description_pdf', company_id=company.id, achievement_index=achievement_index) }}"></iframe>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const achievementContext = {{ achievement | tojson | safe }};
+const achievementDescriptionPdfUrl = '{{ url_for("docgen.gaoxin_achievement_description_pdf", company_id=company.id, achievement_index=achievement_index) }}';
+
+function normalizeAiTextSpacing(text) {
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/^\s{0,3}#{1,6}\s*/gm, '')
+    .replace(/^\s*\|/gm, '')
+    .replace(/\|\s*$/gm, '')
+    .replace(/^\s*:?-{3,}:?(\s*\|\s*:?-{3,}:?)*\s*$/gm, '')
+    .replace(/\|/g, '，')
+    .trim();
+}
+
+function refreshDescriptionPreview() {
+  const preview = document.getElementById('achievement-description-preview');
+  if (preview) preview.src = achievementDescriptionPdfUrl + '?t=' + Date.now();
+}
+
+function fillTemplateDescription() {
+  const ta = document.querySelector('[name="{{ field_name }}"]');
+  if (!ta) return;
+  if (ta.value.trim() && !confirm('当前已有内容，是否覆盖？')) return;
+  const typeLabel = achievementContext.type_label || '产品';
+  const statusValue = achievementContext.status || '待补充';
+  const statusDisplay = statusValue === '已完成' ? '已到计划结束时间' : statusValue;
+  const rdLabel = [achievementContext.rd_code, achievementContext.rd_name].filter(Boolean).join(' - ') || '待补充';
+  let ipLabel = achievementContext.ip || '待补充';
+  if (achievementContext.ip_auth_no) ipLabel += '（授权号/登记号：' + achievementContext.ip_auth_no + '）';
+  const psLabel = achievementContext.ps || '待补充';
+  const technology = achievementContext.technology
+    ? '该成果与上述RD、IP及' + typeLabel + '建立资料对应关系，现有资料登记的技术内容包括：' + achievementContext.technology + '。'
+    : '该成果与上述RD、IP及' + typeLabel + '建立资料对应关系，具体技术内容待依据研发任务书、过程记录、测试资料和成果文件补充核实。';
+  let statusNote = '项目周期信息不完整，当前仅保留资料对应关系，实际成果形成、转化和应用状态待补充日期及证明材料后核实。';
+  if (statusValue === '计划中') {
+    statusNote = '项目尚未到计划开始时间，当前仅记录成果规划和资料对应关系，不得据此认定成果已经形成、转化或投入应用。';
+  } else if (statusValue === '研发中') {
+    statusNote = '项目处于研发周期内，当前仅记录研发进展、阶段材料和后续转化安排，不得据此认定已经完成成果转化。';
+  } else if (statusValue === '已完成') {
+    statusNote = '项目已到计划结束时间，但计划日期不等于实际完成日期，不得仅依据计划周期对成果形成、验收结论、转化实施或实际应用作出完成式认定。';
+  }
+  ta.value = normalizeAiTextSpacing([
+    '科技成果名称：' + (achievementContext.result_name || '待补充'),
+    '项目时间状态：' + statusDisplay,
+    '关联研发项目：' + rdLabel,
+    '计划周期：' + (achievementContext.period || '待补充'),
+    '关联知识产权：' + ipLabel,
+    '关联' + typeLabel + '：' + psLabel,
+    '技术关联说明：' + technology,
+    '时间及状态说明：' + statusNote,
+    '核验说明：实际成果形成、转化实施、应用效果和经济效益，应根据研发记录、验收记录、合同、发票、检测报告、用户使用报告及归档材料逐项核实。',
+    '成果转化核验材料：研发过程及成果文件、知识产权证明、验收或测试记录、销售合同及发票、应用或用户反馈材料，以及能够证明实际转化日期和效果的其他资料。'
+  ].join('\n'));
+  const status = document.getElementById('achievement-description-status');
+  if (status) status.textContent = '已套用模板，请保存后刷新预览。';
+}
+
+function writeAchievementDescription(btn) {
+  const ta = document.querySelector('[name="{{ field_name }}"]');
+  const status = document.getElementById('achievement-description-status');
+  if (!ta) return;
+  if (ta.value.trim() && !confirm('当前已有转化结果描述内容，是否覆盖？')) return;
+  const originalText = btn.textContent;
+  btn.textContent = '撰写中...';
+  btn.disabled = true;
+  if (status) status.textContent = '';
+  fetch('/parser/ai_write', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      field: 'cv_desc',
+      context: {
+        company_name: '{{ company.name }}',
+        cv_rd: (achievementContext.rd_code || '') + ' ' + (achievementContext.rd_name || ''),
+        cv_ip: achievementContext.ip_auth_no ? (achievementContext.ip || '') + '（' + achievementContext.ip_auth_no + '）' : (achievementContext.ip || ''),
+        cv_ps: achievementContext.ps || '',
+        ps_name: achievementContext.ps_name || achievementContext.ps || '',
+        ps_kind: achievementContext.ps_kind || '',
+        cv_result_name: achievementContext.result_name || '',
+        cv_period: achievementContext.period || '',
+        cv_technology: achievementContext.technology || ''
+      },
+      template: ta.value || '',
+      target_words: 220
+    })
+  }).then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (!result.success) throw new Error(result.error || 'AI撰写失败');
+      ta.value = normalizeAiTextSpacing(result.text);
+      if (status) status.textContent = '已生成，请保存后刷新预览。';
+    })
+    .catch(function(error) {
+      if (status) status.textContent = error.message || '撰写失败';
+      alert(error.message || '撰写失败');
+    })
+    .finally(function() { btn.textContent = originalText; btn.disabled = false; });
+}
+</script>
+{% endblock %}

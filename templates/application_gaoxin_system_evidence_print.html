@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>{{ file_title }} - {{ doc_type.title }}</title>
+  <style>
+    @page { size: A4; margin: 28mm 12mm 18mm; }
+    body { margin: 0; font-family: "Songti SC", SimSun, serif; color: #111827; font-size: 12px; line-height: 1.45; }
+    {% include "_generated_document_header_styles.html" %}
+    h1 { text-align: center; font-size: 20px; margin: 0 0 5px; }
+    .related { text-align: center; color: #4b5563; margin-bottom: 12px; }
+    .related, .purpose { font-size: 12px; }
+    .purpose { margin: 0 0 10px; color: #374151; }
+    h2 { font-size: 13px; margin: 12px 0 5px; break-after: avoid; page-break-after: avoid; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0 0 10px; }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    th, td { border: 1px solid #9ca3af; padding: 5px 6px; vertical-align: middle; overflow-wrap: anywhere; word-break: break-word; font-size: 12px; }
+    th { background: #f3f4f6; font-weight: 700; text-align: center; }
+    .key-value td:nth-child(odd) { width: 16%; background: #f9fafb; font-weight: 700; text-align: center; }
+    .key-value td:nth-child(even) { width: 34%; }
+    .data-table td { min-height: 24px; }
+  </style>
+</head>
+<body>
+  <h1>{{ sequence_label }} {{ file_title }}</h1>
+  <div class="related">对应制度：{{ doc_type.title }}</div>
+  <p class="purpose">用途：{{ evidence_context.purpose }}</p>
+
+  {% for table in evidence_context.tables %}
+  <h2>{{ table.title }}</h2>
+  {% if table.kind == 'key-value' %}
+  <table class="key-value">
+    <tbody>
+      {% for row in table.rows %}
+      <tr>{% for cell in row %}<td>{{ cell or '' }}</td>{% endfor %}</tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <table class="data-table">
+    <thead><tr>{% for header in table.headers %}<th>{{ header }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for row in table.rows %}
+      <tr>{% for cell in row %}<td>{{ cell or '' }}</td>{% endfor %}</tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% endfor %}
+</body>
+</html>

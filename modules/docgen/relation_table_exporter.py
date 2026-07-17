@@ -21,9 +21,28 @@ COLUMNS = [
     "ps_display",
     "result_no",
     "result_name",
-    "technology",
+    "sales_contract_code",
+    "sales_contract_summary",
+    "sales_contract_keywords",
     "tech_field_path",
 ]
+
+COLUMN_TITLES = {
+    "rd_code": "RD序号",
+    "year": "年份",
+    "rd_activity": "研发活动",
+    "rd_period": "研发周期",
+    "ip_code": "相关知识产权",
+    "ip_name": "知识产权名称",
+    "ip_auth_no": "授权号",
+    "ps_display": "对应PS",
+    "result_no": "成果序号",
+    "result_name": "成果名称",
+    "sales_contract_code": "销售合同",
+    "sales_contract_summary": "销售合同摘要",
+    "sales_contract_keywords": "销售合同关键词",
+    "tech_field_path": "高新技术领域",
+}
 
 
 def _copy_row_style(ws, source_row, target_row):
@@ -80,7 +99,8 @@ def _merge_year_cells(ws, start_row, rows):
 def export_relation_table(rows, tech_field_path=""):
     wb = load_workbook(TEMPLATE_PATH)
     ws = wb.active
-    ws.cell(1, len(COLUMNS)).value = "高新技术领域"
+    for col, key in enumerate(COLUMNS, start=1):
+        ws.cell(1, col).value = COLUMN_TITLES.get(key, key)
     _clear_template_rows(ws)
 
     if rows:
@@ -119,8 +139,12 @@ HEADER_MAP = {
     "PS": "ps_display",
     "成果序号": "result_no",
     "成果名称": "result_name",
-    "技术": "technology",
-    "成果技术内容": "technology",
+    "销售合同": "sales_contract_code",
+    "销售合同编号": "sales_contract_code",
+    "销售合同文件": "sales_contract_code",
+    "销售合同摘要": "sales_contract_summary",
+    "销售合同关键词": "sales_contract_keywords",
+    "合同关键词": "sales_contract_keywords",
     "高新技术领域": "tech_field_path",
     "国家重点支持的高新技术领域": "tech_field_path",
 }

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>{{ achievement.result_no or '成果' }} {{ evidence_type.title }}</title>
+  <style>
+    @page { size: A4; margin: 28mm 16mm 18mm; }
+    body { margin: 0; font-family: "Songti SC", SimSun, serif; color: #111827; font-size: 14px; line-height: 1.8; }
+    {% include "_generated_document_header_styles.html" %}
+    h1 { text-align: center; font-size: 22px; margin: 0 0 18px; }
+    h2 { font-size: 17px; margin: 18px 0 10px; padding: 6px 10px; background: #f3f4f6; border-left: 4px solid #2563eb; }
+    p { margin: 7px 0; }
+    .meta { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-family: "Microsoft YaHei", sans-serif; font-size: 12px; }
+    .meta th, .meta td { border: 1.2px solid #9ca3af; padding: 8px 10px; text-align: left; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }
+    table { break-inside: auto; page-break-inside: auto; }
+    thead { display: table-header-group; }
+    tbody { display: table-row-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    .meta th { background: #f3f4f6; font-weight: 700; width: 90px; }
+    .content { white-space: pre-wrap; }
+    .evaluation { width: 100%; border-collapse: collapse; margin-top: 12px; font-family: "Microsoft YaHei", sans-serif; font-size: 13px; }
+    .evaluation th, .evaluation td { border: 1.2px solid #9ca3af; padding: 9px 10px; text-align: left; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }
+    .evaluation th { width: 108px; background: #f3f4f6; font-weight: 700; }
+    .evaluation .section-title { width: auto; background: #e5e7eb; text-align: center; font-size: 14px; }
+    .evaluation .blank { min-height: 22px; }
+    .signature { height: 70px; vertical-align: bottom !important; }
+    .empty { color: #6b7280; text-align: center; padding: 40px 0; border: 1px dashed #d1d5db; }
+  </style>
+</head>
+<body>
+  <h1>{{ evidence_type.title }}</h1>
+  <table class="meta">
+    <tbody>
+      <tr><th>企业名称</th><td>{{ company.name }}</td><th>成果序号</th><td>{{ achievement.result_no or '—' }}</td></tr>
+      <tr><th>成果名称</th><td>{{ achievement.result_name or '—' }}</td><th>起止时间</th><td>{{ achievement.period or '—' }}</td></tr>
+      <tr><th>对应RD</th><td colspan="3">{{ achievement.rd_code or '—' }} {{ achievement.rd_name or '' }}</td></tr>
+      <tr><th>对应PS</th><td colspan="3">{{ achievement.ps or '—' }}</td></tr>
+      <tr><th>对应IP</th><td colspan="3">{{ achievement.ip or '—' }}{% if achievement.ip_auth_no %}（{{ achievement.ip_auth_no }}）{% endif %}</td></tr>
+    </tbody>
+  </table>
+
+  {% if evidence_type.key == 'test_report' %}
+  <table class="evaluation">
+    <thead><tr><th class="section-title" colspan="4">本公司内部检测信息</th></tr></thead>
+    <tbody>
+      <tr><th>检测单位</th><td>{{ test_report_fields.company_name }}</td><th>检测对象</th><td>{{ test_report_fields.product_name }}</td></tr>
+      <tr><th>被检测技术</th><td colspan="3">{{ test_report_fields.technology_name }}</td></tr>
+      <tr><th>检测目的</th><td colspan="3">{{ test_report_fields.test_purpose }}</td></tr>
+      <tr><th>检测依据</th><td colspan="3">{{ test_report_fields.test_basis }}</td></tr>
+      <tr><th>检测方法</th><td colspan="3">{{ test_report_fields.test_method }}</td></tr>
+    </tbody>
+  </table>
+  <table class="evaluation">
+    <thead>
+      <tr><th class="section-title" colspan="4">内部检测项目及结果</th></tr>
+      <tr><th>检测项目</th><th colspan="3">检测结果</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>{{ test_report_fields.item_1 }}</td><td colspan="3">{{ test_report_fields.result_1 }}</td></tr>
+      <tr><td>{{ test_report_fields.item_2 }}</td><td colspan="3">{{ test_report_fields.result_2 }}</td></tr>
+      <tr><td>{{ test_report_fields.item_3 }}</td><td colspan="3">{{ test_report_fields.result_3 }}</td></tr>
+      <tr><th>检测结论</th><td colspan="3">{{ test_report_fields.test_conclusion }}</td></tr>
+      <tr><th>检测单位（盖章）</th><td class="signature" colspan="2">{{ test_report_fields.company_seal }}</td><th>日期<br>{{ test_report_fields.report_date }}</th></tr>
+    </tbody>
+  </table>
+  {% elif evidence_type.key == 'user_report' %}
+  <table class="evaluation">
+    <thead><tr><th class="section-title" colspan="4">{{ achievement.type_label }}使用情况</th></tr></thead>
+    <tbody>
+      <tr><th>使用单位</th><td>{{ user_report_fields.customer_name }}</td><th>被评价单位</th><td>{{ user_report_fields.company_name }}</td></tr>
+      <tr><th>{{ achievement.type_label }}名称</th><td colspan="3">{{ user_report_fields.product_name }}</td></tr>
+      <tr><th>使用时间</th><td>{{ user_report_fields.use_period }}</td><th>应用场景</th><td>{{ user_report_fields.use_scene }}</td></tr>
+    </tbody>
+  </table>
+  <table class="evaluation">
+    <thead><tr><th class="section-title" colspan="4">客户对{{ achievement.type_label }}的评价</th></tr></thead>
+    <tbody>
+      <tr><th>功能适用性</th><td colspan="3">{{ user_report_fields.function_fit }}</td></tr>
+      <tr><th>运行稳定性</th><td colspan="3">{{ user_report_fields.stability }}</td></tr>
+      <tr><th>操作便利性</th><td colspan="3">{{ user_report_fields.usability }}</td></tr>
+      <tr><th>服务响应</th><td colspan="3">{{ user_report_fields.service_response }}</td></tr>
+      <tr><th>综合评价</th><td colspan="3">{{ user_report_fields.overall_evaluation }}</td></tr>
+      <tr><th>客户意见及建议</th><td colspan="3">{{ user_report_fields.suggestion }}</td></tr>
+      <tr><th>使用单位（盖章）</th><td class="signature" colspan="2">{{ user_report_fields.customer_seal }}</td><th>日期<br>{{ user_report_fields.report_date }}</th></tr>
+    </tbody>
+  </table>
+  {% elif content_text %}
+  <div class="content">{{ content_text }}</div>
+  {% else %}
+  <div class="empty">暂未撰写{{ evidence_type.title }}，请返回附件制作页生成或填写内容后保存。</div>
+  {% endif %}
+</body>
+</html>

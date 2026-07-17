@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>{{ project.rd_code or 'RD' }} 科研项目书</title>
+  <style>
+    @page { size: A4; margin: 28mm 16mm 18mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Songti SC", SimSun, serif; color: #111827; font-size: 12px; line-height: 1.62; }
+    {% include "_generated_document_header_styles.html" %}
+    h1 { text-align: center; font-size: 30px; margin: 0; letter-spacing: 0; }
+    h2 { text-align: center; font-size: 18px; margin: 0 0 12px; }
+    table { width: 100%; border-collapse: collapse; margin: 0 0 10px; table-layout: fixed; font-family: "Microsoft YaHei", sans-serif; font-size: 11.5px; }
+    th, td { border: 1px solid #9ca3af; padding: 7px 8px; text-align: left; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }
+    th, .label { background: #f3f4f6; font-weight: 700; }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    .keep-together {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .doc-part { break-after: page; page-break-after: always; }
+    .doc-part:last-child { break-after: auto; page-break-after: auto; }
+    .cover { min-height: 245mm; padding-top: 31mm; position: relative; }
+    .cover-kicker { text-align: center; color: #4b5563; font-size: 15px; margin-bottom: 18px; }
+    .cover-project { text-align: center; font-size: 21px; font-weight: 700; line-height: 1.6; margin: 24px auto 34px; max-width: 150mm; }
+    .cover-table { width: 78%; margin: 0 auto; font-size: 13px; }
+    .cover-table th { width: 32mm; text-align: center; }
+    .cover-table td { min-height: 12mm; }
+    .cover-signature { position: absolute; left: 11%; right: 11%; bottom: 25mm; }
+    .cover-signature table { margin: 0; font-size: 13px; }
+    .title-row { text-align: center; background: #e5e7eb; font-size: 14px; }
+    .text-block th { background: #eef2f7; font-size: 13px; }
+    .section-text { white-space: pre-wrap; min-height: 34px; line-height: 1.75; }
+    .status { font-weight: 700; }
+    .muted { color: #4b5563; }
+    .center { text-align: center; }
+    .w-50 { width: 50px; }
+    .w-90 { width: 90px; }
+    .w-110 { width: 110px; }
+  </style>
+</head>
+<body>
+  {% set temporal = project.temporal %}
+  {% set staff = project.staff_assignment %}
+
+  {% macro text_block(title, content, extra_class='') -%}
+  <table class="text-block keep-together">
+    <tbody>
+      <tr><th>{{ title }}</th></tr>
+      <tr><td class="section-text {{ extra_class }}">{{ content }}</td></tr>
+    </tbody>
+  </table>
+  {%- endmacro %}
+
+  <section class="doc-part cover">
+    <div class="cover-kicker">{{ company.name }}研发项目</div>
+    <h1>科研项目书</h1>
+    <div class="cover-project">{{ project.rd_activity or '项目名称待补充' }}</div>
+    <table class="cover-table">
+      <tbody>
+        <tr><th>项目编号</th><td>{{ project.rd_code or '待补充' }}</td></tr>
+        <tr><th>项目负责人</th><td>{{ project.leader }}</td></tr>
+        <tr><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td></tr>
+        <tr><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
+      </tbody>
+    </table>
+    <div class="cover-signature">
+      <table>
+        <tbody>
+          <tr><th>编制单位</th><td>{{ company.name }}</td></tr>
+          <tr><th>立项日期</th><td>{{ temporal.approval_date }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="doc-part">
+    <h2>研发项目立项审批表</h2>
+    <table>
+      <tbody>
+        <tr><th class="w-90">企业名称</th><td>{{ company.name }}</td><th class="w-90">项目状态</th><td class="status">{{ temporal.status_display }}</td></tr>
+        <tr><th>项目编号</th><td>{{ project.rd_code or '待补充' }}</td><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
+        <tr><th>项目名称</th><td colspan="3">{{ project.rd_activity or '待补充' }}</td></tr>
+        <tr><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td><th>技术领域</th><td>{{ project.field or '待补充' }}</td></tr>
+      </tbody>
+    </table>
+
+    <table class="text-block">
+      <tbody>
+        <tr><th>立项说明</th></tr>
+        <tr>
+          <td class="section-text">
+            本表用于记录《{{ project.rd_activity or '该研发项目' }}》的立项审批信息。项目拟由相关研发部门按批准的项目周期组织实施，围绕项目目标开展技术方案设计、研发验证、过程评审和成果归档。各项研发活动、费用归集、人员投入和阶段成果应形成可追溯记录。
+            {% if temporal.status == '计划中' %}
+            本项目尚未到计划开始时间，本表作为项目计划文件，实际启动情况以项目过程记录为准。
+            {% elif temporal.status == '待补充' %}
+            本项目周期信息不完整，项目启动、阶段安排和验收时间待补充后确定。
+            {% else %}
+            请项目组自项目开始时间起落实研发任务，并在项目周期内完成阶段评审、测试优化和资料整理。
+            {% endif %}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <table>
+      <tbody>
+        <tr><th class="w-110">通知对象</th><td>相关研发部门及项目组</td></tr>
+        <tr><th>项目来源</th><td>{{ project.source or '自主研发' }}</td></tr>
+        <tr><th>项目负责人</th><td>{{ project.leader }}</td></tr>
+        <tr><th>发文日期</th><td>{{ temporal.issue_date }}</td></tr>
+        <tr><th>审批意见</th><td>同意按照本项目书确定的目标、内容、周期和预算组织实施。</td></tr>
+        <tr><th>审批日期</th><td>{{ temporal.approval_date }}</td></tr>
+        <tr><th>落款单位</th><td>{{ company.name }}</td></tr>
+        <tr><th>落款日期</th><td>{{ temporal.approval_date }}</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="doc-part">
+    <h2>一、项目基本情况与立项依据</h2>
+    <table>
+      <tbody>
+        <tr><th class="w-90">项目名称</th><td>{{ project.rd_activity or '待补充' }}</td><th class="w-90">项目编号</th><td>{{ project.rd_code or '待补充' }}</td></tr>
+        <tr><th>起止时间</th><td>{{ project.rd_period or '待补充' }}</td><th>当前状态</th><td>{{ temporal.status_display }}</td></tr>
+        <tr><th>技术来源</th><td>{{ project.source or '自主研发' }}</td><th>预算总额</th><td>{{ project.budget_display }}</td></tr>
+        <tr><th>项目负责人</th><td>{{ project.leader }}</td><th>承担部门</th><td>相关研发部门</td></tr>
+      </tbody>
+    </table>
+
+    {{ text_block('1. 立项背景与必要性', application_sections.background or project.purpose or ('围绕“' ~ (project.rd_activity or '该研发项目') ~ '”的实际应用需求开展研发，解决现有方案在功能、适配、稳定运行或实施效率方面的技术问题，提升企业自主研发和成果转化能力。')) }}
+    {{ text_block('2. 拟解决的技术问题', application_sections.technical_problems or (project.technologies|join('；')) or '重点解决需求分析、技术方案设计、关键功能实现、系统适配、稳定运行和测试验证中的技术问题。具体问题及边界以项目立项评审和研发记录为准。') }}
+    {{ text_block('3. 立项目的', project.purpose or '形成与项目应用场景相匹配的技术方案、研发过程资料和可验证成果，建立研发活动、知识产权及成果应用之间的对应关系。') }}
+  </section>
+
+  <section class="doc-part">
+    <h2>二、研发目标、内容与技术路线</h2>
+    {{ text_block('1. 研发目标与考核指标', application_sections.objectives or '围绕核心功能、技术性能、运行稳定性、场景适用性和成果归档完整性设置考核指标。已有量化指标按立项资料执行；未提供的具体数值和检测数据待补充，不作推断。') }}
+    <table>
+      <thead><tr><th class="w-50">序号</th><th>指标类别</th><th>目标要求</th><th>核验依据</th></tr></thead>
+      <tbody>
+        <tr><td class="center">1</td><td>核心功能</td><td>实现项目确定的关键功能和技术方案。</td><td>设计资料、功能测试记录</td></tr>
+        <tr><td class="center">2</td><td>性能与稳定性</td><td>满足项目应用场景的性能、稳定性和适配要求。</td><td>测试记录、问题整改记录</td></tr>
+        <tr><td class="center">3</td><td>成果输出</td><td>形成与研发内容对应的技术资料、成果或知识产权支撑。</td><td>成果资料、知识产权文件</td></tr>
+        <tr><td class="center">4</td><td>资料归档</td><td>立项、实施、测试、评审和验收资料完整可追溯。</td><td>项目档案目录</td></tr>
+      </tbody>
+    </table>
+
+    {{ text_block('2. 研发内容', application_sections.research_content or '开展需求调研和技术分析，完成总体方案及关键模块设计；围绕核心技术进行研发实现、样品试制或系统联调；开展功能、性能和适用性验证；根据测试问题进行整改优化，并整理形成项目成果资料。') }}
+    {{ text_block('3. 技术路线', application_sections.technical_route or '需求分析与技术调研 → 总体方案设计 → 关键技术与模块研发 → 联调及测试验证 → 问题整改与迭代优化 → 成果确认和资料归档。各阶段输出应与计划进度和过程记录对应。') }}
+    {{ text_block('4. 核心技术及创新点', application_sections.innovation or project.innovation or '围绕技术原理、实现方法、系统架构、场景适配和稳定运行方式开展创新，形成区别于常规方案的技术实现路径。具体创新内容以已有研发和知识产权材料为准。') }}
+  </section>
+
+  <section class="doc-part">
+    <h2>三、组织实施、经费预算与阶段计划</h2>
+    {{ text_block('1. 项目组织与任务分工', '项目负责人：' ~ project.leader ~ '。' ~ (application_sections.team or project.organization or '项目采用企业自主组织实施方式，研发人员按照技术研发、测试验证、资料管理和费用归集等职责开展协同，具体投入以立项、工时和过程记录为准。')) }}
+    <table>
+      <thead><tr><th class="w-110">角色</th><th>主要职责</th><th class="w-110">人员</th></tr></thead>
+      <tbody>
+        <tr><td>项目负责人</td><td>统筹目标、计划、资源、评审和验收。</td><td>{{ staff.leader }}</td></tr>
+        <tr><td>技术研发组</td><td>完成技术方案、研发实现、联调和技术文档。</td><td>{{ staff.technical }}</td></tr>
+        <tr><td>测试验证组</td><td>制定验证方案，记录测试结果并跟踪问题整改。</td><td>{{ staff.testing }}</td></tr>
+        <tr><td>资料与财务协同</td><td>归档过程资料，配合研发辅助账费用归集。</td><td>{{ staff.records }}</td></tr>
+      </tbody>
+    </table>
+
+    {{ text_block('2. 经费预算', application_sections.budget or ('项目预算总额为' ~ project.budget_display ~ '。具体人员人工、直接投入、折旧摊销、设计试验及其他研发费用应依据实际预算和研发辅助账据实填写，不进行无依据分摊。')) }}
+
+    <table>
+      <thead><tr><th colspan="5" class="title-row">3. 阶段计划与里程碑</th></tr><tr><th class="w-50">序号</th><th class="w-110">阶段</th><th class="w-110">时间安排</th><th>主要工作与里程碑</th><th style="width:65px">状态</th></tr></thead>
+      <tbody>
+        {% for stage in project.stages %}
+        <tr><td class="center">{{ stage.index }}</td><td>{{ stage.name }}</td><td>{{ stage.time_range }}</td><td>{{ stage.content }}</td><td>{{ stage.status }}</td></tr>
+        {% else %}
+        <tr><td class="center">1</td><td>项目周期</td><td>待补充</td><td>补充项目起止时间后，由系统按时间顺序生成非重叠阶段计划。</td><td>待补充</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="doc-part">
+    <h2>四、过程记录、风险控制与成果关联</h2>
+    {{ text_block('1. 过程记录与质量控制', application_sections.records or '项目实施期间应保存立项审批、任务分工、技术方案、设计评审、研发记录、测试记录、问题清单、整改记录、阶段评审、变更记录、工时及费用归集资料。重要变更应说明原因、影响和审批结果，确保研发过程连续、真实、可追溯。') }}
+    <table class="keep-together">
+      <thead><tr><th class="w-50">序号</th><th>记录事项</th><th>归档要求</th><th style="width:85px">当前情况</th></tr></thead>
+      <tbody>
+        <tr><td class="center">1</td><td>立项审批与任务分工</td><td>保存通知书、立项书、审批及人员分工记录。</td><td>按实际补充</td></tr>
+        <tr><td class="center">2</td><td>方案、评审与变更</td><td>保存技术方案、评审意见、变更原因及审批记录。</td><td>按实际补充</td></tr>
+        <tr><td class="center">3</td><td>研发、测试与整改</td><td>保存研发日志、测试结果、问题清单和闭环记录。</td><td>按实际补充</td></tr>
+        <tr><td class="center">4</td><td>成果和费用归档</td><td>保存成果资料、知识产权、工时及研发辅助账凭证。</td><td>按实际补充</td></tr>
+      </tbody>
+    </table>
+
+    {{ text_block('2. 预期成果与阶段成果', application_sections.outputs or project.result or ('项目最终成果以实际研发、测试和归档资料为准。当前项目状态为“' ~ temporal.status_display ~ '”，不得在缺少依据时推断已完成或已形成具体成果。')) }}
+    {% if application_sections.relations %}{{ text_block('3. RD-IP-PS 关联说明', application_sections.relations) }}{% endif %}
+    <table class="keep-together">
+      <thead><tr><th colspan="2" class="title-row">3. RD-IP-PS 关联明细</th></tr></thead>
+      <tbody>
+        <tr><th class="w-110">RD项目</th><td>{{ project.rd_code or '待补充' }} {{ project.rd_activity or '' }}</td></tr>
+        <tr><th>成果名称</th><td>{{ project.result_names|join('；') or '待补充' }}</td></tr>
+        <tr><th>关联知识产权</th><td>{{ project.ip_labels|join('；') or '待补充' }}</td></tr>
+        <tr><th>关联PS</th><td>{{ project.ps_labels|join('；') or '待补充' }}</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="doc-part">
+    <h2>五、{{ temporal.acceptance_title }}</h2>
+    <table>
+      <tbody>
+        <tr><th class="w-90">项目名称</th><td>{{ project.rd_activity or '待补充' }}</td><th class="w-90">项目编号</th><td>{{ project.rd_code or '待补充' }}</td></tr>
+        <tr><th>项目周期</th><td>{{ project.rd_period or '待补充' }}</td><th>项目状态</th><td class="status">{{ temporal.acceptance_status }}</td></tr>
+        <tr><th>项目负责人</th><td>{{ project.leader }}</td><th>{{ temporal.acceptance_date_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
+        <tr><th>预算金额</th><td>{{ project.budget_display }}</td><th>验收人员</th><td>{{ project.staff_names|join('、') or '待补充' }}</td></tr>
+      </tbody>
+    </table>
+
+    {% if application_sections.acceptance_comparison %}{{ text_block('1. 验收指标补充说明', application_sections.acceptance_comparison) }}{% endif %}
+    <table>
+      <thead><tr><th colspan="4" class="title-row">1. 验收指标对照</th></tr><tr><th class="w-50">序号</th><th>对照项目</th><th>计划要求</th><th>完成情况与证明材料</th></tr></thead>
+      <tbody>
+        <tr><td class="center">1</td><td>研发内容</td><td>完成立项书确定的研发任务。</td><td>{{ '已到计划结束时间，按实际研发记录核对。' if temporal.can_accept else '项目尚未到计划结束时间，按阶段进展记录。' }}</td></tr>
+        <tr><td class="center">2</td><td>技术指标</td><td>达到已批准的功能、性能和适用性指标。</td><td>具体量化结果和测试记录待据实补充。</td></tr>
+        <tr><td class="center">3</td><td>成果输出</td><td>形成项目成果及对应支撑资料。</td><td>{{ project.result_names|join('；') or ('按当前“' ~ temporal.status_display ~ '”状态记录阶段或预期成果。') }}</td></tr>
+        <tr><td class="center">4</td><td>资料归档</td><td>研发过程、费用和成果资料完整可追溯。</td><td>按项目档案及研发辅助账据实核对。</td></tr>
+      </tbody>
+    </table>
+
+    {{ text_block('2. 验收意见', application_sections.acceptance_opinion if temporal.acceptance_record_supported and application_sections.acceptance_opinion else temporal.acceptance_opinion) }}
+    {{ text_block('3. 验收结论', application_sections.acceptance_result if temporal.acceptance_record_supported and application_sections.acceptance_result else temporal.acceptance_result, 'status') }}
+
+    <table>
+      <tbody>
+        <tr><th class="w-90">验收人员</th><td style="height:45px">{{ project.staff_names|join('、') or '待补充' }}</td><th class="w-90">{{ temporal.acceptance_date_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
+        <tr><th>审批意见</th><td colspan="3" style="height:45px">{{ '项目已到计划结束时间，待根据实际验收记录填写。' if temporal.can_accept else '待项目完成并组织正式验收后填写。' }}</td></tr>
+        <tr><th>落款单位</th><td>{{ company.name }}</td><th>{{ temporal.acceptance_signature_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
+      </tbody>
+    </table>
+  </section>
+</body>
+</html>

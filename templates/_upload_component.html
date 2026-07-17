@@ -1,37 +1,179 @@
-<!-- 财报上传组件 v2 — 智能统一上传区，自动识别年份 -->
-<div class="card" style="border-color:var(--accent);border-style:dashed" id="upload-card">
-  <h3>📎 上传财报自动填充（可选）</h3>
-  <p class="text-muted" style="font-size:13px;margin-bottom:12px">
-    拖拽或点击上传利润表/资产负债表/审计报告，系统自动识别年份并提取数据。支持 Excel (.xlsx/.xls)、PDF、Word (.docx)
-  </p>
-
-  <!-- 统一上传区 -->
-  <div class="upload-zone unified-upload" id="unified-zone"
-       onclick="document.getElementById('unified-file').click()"
-       ondragover="event.preventDefault();this.classList.add('drag-over')"
-       ondragleave="event.preventDefault();this.classList.remove('drag-over')"
-       ondrop="event.preventDefault();this.classList.remove('drag-over');handleFiles(event.dataTransfer.files)">
-    <div class="icon">📁</div>
-    <p style="font-size:15px;font-weight:600">拖拽文件到此处，或点击选择</p>
-    <p class="hint">支持同时上传多年财报，自动按年份归类</p>
-  </div>
-  <input type="file" id="unified-file" accept=".xlsx,.xls,.pdf,.docx" multiple
-         style="display:none" onchange="handleFiles(this.files)" />
-
-  <!-- 文件列表 + 状态 -->
-  <div id="file-list" style="margin-top:16px;display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <h4 style="margin:0">📋 已上传文件 (<span id="file-count">0</span>)</h4>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="clearAllUploads()">全部清除</button>
+<!-- 高新评分必须上传材料：四类材料统一识别并贯穿后续申报流程 -->
+<div class="card required-materials-card" id="upload-card">
+  <div class="required-materials-heading">
+    <div>
+      <h3>必须上传的材料</h3>
+      <p class="text-muted">识别结果将用于 RD-IP-PS-成果关联详情表、申请书和附件。</p>
     </div>
-    <div id="file-items" style="max-height:200px;overflow-y:auto"></div>
+    <span class="required-materials-badge">4 类材料</span>
   </div>
 
-  <!-- 提取预览 -->
-  <div id="extracted-preview" style="margin-top:16px;display:none;padding:12px;background:var(--bg-primary);border-radius:6px">
-    <h4 style="color:var(--success);margin-bottom:8px">✅ 已识别 <span id="extracted-count">0</span> 个字段</h4>
-    <div id="extracted-fields" style="font-size:12px;color:var(--text-secondary);max-height:120px;overflow-y:auto;line-height:1.8"></div>
-  </div>
+  <section class="required-material-section">
+    <div class="required-material-index">1</div>
+    <div class="required-material-content">
+      <div class="required-material-title">
+        <strong>财务报表</strong>
+        <span>支持 Excel、PDF、Word，可同时上传多年材料</span>
+      </div>
+      <div class="upload-zone material-drop-zone" id="unified-zone"
+           role="button" tabindex="0"
+           onclick="document.getElementById('unified-file').click()"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('unified-file').click()}"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="event.preventDefault();this.classList.remove('drag-over')"
+           ondrop="event.preventDefault();this.classList.remove('drag-over');handleFiles(event.dataTransfer.files)">
+        <div class="icon">📁</div>
+        <p style="font-size:15px;font-weight:600">拖拽财务文件到此处，或点击选择</p>
+        <p class="hint">自动识别年份并回填企业成长性数据</p>
+      </div>
+      <input type="file" id="unified-file" accept=".xlsx,.xls,.pdf,.docx" multiple
+             style="display:none" onchange="handleFiles(this.files)" />
+
+      <div id="file-list" style="margin-top:14px;display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h4 style="margin:0">已上传文件 (<span id="file-count">0</span>)</h4>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="clearAllUploads()">全部清除</button>
+        </div>
+        <div id="file-items" style="max-height:200px;overflow-y:auto"></div>
+      </div>
+
+      <div id="extracted-preview" class="material-preview" style="display:none">
+        <h4 style="color:var(--success);margin-bottom:8px">已识别 <span id="extracted-count">0</span> 个字段</h4>
+        <div id="extracted-fields" style="font-size:12px;color:var(--text-secondary);max-height:120px;overflow-y:auto;line-height:1.8"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="required-material-section">
+    <div class="required-material-index">2</div>
+    <div class="required-material-content">
+      <div class="required-material-title">
+        <strong>专利证书</strong>
+        <span>支持多份 PDF，自动识别专利信息并生成知识产权评分建议</span>
+      </div>
+      <div class="upload-zone material-drop-zone" id="ip-upload-zone"
+           role="button" tabindex="0"
+           onclick="document.getElementById('ip-pdf-file').click()"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('ip-pdf-file').click()}"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="event.preventDefault();this.classList.remove('drag-over')"
+           ondrop="event.preventDefault();this.classList.remove('drag-over');uploadPatentPdf(event.dataTransfer.files)">
+        <div class="icon">📁</div>
+        <p class="material-drop-title">拖拽专利证书到此处，或点击选择</p>
+        <p class="hint">支持多份 PDF，上传后自动识别专利信息</p>
+      </div>
+      <input type="file" id="ip-pdf-file" accept=".pdf,application/pdf" multiple
+             style="display:none" onchange="uploadPatentPdf(this.files)" />
+      <span id="ip-upload-status" class="text-muted material-status"></span>
+      <div id="ip-recognition-preview" class="material-preview" style="display:none"></div>
+    </div>
+  </section>
+
+  <section class="required-material-section">
+    <div class="required-material-index">3</div>
+    <div class="required-material-content">
+      <div class="required-material-title">
+        <strong>人员清单</strong>
+        <span>下载模板填写后，拖拽或点击上传 Excel</span>
+        <a href="{{ url_for('parser.staff_list_template') }}"
+           class="btn btn-secondary btn-sm staff-template-download"
+           download>下载 Excel 模板</a>
+      </div>
+      <div class="upload-zone material-drop-zone" id="staff-upload-zone"
+           role="button" tabindex="0"
+           onclick="document.getElementById('staff-list-file').click()"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('staff-list-file').click()}"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="event.preventDefault();this.classList.remove('drag-over')"
+           ondrop="event.preventDefault();this.classList.remove('drag-over');uploadStaffList(event.dataTransfer.files)">
+        <div class="icon">📁</div>
+        <p class="material-drop-title">拖拽已填写的企业人员表到此处，或点击选择</p>
+        <p class="hint">支持 .xlsx、.xlsm，字段与附件企业人员表一致</p>
+      </div>
+      <input type="file" id="staff-list-file" accept=".xlsx,.xlsm"
+             style="display:none" onchange="uploadStaffList(this.files)" />
+      <span id="staff-upload-status" class="text-muted material-status"></span>
+      <div id="staff-recognition-preview" class="material-preview" style="display:none"></div>
+    </div>
+  </section>
+
+  <section class="required-material-section">
+    <div class="required-material-index">4</div>
+    <div class="required-material-content">
+      <div class="required-material-title">
+        <strong>销售合同</strong>
+        <span>按年度上传，每年最多 4 份 PDF</span>
+      </div>
+
+      <div class="sales-contract-year-grid">
+        <div class="sales-contract-year-group" data-contract-year="2023">
+          <div class="sales-contract-year-heading">
+            <strong>2023年销售合同</strong>
+            <span id="sales-contract-count-2023">0/4 份</span>
+          </div>
+          <div class="upload-zone material-drop-zone sales-contract-drop-zone" id="sales-contract-upload-zone-2023"
+               role="button" tabindex="0"
+               onclick="document.getElementById('sales-contract-files-2023').click()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('sales-contract-files-2023').click()}"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="event.preventDefault();this.classList.remove('drag-over')"
+               ondrop="event.preventDefault();this.classList.remove('drag-over');uploadSalesContracts('2023', event.dataTransfer.files)">
+            <div class="icon">📁</div>
+            <p class="material-drop-title">拖拽或点击上传</p>
+            <p class="hint">2023年合同，最多 4 份 PDF</p>
+          </div>
+          <input type="file" id="sales-contract-files-2023" accept=".pdf,application/pdf" multiple
+                 style="display:none" onchange="uploadSalesContracts('2023', this.files)" />
+          <span id="sales-contract-status-2023" class="text-muted material-status"></span>
+          <div id="sales-contract-preview-2023" class="material-preview sales-contract-preview" style="display:none"></div>
+        </div>
+
+        <div class="sales-contract-year-group" data-contract-year="2024">
+          <div class="sales-contract-year-heading">
+            <strong>2024年销售合同</strong>
+            <span id="sales-contract-count-2024">0/4 份</span>
+          </div>
+          <div class="upload-zone material-drop-zone sales-contract-drop-zone" id="sales-contract-upload-zone-2024"
+               role="button" tabindex="0"
+               onclick="document.getElementById('sales-contract-files-2024').click()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('sales-contract-files-2024').click()}"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="event.preventDefault();this.classList.remove('drag-over')"
+               ondrop="event.preventDefault();this.classList.remove('drag-over');uploadSalesContracts('2024', event.dataTransfer.files)">
+            <div class="icon">📁</div>
+            <p class="material-drop-title">拖拽或点击上传</p>
+            <p class="hint">2024年合同，最多 4 份 PDF</p>
+          </div>
+          <input type="file" id="sales-contract-files-2024" accept=".pdf,application/pdf" multiple
+                 style="display:none" onchange="uploadSalesContracts('2024', this.files)" />
+          <span id="sales-contract-status-2024" class="text-muted material-status"></span>
+          <div id="sales-contract-preview-2024" class="material-preview sales-contract-preview" style="display:none"></div>
+        </div>
+
+        <div class="sales-contract-year-group" data-contract-year="2025">
+          <div class="sales-contract-year-heading">
+            <strong>2025年销售合同</strong>
+            <span id="sales-contract-count-2025">0/4 份</span>
+          </div>
+          <div class="upload-zone material-drop-zone sales-contract-drop-zone" id="sales-contract-upload-zone-2025"
+               role="button" tabindex="0"
+               onclick="document.getElementById('sales-contract-files-2025').click()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('sales-contract-files-2025').click()}"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="event.preventDefault();this.classList.remove('drag-over')"
+               ondrop="event.preventDefault();this.classList.remove('drag-over');uploadSalesContracts('2025', event.dataTransfer.files)">
+            <div class="icon">📁</div>
+            <p class="material-drop-title">拖拽或点击上传</p>
+            <p class="hint">2025年合同，最多 4 份 PDF</p>
+          </div>
+          <input type="file" id="sales-contract-files-2025" accept=".pdf,application/pdf" multiple
+                 style="display:none" onchange="uploadSalesContracts('2025', this.files)" />
+          <span id="sales-contract-status-2025" class="text-muted material-status"></span>
+          <div id="sales-contract-preview-2025" class="material-preview sales-contract-preview" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 
 <script>
@@ -58,26 +200,38 @@ const nameAliases = {
   'fin_2023_revenue': ['fin_2023_revenue', 'year1_sales'],
   'fin_2024_revenue': ['fin_2024_revenue', 'year2_sales'],
   'fin_2025_revenue': ['fin_2025_revenue', 'year3_sales'],
+  'fin_2023_sales': ['fin_2023_sales'],
+  'fin_2024_sales': ['fin_2024_sales'],
+  'fin_2025_sales': ['fin_2025_sales'],
+  'fin_2023_main_revenue': ['fin_2023_main_revenue'],
+  'fin_2024_main_revenue': ['fin_2024_main_revenue'],
+  'fin_2025_main_revenue': ['fin_2025_main_revenue'],
   'fin_2023_profit': ['fin_2023_profit', 'year1_profit'],
   'fin_2024_profit': ['fin_2024_profit', 'year2_profit'],
   'fin_2025_profit': ['fin_2025_profit', 'year3_profit'],
+  'fin_2023_net_profit': ['fin_2023_net_profit', 'year1_profit'],
+  'fin_2024_net_profit': ['fin_2024_net_profit', 'year2_profit'],
+  'fin_2025_net_profit': ['fin_2025_net_profit', 'year3_profit'],
+  'fin_2023_operating_profit': ['fin_2023_operating_profit', 'year1_profit'],
+  'fin_2024_operating_profit': ['fin_2024_operating_profit', 'year2_profit'],
+  'fin_2025_operating_profit': ['fin_2025_operating_profit', 'year3_profit'],
   'fin_2023_net_assets': ['fin_2023_net_assets', 'year1_net_assets'],
   'fin_2024_net_assets': ['fin_2024_net_assets', 'year2_net_assets'],
   'fin_2025_net_assets': ['fin_2025_net_assets', 'year3_net_assets'],
-  'fin_2023_revenue': ['fin_2023_revenue', 'year1_sales'],
-  'fin_2024_revenue': ['fin_2024_revenue', 'year2_sales'],
-  'fin_2025_revenue': ['fin_2025_revenue', 'year3_sales'],
-  'fin_2023_sales': ['fin_2023_sales', 'year1_sales'],
-  'fin_2024_sales': ['fin_2024_sales', 'year2_sales'],
-  'fin_2025_sales': ['fin_2025_sales', 'year3_sales'],
   'fin_2023_employees': ['fin_2023_employees', 'staff_total'],
-  'fin_2023_rd_expense': ['fin_2023_rd_expense', 'rd_total_3y'],
+  'fin_2024_employees': ['fin_2024_employees', 'staff_total'],
+  'fin_2025_employees': ['fin_2025_employees', 'staff_total'],
   'fin_2023_rd_staff': ['fin_2023_rd_staff', 'tech_staff'],
+  'fin_2024_rd_staff': ['fin_2024_rd_staff', 'tech_staff'],
+  'fin_2025_rd_staff': ['fin_2025_rd_staff', 'tech_staff'],
+  'fin_2023_rd_expense': ['fin_2023_rd_expense', 'rd_total_3y'],
+  'fin_2024_rd_expense': ['fin_2024_rd_expense', 'rd_total_3y'],
+  'fin_2025_rd_expense': ['fin_2025_rd_expense', 'rd_total_3y'],
 };
 
 function aliasesForKey(key) {
   const aliases = nameAliases[key] ? [...nameAliases[key]] : [];
-  const m = key.match(/^fin_(20\d{2})_(net_assets|revenue|main_revenue|sales)$/);
+  const m = key.match(/^fin_(20\d{2})_(net_assets|revenue)$/);
   if (m) {
     const years = Object.keys(allExtracted)
       .map(k => {
@@ -150,12 +304,16 @@ function uploadFile(file) {
     .then(result => {
       if (result.success && result.data) {
         const year = guessYear(fileName, result.data);
-        fileStates[fileName] = {status: 'done', year: year, fields: result.count || 0, message: ''};
+        const validation = result.validation || {};
+        const mismatchCount = Array.isArray(validation.mismatched) ? validation.mismatched.length : 0;
+        const validationMessage = mismatchCount > 0 ? `GPT-5.5复核发现${mismatchCount}处差异` : 'Claude识别+GPT-5.5复核完成';
+        fileStates[fileName] = {status: 'done', year: year, fields: result.count || 0, message: validationMessage};
         // 合并提取数据
         for (const [key, value] of Object.entries(result.data)) {
           allExtracted[key] = value;
         }
         applyToForm(result.data);
+        syncGrowthFieldsFromFinancials(result.data);
         autoCalcGrowth();
         autoCalcZhuanjing();
         showPreview();
@@ -190,7 +348,7 @@ function renderFileList() {
   items.innerHTML = entries.map(([name, state]) => {
     const icon = state.status === 'done' ? '✅' : state.status === 'error' ? '❌' : '⏳';
     const color = state.status === 'done' ? 'var(--success)' : state.status === 'error' ? 'var(--danger)' : 'var(--warning)';
-    const detail = state.status === 'done' ? `${state.year}年 · ${state.fields}字段` :
+    const detail = state.status === 'done' ? `${state.year}年 · ${state.fields}字段 · ${state.message || '已回填企业成长性'}` :
                    state.status === 'error' ? (state.message || '解析失败') : '解析中...';
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:13px">
       <span>${icon}</span>
@@ -231,6 +389,30 @@ function ensureHiddenField(key, value) {
 function visibleFieldByName(name) {
   return Array.from(document.querySelectorAll('[name="' + name + '"]'))
     .find(el => el.type !== 'hidden');
+}
+
+function setFinanceField(name, value) {
+  ensureHiddenField(name, value);
+  const input = visibleFieldByName(name);
+  if (!input || value === undefined || value === null || value === '') return false;
+  input.value = value;
+  input.style.borderColor = 'var(--success)';
+  setTimeout(() => { input.style.borderColor = ''; }, 2000);
+  input.dispatchEvent(new Event('input', {bubbles: true}));
+  input.dispatchEvent(new Event('change', {bubbles: true}));
+  return true;
+}
+
+function syncGrowthFieldsFromFinancials(data) {
+  const source = Object.assign({}, allExtracted, data || {});
+  const years = ['2023', '2024', '2025'];
+  years.forEach(function(year, idx) {
+    const n = idx + 1;
+    const netAssets = source['fin_' + year + '_net_assets'];
+    const sales = source['fin_' + year + '_revenue'];
+    setFinanceField('year' + n + '_net_assets', netAssets);
+    setFinanceField('year' + n + '_sales', sales);
+  });
 }
 
 function applyToForm(data) {
@@ -291,6 +473,159 @@ function clearAllUploads() {
   document.querySelectorAll('input').forEach(el => { el.style.borderColor = ''; });
 }
 
+function materialEscapeHtml(value) {
+  return String(value === undefined || value === null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+async function uploadStaffList(selectedFiles) {
+  const input = document.getElementById('staff-list-file');
+  const zone = document.getElementById('staff-upload-zone');
+  const status = document.getElementById('staff-upload-status');
+  const preview = document.getElementById('staff-recognition-preview');
+  const files = Array.from(selectedFiles || (input && input.files ? input.files : []));
+  const file = files[0] || null;
+  if (!file) {
+    alert('请先选择人员清单 Excel 文件');
+    return;
+  }
+
+  zone.classList.add('is-uploading');
+  zone.setAttribute('aria-busy', 'true');
+  status.textContent = '正在识别人员数据';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const resp = await fetch('/parser/upload_staff_list', {method: 'POST', body: fd});
+    const result = await resp.json().catch(() => ({}));
+    if (!resp.ok || !result.success) throw new Error(result.error || '识别失败');
+
+    const rows = Array.isArray(result.rows) ? result.rows : [];
+    const summary = result.summary || {};
+    status.textContent = `识别完成，共 ${result.count || rows.length} 人`;
+    preview.innerHTML =
+      '<div class="material-preview-summary">' +
+        '<strong>' + materialEscapeHtml(result.filename || file.name) + '</strong>' +
+        '<span>职工 ' + materialEscapeHtml(summary.hr_total || rows.length) + ' 人</span>' +
+        '<span>科技人员 ' + materialEscapeHtml(summary.tech_staff || summary.hr_tech || 0) + ' 人</span>' +
+      '</div>' +
+      '<div class="material-chip-list">' +
+        rows.slice(0, 20).map(row => '<span>' + materialEscapeHtml(row['姓名'] || '未命名') + '</span>').join('') +
+        (rows.length > 20 ? '<span>另有 ' + (rows.length - 20) + ' 人</span>' : '') +
+      '</div>';
+    preview.style.display = 'block';
+  } catch (err) {
+    status.textContent = '';
+    preview.style.display = 'none';
+    alert('人员清单识别失败：' + err.message);
+  } finally {
+    zone.classList.remove('is-uploading');
+    zone.removeAttribute('aria-busy');
+    input.value = '';
+  }
+}
+
+const MAX_SALES_CONTRACTS_PER_YEAR = 4;
+let recognizedSalesContracts = [];
+
+function salesContractsForYear(year) {
+  return recognizedSalesContracts.filter(item => String(item.year || '') === String(year));
+}
+
+function renderSalesContractPreview(year) {
+  const preview = document.getElementById('sales-contract-preview-' + year);
+  const counter = document.getElementById('sales-contract-count-' + year);
+  const yearContracts = salesContractsForYear(year);
+  counter.textContent = `${yearContracts.length}/${MAX_SALES_CONTRACTS_PER_YEAR} 份`;
+  if (!yearContracts.length) {
+    preview.style.display = 'none';
+    return;
+  }
+  preview.innerHTML = yearContracts.map(item =>
+    '<div class="contract-preview-item">' +
+      '<strong>' + materialEscapeHtml(item.contract_code || '未编号合同') + ' · ' + materialEscapeHtml(item.original_filename || '销售合同.pdf') + '</strong>' +
+      '<div>' + materialEscapeHtml(item.summary || '已上传，未提取到摘要') + '</div>' +
+      (item.keywords ? '<small>关键词：' + materialEscapeHtml(item.keywords) + '</small>' : '') +
+    '</div>'
+  ).join('');
+  preview.style.display = 'block';
+}
+
+async function uploadSalesContracts(year, selectedFiles) {
+  const input = document.getElementById('sales-contract-files-' + year);
+  const zone = document.getElementById('sales-contract-upload-zone-' + year);
+  const status = document.getElementById('sales-contract-status-' + year);
+  const files = Array.from(selectedFiles || (input && input.files ? input.files : []));
+  if (!files.length) {
+    alert(`请先选择 ${year} 年销售合同 PDF 文件`);
+    return;
+  }
+  const nonPdf = files.find(file => !file.name.toLowerCase().endsWith('.pdf'));
+  if (nonPdf) {
+    alert('销售合同仅支持 PDF 文件：' + nonPdf.name);
+    return;
+  }
+  const existingCount = salesContractsForYear(year).length;
+  const remaining = MAX_SALES_CONTRACTS_PER_YEAR - existingCount;
+  if (remaining <= 0) {
+    alert(`${year} 年销售合同已上传 4 份，不能继续上传`);
+    input.value = '';
+    return;
+  }
+  if (files.length > remaining) {
+    alert(`${year} 年还可上传 ${remaining} 份合同，请重新选择`);
+    input.value = '';
+    return;
+  }
+
+  zone.classList.add('is-uploading');
+  zone.setAttribute('aria-busy', 'true');
+  let completed = 0;
+  try {
+    for (const file of files) {
+      status.textContent = `正在识别 ${year} 年合同 ${completed + 1}/${files.length}：${file.name}`;
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('year', year);
+      const resp = await fetch('/parser/upload_sales_contract', {method: 'POST', body: fd});
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || !result.success) {
+        throw new Error((result.error || '识别失败') + '：' + file.name);
+      }
+      const fileMeta = result.file || {};
+      if (!recognizedSalesContracts.some(item =>
+        item.id && item.id === fileMeta.id
+      )) {
+        recognizedSalesContracts.push(fileMeta);
+      }
+      completed += 1;
+      renderSalesContractPreview(year);
+    }
+    status.textContent = `已自动保存并编号，${year} 年共 ${salesContractsForYear(year).length}/4 份`;
+    input.value = '';
+  } catch (err) {
+    status.textContent = `已完成 ${completed}/${files.length}`;
+    alert('销售合同识别失败：' + err.message);
+  } finally {
+    zone.classList.remove('is-uploading');
+    zone.removeAttribute('aria-busy');
+  }
+}
+
+async function restoreSavedSalesContracts() {
+  try {
+    const response = await fetch('/parser/sales_contracts');
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success || !Array.isArray(result.contracts)) return;
+    recognizedSalesContracts = result.contracts;
+    ['2023', '2024', '2025'].forEach(renderSalesContractPreview);
+  } catch {}
+}
+
 // ═══ 自动计算成长性增长率 ═══
 function calcGrowthRate(v1, v2, v3) {
   if (!v1 && !v2 && !v3) return null;
@@ -348,6 +683,7 @@ function autoCalcGrowth() {
 
 // 监听财务数据输入框变化，自动计算增长率
 document.addEventListener('DOMContentLoaded', function() {
+  restoreSavedSalesContracts();
   ['year1_net_assets','year2_net_assets','year3_net_assets',
    'year1_sales','year2_sales','year3_sales'].forEach(function(name) {
     const el = document.querySelector('[name=\"' + name + '\"]');
@@ -439,8 +775,162 @@ function autoCalcZhuanjing() {
 </script>
 
 <style>
-.unified-upload {
-  min-height: 120px;
+.required-materials-card {
+  border: 1px solid var(--accent);
+  padding: 0;
+  overflow: hidden;
+}
+.required-materials-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+.required-materials-heading h3,
+.required-materials-heading p {
+  margin: 0;
+}
+.required-materials-heading p {
+  margin-top: 5px;
+  font-size: 13px;
+}
+.required-materials-badge {
+  flex: none;
+  padding: 5px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+.required-material-section {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.required-material-section:last-child {
+  border-bottom: 0;
+}
+.required-material-index {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+}
+.required-material-content {
+  min-width: 0;
+}
+.required-material-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.required-material-title strong {
+  font-size: 15px;
+}
+.required-material-title span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.staff-template-download {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.material-status {
+  display: block;
+  min-height: 18px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.material-preview {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-x: auto;
+}
+.material-preview-summary,
+.material-chip-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.material-preview-summary span,
+.material-chip-list span {
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+}
+.material-chip-list {
+  margin-top: 8px;
+}
+.contract-preview-item + .contract-preview-item {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.contract-preview-item strong,
+.contract-preview-item div,
+.contract-preview-item small {
+  display: block;
+}
+.contract-preview-item small {
+  color: var(--text-secondary);
+}
+.sales-contract-year-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.sales-contract-year-group {
+  min-width: 0;
+}
+.sales-contract-year-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.sales-contract-year-heading strong {
+  font-size: 14px;
+}
+.sales-contract-year-heading span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.sales-contract-drop-zone {
+  height: 152px;
+  padding: 14px 10px;
+}
+.sales-contract-preview {
+  max-height: 240px;
+  overflow-y: auto;
+}
+.material-drop-zone {
+  width: 100%;
+  height: 152px;
+  box-sizing: border-box;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -449,9 +939,53 @@ function autoCalcZhuanjing() {
   border-color: var(--accent) !important;
   border-style: dashed !important;
 }
-.unified-upload.drag-over {
+.material-drop-zone .icon {
+  font-size: 30px;
+  margin-bottom: 7px;
+}
+.material-drop-zone .material-drop-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.material-drop-zone .hint {
+  margin-top: 5px;
+}
+.material-drop-zone.drag-over,
+.material-drop-zone.is-uploading {
   background: rgba(88,166,255,0.08);
   border-color: var(--success) !important;
-  transform: scale(1.01);
+}
+.material-drop-zone.drag-over {
+  transform: scale(1.005);
+}
+.material-drop-zone.is-uploading {
+  cursor: progress;
+}
+@media (max-width: 640px) {
+  .required-materials-heading,
+  .required-material-section {
+    padding: 14px;
+  }
+  .required-material-section {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+  .required-materials-badge {
+    display: none;
+  }
+  .staff-template-download {
+    margin-left: 0;
+  }
+  .sales-contract-year-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .material-drop-zone {
+    height: 172px;
+    padding: 16px 12px;
+  }
+  .material-drop-zone .material-drop-title {
+    font-size: 14px;
+  }
 }
 </style>

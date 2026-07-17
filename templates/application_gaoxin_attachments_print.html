@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>高新技术企业认定附件制作_{{ company.name }}</title>
+  <style>
+    @page { size: A4; margin: 28mm 14mm 18mm; }
+    body { margin: 0; font-family: "SimSun", "Songti SC", "Microsoft YaHei", Arial, sans-serif; color: #111827; font-size: 12px; line-height: 1.65; }
+    {% include "_generated_document_header_styles.html" %}
+    h1 { text-align: center; font-size: 24px; margin: 3mm 0 6px; }
+    .subtitle { text-align: center; color: #4b5563; margin-bottom: 18px; }
+    .section { break-inside: auto; page-break-inside: auto; margin: 0 0 18px; }
+    .section-break { page-break-before: always; }
+    .section-break > h2 { margin-top: 0; }
+    h2 { font-size: 17px; padding-bottom: 5px; margin: 22px 0 10px; break-after: avoid; page-break-after: avoid; }
+    h3 { font-size: 14px; margin: 12px 0 6px; break-after: avoid; page-break-after: avoid; }
+    .empty { color: #9ca3af; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; break-inside: auto; page-break-inside: auto; }
+    thead { display: table-header-group; }
+    tbody { display: table-row-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    th, td { border: 1px solid #d1d5db; padding: 7px 8px; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }
+    th { background: #f3f4f6; font-weight: 700; }
+    .file-row { border: 1px solid #d1d5db; border-radius: 4px; padding: 8px 10px; margin: 6px 0; }
+    .file-name { font-weight: 700; word-break: break-all; }
+    .file-meta { color: #6b7280; font-size: 11px; }
+    .placeholder { background: #fff7ed; border: 1px solid #fed7aa; padding: 10px; color: #9a3412; }
+    .preline { white-space: pre-line; }
+    .cover-grid { display: grid; grid-template-columns: 90px 1fr; gap: 6px 10px; margin: 18px auto 24px; max-width: 460px; }
+    .label { color: #374151; font-weight: 700; }
+    .staff-roster-table { table-layout: fixed; font-size: 10px; line-height: 1.35; }
+    .staff-roster-table th, .staff-roster-table td { padding: 5px 3px; text-align: center; vertical-align: middle; word-break: normal; overflow-wrap: break-word; }
+    .staff-roster-table .staff-name, .staff-roster-table .staff-id { white-space: nowrap; }
+    .staff-roster-table .staff-id { font-size: 9px; }
+  </style>
+</head>
+<body>
+  <h1>高新技术企业认定附件制作</h1>
+  <div class="subtitle">{{ company.name }} · 附件材料汇总</div>
+  <div class="cover-grid">
+    <div class="label">企业名称</div><div>{{ company.name }}</div>
+    <div class="label">导出内容</div><div>PDF 附件清单、成果转化文件、制度框架及待完善模板板块</div>
+    <div class="label">导出时间</div><div>{{ exported_at }}</div>
+  </div>
+
+  {% for section in attachment_sections %}
+  <section class="section {% if not loop.first %}section-break{% endif %}">
+    <h2>{{ section.no }}. {{ section.title }}</h2>
+
+    {% if section.kind == 'pdf' %}
+      {% set files = attachments.get(section.key, {}).get('files', []) %}
+      {% if section.key == 'ip' %}
+      <h3>知识产权汇总表</h3>
+      <table>
+        <thead><tr><th>类别</th><th>数量（件）</th><th>类别</th><th>数量（件）</th></tr></thead>
+        <tbody>
+          <tr><td>发明专利</td><td>{{ ip_attachment.summary.get('ip_invention', 0) }}</td><td>实用新型</td><td>{{ ip_attachment.summary.get('ip_utility', 0) }}</td></tr>
+          <tr><td>国防专利</td><td>{{ ip_attachment.summary.get('ip_defense', 0) }}</td><td>外观设计</td><td>{{ ip_attachment.summary.get('ip_design', 0) }}</td></tr>
+          <tr><td>植物新品种</td><td>{{ ip_attachment.summary.get('ip_plant', 0) }}</td><td>软件著作权</td><td>{{ ip_attachment.summary.get('ip_copyright', 0) }}</td></tr>
+          <tr><td>国家级农作物品种</td><td>{{ ip_attachment.summary.get('ip_crop', 0) }}</td><td>集成电路布图设计专有权</td><td>{{ ip_attachment.summary.get('ip_ic', 0) }}</td></tr>
+          <tr><td>国家新药</td><td>{{ ip_attachment.summary.get('ip_pharma', 0) }}</td><td>国家一级中药保护品种</td><td>{{ ip_attachment.summary.get('ip_tcm', 0) }}</td></tr>
+        </tbody>
+      </table>
+      <h3>知识产权明细表</h3>
+      {% if ip_attachment.rows %}
+      <table>
+        <thead><tr><th>编号</th><th>名称</th><th>专利类型</th><th>法律状态</th><th>专利号</th><th>申请日期</th><th>专利权人</th><th>授权日期</th></tr></thead>
+        <tbody>
+          {% for row in ip_attachment.rows %}
+          <tr><td>{{ row.seq }}</td><td>{{ row.name }}</td><td>{{ row.type }}</td><td>{{ row.status }}</td><td>{{ row.patent_no }}</td><td>{{ row.app_date }}</td><td>{{ row.applicant }}</td><td>{{ row.grant_date }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">暂无申请书知识产权数据。</p>
+      {% endif %}
+      {% endif %}
+      {% if section.key != 'ip' %}
+      {% if section.key in ['rd_expense_audit', 'annual_audit', 'tax_settlement'] %}
+        {% for year in ['2023', '2024', '2025'] %}
+          {% set year_files = files|selectattr('attachment_year', 'equalto', year)|list %}
+          <h3>{{ year }}年{{ '研发费用专项审计报告' if section.key == 'rd_expense_audit' else ('年度审计报告' if section.key == 'annual_audit' else '汇算清缴') }}</h3>
+          {% for file in year_files %}<div class="file-row"><div class="file-name">{{ file.get('original_filename') }}</div></div>{% else %}<p class="empty">暂未上传 PDF。</p>{% endfor %}
+        {% endfor %}
+      {% elif files %}
+        {% for file in files %}
+        <div class="file-row">
+          <div class="file-name">{{ loop.index }}. {{ file.get('original_filename') }}</div>
+          <div class="file-meta">上传时间：{{ file.get('uploaded_at', '') }}　文件ID：{{ file.get('id', '') }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="empty">暂未上传 PDF。</p>
+      {% endif %}
+      {% endif %}
+
+    {% elif section.kind == 'placeholder' %}
+      {% if section.key == 'staff_statement' %}
+      <h3>企业职工人员情况说明</h3>
+      <p class="preline">{{ auto_data.get('attachment_staff_statement_generated', '') or auto_data.get('attachment_staff_statement_text', '') or '（未填写）' }}</p>
+
+      <h3>2025年12月份研发人员名单</h3>
+      <table class="staff-roster-table">
+        <colgroup>
+          <col style="width:5%" />
+          <col style="width:8%" />
+          <col style="width:22%" />
+          <col style="width:13%" />
+          <col style="width:13%" />
+          <col style="width:10%" />
+          <col style="width:13%" />
+          <col style="width:16%" />
+        </colgroup>
+        <thead><tr><th>序号</th><th>姓名</th><th>身份证号</th><th>是否签订合同</th><th>是否缴纳社保</th><th>学历</th><th>职称</th><th>是否科技人员</th></tr></thead>
+        <tbody>
+          {% set rd_rows = auto_data.get('attachment_rd_staff_rows', []) %}
+          {% for row in rd_rows %}
+          <tr><td>{{ row.seq or loop.index }}</td><td class="staff-name">{{ row.name }}</td><td class="staff-id">{{ row.id_no }}</td><td>{{ row.contract }}</td><td>{{ row.social_security }}</td><td>{{ row.education }}</td><td>{{ row.title }}</td><td>{{ row.is_tech }}</td></tr>
+          {% else %}
+          <tr><td colspan="8" class="empty">暂未填写研发人员名单。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h3>企业职工总数、科技人员数统计表</h3>
+      <table>
+        <thead><tr><th>月份</th><th>月初职工总数</th><th>月初科技人员数</th><th>月末职工总数</th><th>月末科技人员数</th><th>月平均职工总数</th><th>月平均科技人员数</th></tr></thead>
+        <tbody>
+          {% for i in range(12) %}
+          <tr>
+            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_month') or '2025年' ~ (i + 1) ~ '月' }}</td>
+            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_start_total', '') }}</td>
+            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_start_tech', '') }}</td>
+            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_end_total', '') }}</td>
+            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_end_tech', '') }}</td>
+            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_avg_total', '') }}</td>
+            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_avg_tech', '') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="2">年平均职工总数</th>
+            <td>{{ auto_data.get('attachment_staff_year_avg_total', '') }}</td>
+            <th colspan="2">年平均科技人员数</th>
+            <td colspan="2">{{ auto_data.get('attachment_staff_year_avg_tech', '') }}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      {% set staff_files = attachments.get('staff_statement', {}).get('files', []) %}
+      {% if staff_files %}
+      {% set social_2025_files = staff_files|selectattr('staff_file_type', 'equalto', 'social_2025_12')|list %}
+      {% set social_latest_files = staff_files|selectattr('staff_file_type', 'equalto', 'social_latest')|list %}
+      {% set education_certificate_files = staff_files|selectattr('staff_file_type', 'equalto', 'education_certificate')|list %}
+      {% set title_certificate_files = staff_files|selectattr('staff_file_type', 'equalto', 'title_certificate')|list %}
+      <h3>2025年12月份社保单</h3>
+      {% for file in social_2025_files %}<div class="file-row"><div class="file-name">{{ file.get('original_filename') }}</div></div>{% else %}<p class="empty">暂未上传。</p>{% endfor %}
+      <h3>最新月份社保单</h3>
+      {% for file in social_latest_files %}<div class="file-row"><div class="file-name">{{ file.get('original_filename') }}</div></div>{% else %}<p class="empty">暂未上传。</p>{% endfor %}
+      <h3>毕业证书</h3>
+      {% for file in education_certificate_files %}<div class="file-row"><div class="file-name">{{ file.get('original_filename') }}</div></div>{% else %}<p class="empty">暂未上传。</p>{% endfor %}
+      <h3>职称证书</h3>
+      {% for file in title_certificate_files %}<div class="file-row"><div class="file-name">{{ file.get('original_filename') }}</div></div>{% else %}<p class="empty">暂未上传。</p>{% endfor %}
+      {% endif %}
+      {% elif section.key == 'rd_project_table' %}
+      {% set rd_project_rows = [] %}
+      {% set rd_project_keys = [] %}
+      {% for row in auto_data.get('gaoxin_relation_table', {}).get('rows', []) %}
+        {% set year = row.get('year', '') %}
+        {% set rd_code = row.get('rd_code', '') %}
+        {% set rd_activity = row.get('rd_activity', '') %}
+        {% set rd_period = row.get('rd_period', '') %}
+        {% set rd_key = year ~ '|' ~ rd_code ~ '|' ~ rd_activity ~ '|' ~ rd_period %}
+        {% if (year or rd_code or rd_activity or rd_period) and rd_key not in rd_project_keys %}
+          {% set _ = rd_project_keys.append(rd_key) %}
+          {% set _ = rd_project_rows.append({'index': rd_project_rows|length, 'year': year, 'rd_code': rd_code, 'rd_activity': rd_activity, 'rd_period': rd_period}) %}
+        {% endif %}
+      {% endfor %}
+      <table>
+        <thead><tr><th>年份</th><th>RD序号</th><th>研发活动</th><th>研发周期</th></tr></thead>
+        <tbody>
+          {% for row in rd_project_rows %}
+          <tr><td>{{ row.year }}</td><td>{{ row.rd_code }}</td><td>{{ row.rd_activity }}</td><td>{{ row.rd_period }}</td></tr>
+          {% else %}
+          <tr><td colspan="4" class="empty">暂无 RD-IP-PS 关系表数据。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% elif section.key == 'hitech_products' %}
+      {% else %}
+      <div class="placeholder">{{ section.title }}模板表格待提供，后续会在附件制作页生成或填写。</div>
+      {% endif %}
+
+    {% elif section.kind == 'achievement' %}
+
+    {% elif section.kind == 'system' %}
+      <h3>制度汇总表</h3>
+      <table>
+        <thead><tr><th>制度模块</th><th>建议制度文件</th><th>框架要点及佐证材料</th></tr></thead>
+        <tbody>
+          <tr><td>企业研究开发组织管理</td><td class="preline">{{ auto_data.get('system_rd_files', '') }}</td><td class="preline">{{ auto_data.get('system_rd_points', '') }}</td></tr>
+          <tr><td>研发机构与产学研合作</td><td class="preline">{{ auto_data.get('system_org_files', '') }}</td><td class="preline">{{ auto_data.get('system_org_points', '') }}</td></tr>
+          <tr><td>科技成果转化与创新平台</td><td class="preline">{{ auto_data.get('system_transform_files', '') }}</td><td class="preline">{{ auto_data.get('system_transform_points', '') }}</td></tr>
+          <tr><td>科技人员培养与绩效激励</td><td class="preline">{{ auto_data.get('system_talent_files', '') }}</td><td class="preline">{{ auto_data.get('system_talent_points', '') }}</td></tr>
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+  {% endfor %}
+</body>
+</html>

@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+.env.local
 
 .venv/
 venv/
@@ -20,8 +21,20 @@ modules/outputs/
 .claude/
 .hermes/
 .mcp.json
+.codex/
+.playwright-mcp/
+cli/
+.vercel/
 
 .DS_Store
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# Local generated artifacts and investigation captures
+output/
+tmp/
+qcc_*
+企查查专利抓取结果.xlsx
+武汉众邦银行_企查查专利抓取结果.xlsx
+.env*

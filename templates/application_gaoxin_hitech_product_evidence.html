@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block title %}产品附件制作 - {{ company.name }}{% endblock %}
+{% block head_extra %}
+<style>
+.evidence-shell { max-width: 1080px; margin: 0 auto; padding-bottom: 40px; }
+.evidence-hero { background: #0f766e; color: #fff; border-radius: 8px; padding: 24px 28px; margin-bottom: 16px; }
+.evidence-hero h1 { margin: 0 0 8px; font-size: 26px; }
+.evidence-hero p { margin: 0; line-height: 1.6; }
+.evidence-card { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 14px; }
+.product-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.product-meta div { background: var(--bg-secondary); padding: 10px; border-radius: 6px; }
+.product-meta b { display: block; color: var(--text-muted); font-size: 12px; margin-bottom: 4px; }
+.evidence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.upload-box { border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+.upload-row, .file-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.upload-row input { min-width: 0; flex: 1; }
+.file-list { list-style: none; padding: 0; margin: 12px 0 0; }
+.file-list li { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
+.file-name { word-break: break-all; font-weight: 600; }
+.file-time, .status-text { color: var(--text-muted); font-size: 12px; }
+@media (max-width: 760px) { .evidence-grid, .product-meta { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="evidence-shell">
+  <section class="evidence-hero">
+    <h1>{{ product.ps_code or 'PS' }} 产品附件制作</h1>
+    <p>按导出顺序维护专利证书、检测报告、销售合同、销售发票、产品照片和用户使用报告。</p>
+  </section>
+
+  <section class="evidence-card">
+    <div class="product-meta">
+      <div><b>产品编号</b>{{ product.ps_code or '-' }}</div>
+      <div><b>产品名称</b>{{ product.ps_name or '-' }}</div>
+      <div><b>技术领域</b>{{ product.field or '-' }}</div>
+      <div><b>销售收入</b>{{ product.revenue or '-' }}{% if product.revenue %}万元{% endif %}</div>
+    </div>
+    <div class="upload-row" style="margin-top:14px">
+      <a class="btn btn-secondary" href="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}#attachment-hitech_products">返回高新技术产品说明</a>
+      <a class="btn btn-primary" href="{{ url_for('docgen.gaoxin_ps_statement', company_id=company.id, product_index=product_index) }}">撰写 PS 情况说明</a>
+    </div>
+  </section>
+
+  <section class="evidence-grid">
+    {% for item in evidence_types %}
+    <div class="upload-box" data-evidence-upload="{{ item.key }}">
+      <h2 style="margin:0 0 8px;font-size:18px">{{ item.title }}</h2>
+      <p class="status-text">{{ item.hint }}</p>
+      <div class="upload-row">
+        <input type="file" accept=".pdf,application/pdf" data-evidence-pdf-input>
+        <button type="button" class="btn btn-primary btn-sm" onclick="uploadEvidencePdf('{{ item.key }}', this)">上传 PDF</button>
+        <span class="status-text" data-upload-status></span>
+      </div>
+      <ul class="file-list" data-file-list>
+        {% for file in item.files %}
+        <li data-file-id="{{ file.id }}">
+          <div><div class="file-name">{{ file.original_filename }}</div><div class="file-time">{{ file.uploaded_at }}</div></div>
+          <div class="file-tools">
+            <a class="btn btn-sm btn-secondary" target="_blank" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='hitech_products', file_id=file.id) }}">预览</a>
+            <button type="button" class="btn btn-sm btn-danger" onclick="deleteEvidencePdf('{{ file.id }}', this)">删除</button>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="status-text" data-empty-message {% if item.files %}style="display:none"{% endif %}>暂未上传{{ item.title }}。</p>
+    </div>
+    {% endfor %}
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const uploadUrl = '{{ url_for("docgen.gaoxin_attachment_upload", company_id=company.id, section_key="hitech_products") }}';
+const deleteUrlTemplate = '{{ url_for("docgen.gaoxin_attachment_delete", company_id=company.id, section_key="hitech_products", file_id="__file__") }}';
+function escapeHtml(value) { return String(value || '').replace(/[&<>"']/g, function(ch) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; }); }
+function renderEvidenceFile(scope, file) {
+  const item = document.createElement('li');
+  item.dataset.fileId = file.id;
+  item.innerHTML = '<div><div class="file-name">' + escapeHtml(file.original_filename) + '</div><div class="file-time">' + escapeHtml(file.uploaded_at || '') + '</div></div><div class="file-tools"><a class="btn btn-sm btn-secondary" target="_blank" href="' + file.view_url + '">预览</a><button type="button" class="btn btn-sm btn-danger" onclick="deleteEvidencePdf(\'' + file.id + '\', this)">删除</button></div>';
+  scope.querySelector('[data-file-list]').appendChild(item);
+  const empty = scope.querySelector('[data-empty-message]');
+  if (empty) empty.style.display = 'none';
+}
+async function uploadEvidencePdf(evidenceType, button) {
+  const scope = button.closest('[data-evidence-upload]');
+  const input = scope.querySelector('[data-evidence-pdf-input]');
+  const status = scope.querySelector('[data-upload-status]');
+  if (!input.files.length) { status.textContent = '请选择 PDF'; return; }
+  const body = new FormData(); body.append('file', input.files[0]); body.append('product_index', '{{ product_index }}'); body.append('product_evidence_type', evidenceType);
+  button.disabled = true; status.textContent = '上传中...';
+  try {
+    const response = await fetch(uploadUrl, {method: 'POST', body: body}); const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || '上传失败');
+    renderEvidenceFile(scope, result.file); input.value = ''; status.textContent = '上传成功';
+  } catch (error) { status.textContent = error.message || '上传失败'; } finally { button.disabled = false; }
+}
+async function deleteEvidencePdf(fileId, button) {
+  if (!confirm('确定删除这个 PDF 附件吗？')) return;
+  const response = await fetch(deleteUrlTemplate.replace('__file__', fileId), {method: 'POST'}); const result = await response.json();
+  if (!response.ok || !result.ok) { alert(result.error || '删除失败'); return; }
+  const scope = button.closest('[data-evidence-upload]'); button.closest('li').remove();
+  if (!scope.querySelector('[data-file-list] li')) scope.querySelector('[data-empty-message]').style.display = '';
+}
+</script>
+{% endblock %}

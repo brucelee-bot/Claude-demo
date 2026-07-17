@@ -4,15 +4,28 @@
 
 <style>
   .relation-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:16px 0; }
-  .relation-panel { overflow-x:auto; border:1px solid #e5e7eb; border-radius:8px; background:#fff; }
+  .relation-view-toolbar { display:flex; justify-content:flex-end; align-items:center; gap:8px; margin:12px 0 8px; }
+  .relation-zoom-control { display:flex; align-items:center; gap:8px; min-height:36px; padding:5px 8px; border:1px solid #d1d5db; border-radius:6px; background:#fff; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+  .relation-zoom-label { color:#475569; font-size:12px; font-weight:600; white-space:nowrap; }
+  .relation-zoom-button { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; padding:0; border:1px solid #cbd5e1; border-radius:5px; background:#f8fafc; color:#0f172a; font-size:18px; line-height:1; cursor:pointer; }
+  .relation-zoom-button:hover { background:#e2e8f0; }
+  .relation-zoom-button:disabled { opacity:.4; cursor:not-allowed; }
+  .relation-zoom-range { width:128px; accent-color:#2563eb; cursor:pointer; }
+  .relation-zoom-value { width:44px; color:#0f172a; font-size:12px; font-variant-numeric:tabular-nums; text-align:center; }
+  .relation-zoom-reset { height:28px; padding:0 9px; border:1px solid #cbd5e1; border-radius:5px; background:#fff; color:#334155; font-size:12px; cursor:pointer; white-space:nowrap; }
+  .relation-zoom-reset:hover { background:#f1f5f9; }
+  .relation-panel { overflow:auto; border:1px solid #cbd5e1; border-radius:8px; background:#fff; }
   .relation-panel::after { content:"可横向滚动查看更多字段"; display:block; padding:8px 12px; color:#64748b; font-size:12px; background:#f8fafc; border-top:1px solid #e5e7eb; }
-  .relation-table { width:max-content; min-width:100%; border-collapse:collapse; table-layout:auto; }
-  .relation-table th, .relation-table td { border:1px solid #e5e7eb; padding:8px; vertical-align:middle; }
+  .relation-table { --table-zoom:1; width:max-content; min-width:100%; border-collapse:collapse; table-layout:auto; font-size:14px; zoom:var(--table-zoom); }
+  .relation-table th, .relation-table td { border:1px solid #cbd5e1; padding:8px; vertical-align:middle; transition:background-color .15s ease; }
   .relation-table th { height:40px; background:#f8fafc; font-weight:600; text-align:center; white-space:nowrap; }
-  .relation-table input, .relation-table textarea, .relation-table select { width:100%; height:54px; min-height:54px; box-sizing:border-box; border:1px solid #d1d5db; border-radius:6px; font:inherit; line-height:22px; background:#fff; vertical-align:middle; }
+  .relation-table tbody tr:nth-child(odd) > td { background:#ffffff; }
+  .relation-table tbody tr:nth-child(even) > td { background:#eef6ff; }
+  .relation-table tbody tr:hover > td { background:#dfeeff; }
+  .relation-table input, .relation-table textarea, .relation-table select { width:100%; height:54px; min-height:54px; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:6px; font:inherit; line-height:22px; background:transparent; vertical-align:middle; }
   .relation-table input, .relation-table select { padding:0 10px; line-height:54px; }
   .relation-table textarea { display:block; padding:15px 10px; resize:vertical; overflow:auto; }
-  .relation-table input:focus, .relation-table textarea:focus, .relation-table select:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 2px rgba(37,99,235,.12); }
+  .relation-table input:focus, .relation-table textarea:focus, .relation-table select:focus { outline:none; border-color:#2563eb; background:#fff; box-shadow:0 0 0 2px rgba(37,99,235,.12); }
   .relation-table .w-year { width:88px; }
   .relation-table .w-code { width:110px; }
   .relation-table .w-ip-code { width:260px; }
@@ -22,13 +35,39 @@
   .relation-table .w-auth { width:250px; }
   .relation-table .w-ps-name { width:300px; }
   .relation-table .w-result-name { width:360px; }
-  .relation-table .w-tech { width:520px; }
+  .relation-table .w-contract { width:320px; }
+  .contract-cell { display:flex; flex-direction:column; gap:6px; min-height:54px; }
+  .contract-actions { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:6px; align-items:center; }
+  .contract-select { width:100%; min-width:0; height:38px !important; min-height:38px !important; padding:0 8px !important; line-height:38px !important; font-size:13px; }
+  .contract-parse-button { height:38px !important; white-space:nowrap; }
+  .contract-file-name { color:#166534; font-size:12px; font-weight:600; word-break:break-all; }
+  .contract-keywords { color:#64748b; font-size:12px; line-height:1.5; max-width:300px; }
+  .contract-keywords-label { color:#0f172a; font-size:12px; font-weight:600; margin-top:2px; }
+  .contract-keywords-input { width:100%; min-height:72px; resize:vertical; font-size:inherit; line-height:1.5; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box; }
+  .contract-keywords-input:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 2px rgba(37,99,235,.12); }
   .relation-actions { display:flex; gap:6px; align-items:center; justify-content:center; min-height:54px; white-space:nowrap; }
-  .relation-actions .btn { height:32px; line-height:18px; padding:6px 10px; display:inline-flex; align-items:center; justify-content:center; }
+  .relation-actions .btn { height:32px; line-height:18px; padding:6px 10px; font-size:inherit; display:inline-flex; align-items:center; justify-content:center; }
   .relation-errors { display:none; border:1px solid #fecaca; background:#fef2f2; color:#991b1b; border-radius:8px; padding:12px 16px; margin:12px 0; }
   .relation-errors ul { margin:8px 0 0 20px; }
   .upload-panel { display:flex; gap:10px; flex-wrap:wrap; align-items:center; border:1px solid #e5e7eb; border-radius:8px; background:#fff; padding:12px; margin:14px 0; }
   .upload-panel input[type="file"] { max-width:360px; }
+  .ai-flow { display:flex; gap:8px; flex-wrap:wrap; align-items:center; border:1px solid #dbeafe; background:#eff6ff; color:#1e3a8a; border-radius:8px; padding:10px 12px; margin:14px 0; font-size:13px; }
+  .ai-flow-step { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:#fff; border:1px solid #bfdbfe; }
+  .ai-flow-arrow { color:#2563eb; font-weight:700; }
+  .tech-recommendations { width:100%; display:none; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+  .tech-recommendations.is-visible { display:flex; }
+  .tech-rec-chip { display:inline-flex; align-items:center; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; border-radius:999px; padding:5px 10px; font-size:12px; cursor:pointer; max-width:100%; }
+  .tech-rec-chip:hover { background:#dbeafe; }
+  .tech-rec-empty { color:#64748b; font-size:12px; }
+  .ps-group-panel { display:flex; gap:10px; flex-wrap:wrap; align-items:center; border:1px solid #dbeafe; background:#eff6ff; color:#1e3a8a; border-radius:8px; padding:10px 12px; margin:14px 0; }
+  .ps-group-panel select { height:34px; border:1px solid #bfdbfe; border-radius:6px; padding:0 10px; background:#fff; color:#1e3a8a; }
+  @media (max-width:640px) {
+    .relation-view-toolbar { justify-content:stretch; }
+    .relation-zoom-control { width:100%; justify-content:center; gap:6px; }
+    .relation-zoom-label { display:none; }
+    .relation-zoom-range { flex:1; min-width:60px; max-width:180px; }
+    .relation-zoom-value { width:38px; }
+  }
 </style>
 
 <h1 style="margin-bottom:8px">RD-IP-PS-成果关联详情表</h1>
@@ -47,20 +86,54 @@
   <strong>高新技术领域</strong>
   <input type="text" id="tech-field-path" list="tech-field-options" value="{{ tech_field_path or '' }}" placeholder="搜索或选择高新技术领域" style="min-width:360px; flex:1" />
   <span class="text-muted">选择一次即可应用于本关系表。</span>
+  <div id="tech-field-recommendations" class="tech-recommendations" aria-label="高新技术领域推荐"></div>
 </div>
 
 <datalist id="tech-field-options"></datalist>
 
+<div class="ai-flow" aria-label="AI生成顺序">
+  <span class="ai-flow-step">1. 填写专利名称或选择销售合同并解析关键词，生成成果名称</span>
+  <span class="ai-flow-arrow">→</span>
+  <span class="ai-flow-step">2. 按同一 RD 下的专利内容、合同内容和成果名称生成研发活动名称</span>
+  <span class="ai-flow-arrow">→</span>
+  <span class="ai-flow-step">3. 按用户选择的 PS 个数生成 PS 名称</span>
+</div>
+
+<div class="ps-group-panel" aria-label="PS分组设置">
+  <strong>PS 个数</strong>
+  <select id="ps-group-count">
+    <option value="1">1 个 PS</option>
+    <option value="2">2 个 PS</option>
+    <option value="3">3 个 PS</option>
+    <option value="4">4 个 PS</option>
+    <option value="5">5 个 PS</option>
+  </select>
+  <button type="button" class="btn btn-primary btn-sm" onclick="generateFullAiFlow(this)">按 PS 个数生成全部</button>
+  <span class="text-muted">选择 1 个时全部知识产权归入 PS01；选择 2-5 个时按知识产权名称内容自动分类。</span>
+</div>
+
 <div class="relation-toolbar">
-  <button type="button" class="btn btn-secondary btn-sm" id="batch-generate-btn" onclick="generateAllResults(this)">批量AI生成成果</button>
-  <button type="button" class="btn btn-secondary btn-sm" id="batch-generate-ps-btn" onclick="generatePsName(this)">批量AI生成PS</button>
-  <button type="button" class="btn btn-secondary btn-sm" id="batch-generate-rd-btn" onclick="generateAllRdActivities(this)">批量AI生成RD</button>
+  <button type="button" class="btn btn-primary btn-sm" id="batch-generate-flow-btn" onclick="generateFullAiFlow(this)">按 PS 个数生成全部</button>
+  <button type="button" class="btn btn-secondary btn-sm" id="batch-generate-btn" onclick="generateAllResults(this)">1 批量生成成果</button>
+  <button type="button" class="btn btn-secondary btn-sm" id="batch-generate-rd-btn" onclick="generateAllRdActivities(this)">2 批量生成RD</button>
+  <button type="button" class="btn btn-secondary btn-sm" id="batch-generate-ps-btn" onclick="generateGroupedPsFlow(this)">3 按分组生成PS</button>
   <button type="button" class="btn btn-secondary btn-sm" onclick="addRow()">新增行</button>
   <button type="button" class="btn btn-secondary btn-sm" onclick="clearRows()">一键清空</button>
   <button type="button" class="btn btn-secondary btn-sm" onclick="saveRows(false)">保存</button>
   <button type="button" class="btn btn-primary btn-sm" onclick="saveRows(true)">保存并继续填写认定申请书</button>
   <button type="button" class="btn btn-secondary btn-sm" onclick="exportRows()">导出 Excel</button>
   <a href="{{ url_for('docgen.index') }}" class="btn btn-secondary btn-sm">返回列表</a>
+</div>
+
+<div class="relation-view-toolbar">
+  <div class="relation-zoom-control" role="group" aria-label="表格缩放">
+    <span class="relation-zoom-label">表格缩放</span>
+    <button type="button" class="relation-zoom-button" id="relation-zoom-out" onclick="adjustTableZoom(-10)" title="缩小表格" aria-label="缩小表格">−</button>
+    <input type="range" class="relation-zoom-range" id="relation-zoom-range" min="50" max="125" step="5" value="100" oninput="setTableZoom(this.value)" aria-label="表格缩放比例" />
+    <button type="button" class="relation-zoom-button" id="relation-zoom-in" onclick="adjustTableZoom(10)" title="放大表格" aria-label="放大表格">+</button>
+    <output class="relation-zoom-value" id="relation-zoom-value" for="relation-zoom-range">100%</output>
+    <button type="button" class="relation-zoom-reset" onclick="setTableZoom(100)" title="恢复默认大小">恢复</button>
+  </div>
 </div>
 
 <div class="relation-panel">
@@ -78,7 +151,7 @@
         <th>PS名称</th>
         <th>成果序号</th>
         <th>成果名称</th>
-        <th>成果技术内容</th>
+        <th>销售合同</th>
         <th>操作</th>
       </tr>
     </thead>
@@ -89,6 +162,7 @@
 <script>
 const initialRows = {{ (rows or [])|tojson }};
 const ipOptions = {{ (ip_options or [])|tojson }};
+const contractOptions = {{ (contract_options or [])|tojson }};
 const techFieldOptions = {{ (tech_field_options or [])|tojson }};
 const saveUrl = '{{ url_for("docgen.gaoxin_relation_table", company_id=company.id) }}';
 const exportUrl = '{{ url_for("docgen.gaoxin_relation_table_export", company_id=company.id) }}';
@@ -96,8 +170,12 @@ const importUrl = '{{ url_for("docgen.gaoxin_relation_table_import", company_id=
 const generateResultUrl = '{{ url_for("docgen.gaoxin_relation_table_generate_result", company_id=company.id) }}';
 const generateRdActivityUrl = '{{ url_for("docgen.gaoxin_relation_table_generate_rd_activity", company_id=company.id) }}';
 const generatePsNameUrl = '{{ url_for("docgen.gaoxin_relation_table_generate_ps_name", company_id=company.id) }}';
+const salesContractKeywordsUrl = '{{ url_for("docgen.gaoxin_relation_table_sales_contract_keywords", company_id=company.id) }}';
 const continueUrl = '{{ url_for("docgen.gaoxin_book", company_id=company.id) }}';
 const DEFAULT_YEAR = '2025';
+const TABLE_ZOOM_STORAGE_KEY = 'gaoxin-relation-table-zoom';
+const TABLE_ZOOM_MIN = 50;
+const TABLE_ZOOM_MAX = 125;
 const columns = [
   ['year', 'input', 'w-year', DEFAULT_YEAR],
   ['rd_code', 'input', 'w-code', 'RD01'],
@@ -109,11 +187,49 @@ const columns = [
   ['ps_code', 'input', 'w-code', 'PS01'],
   ['ps_name', 'input', 'w-ps-name', '高新技术产品名称'],
   ['result_no', 'input', 'w-code', '成果01'],
-  ['result_name', 'textarea', 'w-result-name', '成果名称'],
-  ['technology', 'textarea', 'w-tech', '成果技术内容']
+  ['result_name', 'textarea', 'w-result-name', '成果名称']
 ];
+const hiddenRowKeys = ['sales_contract_file_id', 'sales_contract_code', 'sales_contract_filename', 'sales_contract_summary'];
 const rdKeys = ['year', 'rd_code', 'rd_activity', 'rd_period'];
-const branchKeys = ['ip_code', 'ip_name', 'ip_auth_no', 'ps_code', 'ps_name', 'result_no', 'result_name', 'technology'];
+const branchKeys = ['ip_code', 'ip_name', 'ip_auth_no', 'ps_code', 'ps_name', 'result_no', 'result_name'];
+
+function normalizeTableZoom(value) {
+  const numericValue = Number.parseInt(value, 10);
+  if (!Number.isFinite(numericValue)) return 100;
+  return Math.min(TABLE_ZOOM_MAX, Math.max(TABLE_ZOOM_MIN, Math.round(numericValue / 5) * 5));
+}
+
+function setTableZoom(value) {
+  const zoom = normalizeTableZoom(value);
+  const table = document.getElementById('relation-table');
+  const range = document.getElementById('relation-zoom-range');
+  const output = document.getElementById('relation-zoom-value');
+  const zoomOut = document.getElementById('relation-zoom-out');
+  const zoomIn = document.getElementById('relation-zoom-in');
+  if (table) table.style.setProperty('--table-zoom', String(zoom / 100));
+  if (range) range.value = String(zoom);
+  if (output) output.textContent = `${zoom}%`;
+  if (zoomOut) zoomOut.disabled = zoom <= TABLE_ZOOM_MIN;
+  if (zoomIn) zoomIn.disabled = zoom >= TABLE_ZOOM_MAX;
+  try {
+    localStorage.setItem(TABLE_ZOOM_STORAGE_KEY, String(zoom));
+  } catch {}
+}
+
+function adjustTableZoom(change) {
+  const range = document.getElementById('relation-zoom-range');
+  setTableZoom((range ? Number.parseInt(range.value, 10) : 100) + change);
+}
+
+function initTableZoom() {
+  let savedZoom = 100;
+  try {
+    savedZoom = localStorage.getItem(TABLE_ZOOM_STORAGE_KEY) || 100;
+  } catch {
+    savedZoom = 100;
+  }
+  setTableZoom(savedZoom);
+}
 
 function emptyRow() {
   return Object.fromEntries(columns.map(([key]) => [key, '']));
@@ -216,6 +332,86 @@ function inferTechFieldPathFromRows(rows) {
   return '';
 }
 
+function tokenizeTechText(value) {
+  const text = String(value || '')
+    .replace(/[A-Za-z0-9_.+-]+/g, ' ')
+    .replace(/[，。；：、,.()（）《》【】\[\]\/\\\-]/g, ' ');
+  const stopWords = new Set(['一种', '基于', '用于', '具有', '及其', '方法', '系统', '装置', '设备', '平台', '模块', '技术', '应用', '实现', '研发', '相关', '成果', '名称', '内容']);
+  const tokens = [];
+  text.split(/\s+/).forEach(part => {
+    const cleaned = part.trim();
+    if (!cleaned) return;
+    const matches = cleaned.match(/[一-龥]{2,}/g) || [];
+    matches.forEach(match => {
+      for (let len = Math.min(6, match.length); len >= 2; len -= 1) {
+        for (let i = 0; i <= match.length - len; i += 1) {
+          const token = match.slice(i, i + len);
+          if (!stopWords.has(token)) tokens.push(token);
+        }
+      }
+    });
+  });
+  return tokens;
+}
+
+function collectTechFieldKeywords() {
+  const rows = collectRows();
+  const text = rows.map(row => [row.ip_name, row.result_name, row.sales_contract_keywords, row.technology].filter(Boolean).join(' ')).join(' ');
+  const counts = new Map();
+  tokenizeTechText(text).forEach(token => counts.set(token, (counts.get(token) || 0) + 1));
+  return Array.from(counts.entries())
+    .sort((a, b) => (b[1] - a[1]) || (b[0].length - a[0].length))
+    .slice(0, 80);
+}
+
+function scoreTechField(option, keywords) {
+  const path = [option.level1, option.level2, option.level3, option.level4, option.path].filter(Boolean).join(' ');
+  let score = 0;
+  keywords.forEach(([token, count]) => {
+    if (!path.includes(token)) return;
+    const weight = token.length >= 4 ? 4 : (token.length === 3 ? 2 : 1);
+    score += weight * Math.min(count, 4);
+  });
+  if (option.level4 && keywords.some(([token]) => option.level4.includes(token))) score += 6;
+  if (option.level3 && keywords.some(([token]) => option.level3.includes(token))) score += 3;
+  return score;
+}
+
+function recommendTechFields(limit) {
+  const keywords = collectTechFieldKeywords();
+  if (!keywords.length) return [];
+  return techFieldOptions
+    .map(option => ({option, score: scoreTechField(option, keywords)}))
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score || String(a.option.path || '').length - String(b.option.path || '').length)
+    .slice(0, limit || 5);
+}
+
+function renderTechFieldRecommendations() {
+  const box = document.getElementById('tech-field-recommendations');
+  if (!box) return;
+  const recommendations = recommendTechFields(5);
+  box.innerHTML = '';
+  if (!recommendations.length) {
+    box.classList.remove('is-visible');
+    return;
+  }
+  const label = document.createElement('span');
+  label.className = 'tech-rec-empty';
+  label.textContent = '推荐高新技术领域：';
+  box.appendChild(label);
+  recommendations.forEach(item => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'tech-rec-chip';
+    chip.title = `匹配分 ${item.score}`;
+    chip.textContent = item.option.path || '';
+    chip.addEventListener('click', () => setTechFieldPath(item.option.path || ''));
+    box.appendChild(chip);
+  });
+  box.classList.add('is-visible');
+}
+
 function renderRows(rows) {
   const body = document.getElementById('relation-body');
   body.innerHTML = '';
@@ -223,6 +419,7 @@ function renderRows(rows) {
     group.rows.forEach((row, index) => body.appendChild(createRow(row, index > 0, groupIndex === 0 && index === 0)));
   });
   updateGroupRowspans();
+  renderTechFieldRecommendations();
 }
 
 function findIpOption(row) {
@@ -244,6 +441,7 @@ function fillIpFields(select) {
   if (nameField) nameField.value = option.name || '';
   if (authField) authField.value = option.auth_no || '';
   updateRdPeriodForGroup(findMainRow(tr));
+  renderTechFieldRecommendations();
 }
 
 function createIpSelect(row, widthClass, placeholder) {
@@ -287,7 +485,83 @@ function createField(key, type, widthClass, placeholder, row) {
     field.max = '2100';
   }
   if (key !== 'ip_code') field.value = key === 'year' ? (row[key] || DEFAULT_YEAR) : (row[key] || '');
+  if (['ip_name', 'result_name', 'sales_contract_keywords'].includes(key)) {
+    field.addEventListener('input', renderTechFieldRecommendations);
+  }
   return field;
+}
+
+function createSalesContractCell(row) {
+  const td = document.createElement('td');
+  td.className = 'w-contract';
+  const box = document.createElement('div');
+  box.className = 'contract-cell';
+  const matchedContract = contractOptions.find(contract =>
+    (row.sales_contract_file_id && contract.id === row.sales_contract_file_id)
+    || (row.sales_contract_code && contract.code === row.sales_contract_code)
+  );
+  if (matchedContract) {
+    row.sales_contract_file_id = matchedContract.id;
+    row.sales_contract_code = matchedContract.code;
+    row.sales_contract_filename = matchedContract.original_filename;
+    row.sales_contract_summary = row.sales_contract_summary || matchedContract.summary;
+    row.sales_contract_keywords = row.sales_contract_keywords || matchedContract.keywords;
+  }
+  hiddenRowKeys.forEach(key => {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.dataset.key = key;
+    input.value = row[key] || '';
+    box.appendChild(input);
+  });
+  const actions = document.createElement('div');
+  actions.className = 'contract-actions';
+  const select = document.createElement('select');
+  select.className = 'contract-select';
+  select.setAttribute('data-contract-select', '1');
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = contractOptions.length ? '请选择合同编号' : '暂无合同，请先在评分表上传';
+  select.appendChild(blank);
+  contractOptions.forEach(contract => {
+    const option = document.createElement('option');
+    option.value = contract.id;
+    option.textContent = contract.code || contract.original_filename || '未编号合同';
+    option.title = [contract.code, contract.original_filename].filter(Boolean).join(' - ');
+    select.appendChild(option);
+  });
+  select.value = matchedContract ? matchedContract.id : (row.sales_contract_file_id || '');
+  select.addEventListener('change', function() { selectSalesContract(select); });
+  const parseButton = document.createElement('button');
+  parseButton.type = 'button';
+  parseButton.className = 'btn btn-secondary btn-sm contract-parse-button';
+  parseButton.textContent = '重新解析';
+  parseButton.addEventListener('click', function() { parseSalesContractKeywords(parseButton, true); });
+  actions.appendChild(select);
+  actions.appendChild(parseButton);
+  const filename = document.createElement('div');
+  filename.className = 'contract-file-name';
+  filename.setAttribute('data-contract-filename', '1');
+  filename.textContent = row.sales_contract_filename ? '原文件：' + row.sales_contract_filename : '';
+  const keywordsLabel = document.createElement('div');
+  keywordsLabel.className = 'contract-keywords-label';
+  keywordsLabel.textContent = '关键词（可手动修改）';
+  const keywords = document.createElement('textarea');
+  keywords.className = 'contract-keywords-input';
+  keywords.setAttribute('data-key', 'sales_contract_keywords');
+  keywords.setAttribute('data-contract-keywords', '1');
+  keywords.placeholder = '选择合同编号后自动填入，也可在这里手动补充或修改关键词';
+  keywords.value = row.sales_contract_keywords || '';
+  const status = document.createElement('div');
+  status.className = 'contract-keywords';
+  status.setAttribute('data-contract-status', '1');
+  box.appendChild(actions);
+  box.appendChild(filename);
+  box.appendChild(keywordsLabel);
+  box.appendChild(keywords);
+  box.appendChild(status);
+  td.appendChild(box);
+  return td;
 }
 
 function createCell(key, row) {
@@ -331,7 +605,7 @@ function updateGroupRowspans() {
 
 function createActionCell(isBranch, isFirstRow) {
   const actionTd = document.createElement('td');
-  actionTd.innerHTML = '<div class="relation-actions"><button type="button" class="btn btn-secondary btn-sm" onclick="addBranchRow(this)">添加分支</button><button type="button" class="btn btn-secondary btn-sm" onclick="generateResult(this)">AI生成成果</button><button type="button" class="btn btn-secondary btn-sm" onclick="copyRow(this)">复制</button><button type="button" class="btn btn-secondary btn-sm" onclick="deleteRow(this)">删除行</button></div>';
+  actionTd.innerHTML = '<div class="relation-actions"><button type="button" class="btn btn-secondary btn-sm" onclick="addBranchRow(this)">添加分支</button><button type="button" class="btn btn-primary btn-sm" onclick="generateRowAiFlow(this)">按顺序生成</button><button type="button" class="btn btn-secondary btn-sm" onclick="generateResult(this)">1 生成成果</button><button type="button" class="btn btn-secondary btn-sm" onclick="generateRdActivity(this)">2 生成RD</button><button type="button" class="btn btn-secondary btn-sm" onclick="copyRow(this)">复制</button><button type="button" class="btn btn-secondary btn-sm" onclick="deleteRow(this)">删除行</button></div>';
   return actionTd;
 }
 
@@ -349,6 +623,7 @@ function createRow(row, isBranch, isFirstRow) {
   }
 
   branchKeys.forEach(key => tr.appendChild(createCell(key, row)));
+  tr.appendChild(createSalesContractCell(row));
   tr.appendChild(createActionCell(isBranch, isFirstRow));
   return tr;
 }
@@ -384,12 +659,13 @@ function addRow(row) {
   if (!row) {
     nextRow.year = nextRow.year || DEFAULT_YEAR;
     nextRow.rd_code = getNextSequenceValue('rd_code', 'RD');
-    nextRow.ps_code = 'PS01';
+    nextRow.ps_code = getNextSequenceValue('ps_code', 'PS');
     nextRow.result_no = getNextSequenceValue('result_no', '成果');
     nextRow.rd_period = generateRdPeriod(nextRow, [nextRow]);
   }
   document.getElementById('relation-body').appendChild(createRow(nextRow, false));
   updateGroupRowspans();
+  renderTechFieldRecommendations();
 }
 
 function copyRow(button) {
@@ -403,7 +679,7 @@ function addBranchRow(button) {
   const source = collectRowFromElement(tr);
   const branch = emptyRow();
   rdKeys.forEach(key => branch[key] = source[key] || '');
-  branch.ps_code = 'PS01';
+  branch.ps_code = getNextSequenceValue('ps_code', 'PS');
   branch.result_no = getNextSequenceValue('result_no', '成果');
 
   let insertAfter = tr;
@@ -413,6 +689,7 @@ function addBranchRow(button) {
   insertAfter.after(createRow(branch, true));
   updateGroupRowspans();
   updateRdPeriodForGroup(findMainRow(insertAfter));
+  renderTechFieldRecommendations();
 }
 
 function deleteRow(button) {
@@ -434,7 +711,10 @@ function deleteRow(button) {
   }
   tr.remove();
   if (!body.children.length) renderRows([]);
-  else updateGroupRowspans();
+  else {
+    updateGroupRowspans();
+    renderTechFieldRecommendations();
+  }
 }
 
 function clearRows() {
@@ -475,6 +755,101 @@ function setFieldValueIfBlank(tr, key, value) {
   if (fieldIsBlank(tr, key)) setFieldValue(tr, key, value);
 }
 
+function setContractValue(tr, key, value) {
+  const field = tr.querySelector(`[data-key="${key}"]`);
+  if (field) field.value = value || '';
+}
+
+function findContractOption(fileId) {
+  return contractOptions.find(contract => contract.id === fileId) || null;
+}
+
+function applyContractOption(tr, contract) {
+  setContractValue(tr, 'sales_contract_file_id', contract ? contract.id : '');
+  setContractValue(tr, 'sales_contract_code', contract ? contract.code : '');
+  setContractValue(tr, 'sales_contract_filename', contract ? contract.original_filename : '');
+  setContractValue(tr, 'sales_contract_summary', contract ? contract.summary : '');
+  setContractValue(tr, 'sales_contract_keywords', contract ? contract.keywords : '');
+  const filename = tr.querySelector('[data-contract-filename]');
+  const keywords = tr.querySelector('[data-contract-keywords]');
+  if (filename) filename.textContent = contract && contract.original_filename ? '原文件：' + contract.original_filename : '';
+  if (keywords) keywords.value = contract ? (contract.keywords || '') : '';
+}
+
+async function selectSalesContract(select) {
+  const tr = select.closest('tr');
+  const status = tr && tr.querySelector('[data-contract-status]');
+  const contract = findContractOption(select.value);
+  if (!tr) return;
+  applyContractOption(tr, contract);
+  if (!contract) {
+    if (status) status.textContent = '';
+    renderTechFieldRecommendations();
+    return;
+  }
+  if (status) status.textContent = contract.keywords ? '已读取已保存的合同关键词' : '正在解析合同关键词...';
+  await parseSalesContractKeywords(select, false);
+}
+
+async function parseSalesContractKeywords(control, force) {
+  showErrors([]);
+  const tr = control.closest('tr');
+  const select = tr && tr.querySelector('[data-contract-select]');
+  if (!tr || !select || !select.value) {
+    showErrors(['请先选择销售合同编号']);
+    return;
+  }
+  const button = tr.querySelector('.contract-parse-button');
+  const oldText = button ? button.textContent : '';
+  const status = tr.querySelector('[data-contract-status]');
+  if (button) {
+    button.disabled = true;
+    button.textContent = '解析中';
+  }
+  select.disabled = true;
+  if (status) status.textContent = force ? '正在重新解析合同关键词...' : '正在读取合同关键词...';
+  try {
+    const response = await fetch(salesContractKeywordsUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        file_id: select.value,
+        force: Boolean(force),
+        row: collectRowFromElement(tr)
+      })
+    });
+    const data = await response.json().catch(() => ({errors: ['销售合同提取失败']}));
+    if (!response.ok || !data.ok) {
+      showErrors(data.errors || ['销售合同提取失败']);
+      if (status) status.textContent = '提取失败，请重试';
+      return;
+    }
+    setContractValue(tr, 'sales_contract_file_id', data.file.id);
+    setContractValue(tr, 'sales_contract_code', data.file.code || '');
+    setContractValue(tr, 'sales_contract_filename', data.file.original_filename);
+    setContractValue(tr, 'sales_contract_summary', data.summary || '');
+    setContractValue(tr, 'sales_contract_keywords', data.keywords || '');
+    const filename = tr.querySelector('[data-contract-filename]');
+    const keywords = tr.querySelector('[data-contract-keywords]');
+    if (filename) filename.textContent = data.file.original_filename ? '原文件：' + data.file.original_filename : '';
+    if (keywords) keywords.value = data.keywords || '未提取到关键词，请确认 PDF 是否包含可识别文本';
+    const contract = findContractOption(data.file.id);
+    if (contract) {
+      contract.code = data.file.code || contract.code;
+      contract.summary = data.summary || '';
+      contract.keywords = data.keywords || '';
+    }
+    if (status) status.textContent = data.keywords ? '合同关键词已解析，可用于批量生成' : '未提取到关键词';
+    renderTechFieldRecommendations();
+  } finally {
+    select.disabled = false;
+    if (button) {
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+  }
+}
+
 function hydrateRowFromIpOption(row) {
   const option = findIpOption(row);
   if (!option) return row;
@@ -484,10 +859,14 @@ function hydrateRowFromIpOption(row) {
   return row;
 }
 
+function hasRelationSource(row) {
+  return Boolean(String(row.ip_name || '').trim() || String(row.sales_contract_keywords || row.sales_contract_summary || '').trim());
+}
+
 async function generateResultForRow(tr) {
   const row = hydrateRowFromIpOption(collectRowFromElement(tr));
-  if (!row.ip_name) return {ok: false, skipped: true, errors: ['请先填写相关知识产权名称']};
-  if (!fieldIsBlank(tr, 'result_name') && !fieldIsBlank(tr, 'technology')) return {ok: true, skipped: true};
+  if (!hasRelationSource(row)) return {ok: false, skipped: true, errors: ['请先填写专利名称或销售合同内容（合同关键词/摘要）']};
+  if (!fieldIsBlank(tr, 'result_name')) return {ok: true, skipped: true};
 
   const response = await fetch(generateResultUrl, {
     method: 'POST',
@@ -499,7 +878,7 @@ async function generateResultForRow(tr) {
     return {ok: false, errors: data.errors || ['AI 生成失败']};
   }
   setFieldValueIfBlank(tr, 'result_name', data.result_name);
-  setFieldValueIfBlank(tr, 'technology', data.technology);
+  renderTechFieldRecommendations();
   return {ok: true};
 }
 
@@ -523,10 +902,10 @@ async function generateAllResults(button) {
   const rows = Array.from(document.querySelectorAll('#relation-body tr'));
   const targets = rows.filter(tr => {
     const row = hydrateRowFromIpOption(collectRowFromElement(tr));
-    return row.ip_name && (fieldIsBlank(tr, 'result_name') || fieldIsBlank(tr, 'technology'));
+    return hasRelationSource(row) && fieldIsBlank(tr, 'result_name');
   });
   if (!targets.length) {
-    showErrors(['请先填写至少一行相关知识产权名称，且成果名称或技术为空']);
+    showErrors(['请先填写至少一行专利名称或销售合同内容，且成果名称为空']);
     return;
   }
 
@@ -596,8 +975,8 @@ function getRdGroupLabel(mainRow) {
 async function generateRdActivityForGroup(mainRow) {
   if (!fieldIsBlank(mainRow, 'rd_activity')) return {ok: true, skipped: true};
   const rows = collectRowsForRd(mainRow).map(tr => hydrateRowFromIpOption(collectRowFromElement(tr)));
-  const hasSource = rows.some(row => row.ip_name || row.result_name);
-  if (!hasSource) return {ok: false, skipped: true, errors: ['请先填写该项目下的知识产权名称或成果名称']};
+  const hasSource = rows.some(hasRelationSource);
+  if (!hasSource) return {ok: false, skipped: true, errors: ['请先填写专利名称或销售合同内容']};
 
   const response = await fetch(generateRdActivityUrl, {
     method: 'POST',
@@ -638,10 +1017,10 @@ async function generateAllRdActivities(button) {
   const mainRows = Array.from(document.querySelectorAll('#relation-body tr[data-rd-main="1"]'));
   const targets = mainRows.filter(mainRow => fieldIsBlank(mainRow, 'rd_activity') && collectRowsForRd(mainRow).some(tr => {
     const row = hydrateRowFromIpOption(collectRowFromElement(tr));
-    return row.ip_name || row.result_name;
+    return hasRelationSource(row);
   }));
   if (!targets.length) {
-    showErrors(['请先填写至少一个项目下的知识产权名称或成果名称，且研发活动名称为空']);
+    showErrors(['请先填写专利名称或销售合同内容，且研发活动名称为空']);
     return;
   }
 
@@ -670,18 +1049,347 @@ async function generateAllRdActivities(button) {
   }
 }
 
-async function generatePsName(button) {
+async function generateRowAiFlow(button) {
   showErrors([]);
-  const trs = Array.from(document.querySelectorAll('#relation-body tr'));
-  const rows = trs.map(tr => hydrateRowFromIpOption(collectRowFromElement(tr)));
-  if (!rows.some((row, index) => (row.rd_activity || row.result_name || row.technology || row.ip_name) && fieldIsBlank(trs[index], 'ps_name'))) {
-    showErrors(['请先填写或生成 RD 名称、成果名称或技术内容，且至少有一行 PS 名称为空']);
+  const tr = button.closest('tr');
+  const mainRow = findMainRow(tr);
+  if (!tr || !mainRow) {
+    showErrors(['未找到对应行']);
     return;
   }
 
   const oldText = button.textContent;
   button.disabled = true;
-  button.textContent = '生成PS中';
+  try {
+    button.textContent = '1/3 成果';
+    const result = await generateResultForRow(tr);
+    if (!result.ok) {
+      showErrors(result.errors || ['AI 生成成果失败']);
+      return;
+    }
+
+    button.textContent = '2/3 RD';
+    const rdResult = await generateRdActivityForGroup(mainRow);
+    if (!rdResult.ok) {
+      showErrors(rdResult.errors || ['AI 生成研发活动失败']);
+      return;
+    }
+
+    button.textContent = '3/3 PS';
+    const psResult = await generateGroupedPsFlow(button, {keepButtonState: true, silentNoTarget: true});
+    if (psResult && !psResult.ok) {
+      showErrors(psResult.errors || ['AI 生成PS名称失败']);
+      return;
+    }
+  } finally {
+    button.disabled = false;
+    button.textContent = oldText;
+  }
+}
+
+async function generateFullAiFlow(button) {
+  showErrors([]);
+  const oldText = button.textContent;
+  button.disabled = true;
+  const errors = [];
+  try {
+    const rows = Array.from(document.querySelectorAll('#relation-body tr'));
+    const resultTargets = rows.filter(tr => {
+      const row = hydrateRowFromIpOption(collectRowFromElement(tr));
+      return hasRelationSource(row) && fieldIsBlank(tr, 'result_name');
+    });
+    for (let index = 0; index < resultTargets.length; index += 1) {
+      button.textContent = `1/3 成果 ${index + 1}/${resultTargets.length}`;
+      const result = await generateResultForRow(resultTargets[index]);
+      if (!result.ok) {
+        const rowNo = Array.from(document.querySelectorAll('#relation-body tr')).indexOf(resultTargets[index]) + 1;
+        errors.push(`成果第${rowNo}行：${(result.errors || ['AI 生成失败']).join('；')}`);
+      }
+    }
+
+    const mainRows = Array.from(document.querySelectorAll('#relation-body tr[data-rd-main="1"]'));
+    const rdTargets = mainRows.filter(mainRow => fieldIsBlank(mainRow, 'rd_activity') && collectRowsForRd(mainRow).some(tr => {
+      const row = hydrateRowFromIpOption(collectRowFromElement(tr));
+      return hasRelationSource(row);
+    }));
+    for (let index = 0; index < rdTargets.length; index += 1) {
+      button.textContent = `2/3 RD ${index + 1}/${rdTargets.length}`;
+      const result = await generateRdActivityForGroup(rdTargets[index]);
+      if (!result.ok) errors.push(`${getRdGroupLabel(rdTargets[index])}：${(result.errors || ['AI 生成研发活动失败']).join('；')}`);
+    }
+
+    button.textContent = '3/3 PS';
+    const psResult = await generateGroupedPsFlow(button, {keepButtonState: true, silentNoTarget: true});
+    if (psResult && !psResult.ok) errors.push(...(psResult.errors || ['AI 生成PS名称失败']));
+  } finally {
+    button.disabled = false;
+    button.textContent = oldText;
+  }
+
+  if (errors.length) showErrors(errors);
+}
+
+function getSelectedPsGroupCount() {
+  const field = document.getElementById('ps-group-count');
+  const count = Number.parseInt(field ? field.value : '1', 10);
+  if (!Number.isFinite(count)) return 1;
+  return Math.min(5, Math.max(1, count));
+}
+
+function formatPsCode(index) {
+  return 'PS' + String(index + 1).padStart(2, '0');
+}
+
+function tokenizeIpName(value) {
+  const text = String(value || '')
+    .replace(/[A-Za-z0-9_.+-]+/g, ' ')
+    .replace(/[，。；：、,.()（）《》【】\[\]\/\\\-]/g, ' ');
+  const stopWords = new Set(['一种', '基于', '用于', '具有', '及其', '方法', '系统', '装置', '设备', '平台', '模块', '技术', '应用', '实现', '相关', '专利', '名称', '新型', '实用']);
+  const tokens = [];
+  text.split(/\s+/).forEach(part => {
+    const matches = part.trim().match(/[一-龥]{2,}/g) || [];
+    matches.forEach(match => {
+      for (let len = Math.min(5, match.length); len >= 2; len -= 1) {
+        for (let i = 0; i <= match.length - len; i += 1) {
+          const token = match.slice(i, i + len);
+          if (!stopWords.has(token)) tokens.push(token);
+        }
+      }
+    });
+  });
+  return Array.from(new Set(tokens));
+}
+
+function scoreTokenOverlap(left, right) {
+  if (!left.length || !right.length) return 0;
+  const rightSet = new Set(right);
+  return left.reduce((score, token) => score + (rightSet.has(token) ? token.length : 0), 0);
+}
+
+function classifyRowsByIpName(rows, groupCount) {
+  if (groupCount <= 1) return rows.map(() => 0);
+  const tokensList = rows.map(row => tokenizeIpName(row.ip_name || row.result_name || row.sales_contract_keywords || row.technology));
+  const seedIndexes = [];
+  tokensList.forEach((tokens, index) => {
+    if (seedIndexes.length >= groupCount) return;
+    if (!tokens.length && seedIndexes.length) return;
+    const isDistinct = seedIndexes.every(seed => scoreTokenOverlap(tokens, tokensList[seed]) === 0);
+    if (isDistinct || !seedIndexes.length) seedIndexes.push(index);
+  });
+  for (let index = 0; seedIndexes.length < groupCount && index < rows.length; index += 1) {
+    if (!seedIndexes.includes(index)) seedIndexes.push(index);
+  }
+
+  const groups = seedIndexes.map(seedIndex => ({tokens: new Set(tokensList[seedIndex]), size: 0}));
+  return rows.map((row, rowIndex) => {
+    const seedGroupIndex = seedIndexes.indexOf(rowIndex);
+    if (seedGroupIndex !== -1) {
+      groups[seedGroupIndex].size += 1;
+      return seedGroupIndex;
+    }
+    const tokens = tokensList[rowIndex];
+    let bestIndex = 0;
+    let bestScore = -1;
+    groups.forEach((group, index) => {
+      const score = scoreTokenOverlap(tokens, Array.from(group.tokens));
+      if (score > bestScore || (score === bestScore && group.size < groups[bestIndex].size)) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    });
+    tokens.forEach(token => groups[bestIndex].tokens.add(token));
+    groups[bestIndex].size += 1;
+    return bestIndex;
+  });
+}
+
+function classifyRowsByIpNameBalanced(rows, groupCount) {
+  if (groupCount <= 1) return rows.map(() => 0);
+  const tokensList = rows.map(row => tokenizeIpName(row.ip_name || row.result_name || row.sales_contract_keywords || row.technology));
+  const seedIndexes = [];
+  tokensList.forEach((tokens, index) => {
+    if (seedIndexes.length >= groupCount) return;
+    if (!tokens.length && seedIndexes.length) return;
+    const isDistinct = seedIndexes.every(seed => scoreTokenOverlap(tokens, tokensList[seed]) === 0);
+    if (isDistinct || !seedIndexes.length) seedIndexes.push(index);
+  });
+  for (let index = 0; seedIndexes.length < groupCount && index < rows.length; index += 1) {
+    if (!seedIndexes.includes(index)) seedIndexes.push(index);
+  }
+
+  const baseSize = Math.floor(rows.length / groupCount);
+  const extraSlots = rows.length % groupCount;
+  const maxSizes = Array.from({length: groupCount}, (_, index) => baseSize + (index < extraSlots ? 1 : 0));
+  const groups = seedIndexes.map(seedIndex => ({tokens: new Set(tokensList[seedIndex]), size: 0}));
+  const assignments = Array(rows.length).fill(null);
+
+  seedIndexes.forEach((rowIndex, groupIndex) => {
+    assignments[rowIndex] = groupIndex;
+    groups[groupIndex].size += 1;
+  });
+
+  const remainingIndexes = rows
+    .map((_, index) => index)
+    .filter(index => assignments[index] === null)
+    .sort((a, b) => tokensList[b].length - tokensList[a].length);
+
+  remainingIndexes.forEach(rowIndex => {
+    const tokens = tokensList[rowIndex];
+    let bestIndex = -1;
+    let bestScore = -1;
+    groups.forEach((group, index) => {
+      if (group.size >= maxSizes[index]) return;
+      const score = scoreTokenOverlap(tokens, Array.from(group.tokens));
+      if (score > bestScore || (score === bestScore && (bestIndex === -1 || group.size < groups[bestIndex].size))) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    });
+    if (bestIndex === -1) {
+      bestIndex = groups.reduce((smallest, group, index) => group.size < groups[smallest].size ? index : smallest, 0);
+    }
+    assignments[rowIndex] = bestIndex;
+    tokens.forEach(token => groups[bestIndex].tokens.add(token));
+    groups[bestIndex].size += 1;
+  });
+
+  return assignments;
+}
+
+function collectRdBlocks() {
+  return Array.from(document.querySelectorAll('#relation-body tr[data-rd-main="1"]')).map(mainRow => ({
+    mainRow,
+    rows: collectRdGroupRows(mainRow)
+  })).filter(block => block.rows.some(tr => {
+    const row = hydrateRowFromIpOption(collectRowFromElement(tr));
+    return row.ip_name || row.result_name || row.sales_contract_keywords || row.technology || row.rd_activity;
+  }));
+}
+
+function assignPsByRdGroups(groupCount, options) {
+  options = options || {};
+  const rdBlocks = collectRdBlocks();
+  if (!rdBlocks.length) return {ok: false, errors: ['请先填写至少一行专利名称或销售合同内容']};
+
+  const effectiveCount = Math.min(groupCount, rdBlocks.length);
+  const countField = document.getElementById('ps-group-count');
+  if (countField && String(effectiveCount) !== countField.value) countField.value = String(effectiveCount);
+
+  const rdSources = rdBlocks.map(block => {
+    const text = block.rows.map(tr => {
+      const row = hydrateRowFromIpOption(collectRowFromElement(tr));
+      return [row.rd_activity, row.ip_name, row.result_name, row.sales_contract_keywords, row.technology].filter(Boolean).join(' ');
+    }).join(' ');
+    return {ip_name: text, result_name: '', sales_contract_keywords: '', technology: ''};
+  });
+  const assignments = classifyRowsByIpNameBalanced(rdSources, effectiveCount);
+  const assignmentSizes = Array.from({length: effectiveCount}, () => 0);
+  assignments.forEach(groupIndex => assignmentSizes[groupIndex] += 1);
+  const minSize = Math.min(...assignmentSizes);
+  const maxSize = Math.max(...assignmentSizes);
+  if (maxSize - minSize > 1) {
+    return {ok: false, errors: [`PS 下 RD 数量分配不均衡：${assignmentSizes.map((size, index) => `${formatPsCode(index)} ${size}个RD`).join('，')}`]};
+  }
+  const groupedTrs = Array.from({length: effectiveCount}, () => []);
+
+  let resultNumber = 1;
+  rdBlocks.forEach((block, blockIndex) => {
+    const groupIndex = assignments[blockIndex] || 0;
+    const psCode = formatPsCode(groupIndex);
+    block.rows.forEach(tr => {
+      setFieldValue(tr, 'ps_code', psCode);
+      if (options.clearPsName) setFieldValue(tr, 'ps_name', '');
+      setFieldValue(tr, 'result_no', '成果' + String(resultNumber++).padStart(2, '0'));
+      groupedTrs[groupIndex].push(tr);
+    });
+  });
+  updateGroupRowspans();
+  return {ok: true, groups: groupedTrs.filter(group => group.length)};
+}
+
+function collectCurrentPsGroups() {
+  const groups = [];
+  const groupIndexes = new Map();
+  Array.from(document.querySelectorAll('#relation-body tr')).forEach(tr => {
+    const row = hydrateRowFromIpOption(collectRowFromElement(tr));
+    const key = row.ps_code || row.ps_name || formatPsCode(groups.length);
+    if (!groupIndexes.has(key)) {
+      groupIndexes.set(key, groups.length);
+      groups.push([]);
+    }
+    groups[groupIndexes.get(key)].push(tr);
+  });
+  return groups.filter(group => group.length);
+}
+
+async function generatePsNameForGroup(groupTrs, groupIndex) {
+  const rows = groupTrs.map(tr => hydrateRowFromIpOption(collectRowFromElement(tr)));
+  const targets = groupTrs.filter((tr, index) => rows[index].rd_activity);
+  if (!targets.length) return {ok: false, errors: [`${formatPsCode(groupIndex)}：请先生成或填写该组 RD 名称`]};
+
+  const response = await fetch(generatePsNameUrl, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rows})
+  });
+  const data = await response.json().catch(() => ({errors: ['AI 生成PS名称失败']}));
+  if (!response.ok || !data.ok) return {ok: false, errors: data.errors || ['AI 生成PS名称失败']};
+  groupTrs.forEach(tr => setFieldValue(tr, 'ps_name', data.ps_name));
+  return {ok: true};
+}
+
+async function generateGroupedPsFlow(button, options) {
+  options = options || {};
+  if (!options.keepButtonState) showErrors([]);
+  const groupCount = getSelectedPsGroupCount();
+  const assigned = assignPsByRdGroups(groupCount, {clearPsName: true});
+  if (!assigned.ok) {
+    const errors = assigned.errors || ['PS 分组失败'];
+    if (!options.silentNoTarget) showErrors(errors);
+    return {ok: false, errors};
+  }
+
+  const oldText = button.textContent;
+  if (!options.keepButtonState) {
+    button.disabled = true;
+    button.textContent = '生成PS中';
+  }
+  const errors = [];
+  try {
+    for (let index = 0; index < assigned.groups.length; index += 1) {
+      if (!options.keepButtonState) button.textContent = `生成PS ${index + 1}/${assigned.groups.length}`;
+      const result = await generatePsNameForGroup(assigned.groups[index], index);
+      if (!result.ok) errors.push(...(result.errors || ['AI 生成PS名称失败']));
+    }
+  } finally {
+    if (!options.keepButtonState) {
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+  }
+  if (errors.length) {
+    showErrors(errors);
+    return {ok: false, errors};
+  }
+  return {ok: true};
+}
+
+async function generatePsName(button, options) {
+  options = options || {};
+  if (!options.keepButtonState) showErrors([]);
+  const trs = Array.from(document.querySelectorAll('#relation-body tr'));
+  const rows = trs.map(tr => hydrateRowFromIpOption(collectRowFromElement(tr)));
+  const targets = trs.filter((tr, index) => rows[index].rd_activity && fieldIsBlank(tr, 'ps_name'));
+  if (!targets.length) {
+    if (!options.silentNoTarget) showErrors(['请先生成或填写所有 RD 名称，且至少有一行 PS 名称为空']);
+    return;
+  }
+
+  const oldText = button.textContent;
+  if (!options.keepButtonState) {
+    button.disabled = true;
+    button.textContent = '生成PS中';
+  }
   try {
     const response = await fetch(generatePsNameUrl, {
       method: 'POST',
@@ -693,13 +1401,15 @@ async function generatePsName(button) {
       showErrors(data.errors || ['AI 生成PS名称失败']);
       return;
     }
-    trs.forEach(tr => {
-      setFieldValueIfBlank(tr, 'ps_code', 'PS01');
+    targets.forEach(tr => {
+      setFieldValueIfBlank(tr, 'ps_code', getNextSequenceValue('ps_code', 'PS'));
       setFieldValueIfBlank(tr, 'ps_name', data.ps_name);
     });
   } finally {
-    button.disabled = false;
-    button.textContent = oldText;
+    if (!options.keepButtonState) {
+      button.disabled = false;
+      button.textContent = oldText;
+    }
   }
 }
 
@@ -767,6 +1477,7 @@ async function exportRows() {
 }
 
 initTechFieldOptions();
+initTableZoom();
 renderRows(initialRows);
 </script>
 

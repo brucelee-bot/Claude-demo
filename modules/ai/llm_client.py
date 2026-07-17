@@ -1,7 +1,7 @@
 """
-LLM 客户端 — 通过 OpenAI 兼容 API 调用 DeepSeek 等模型
+LLM 客户端 — 通过 OpenAI 兼容 API 调用配置的模型
 """
-import json, os, time, ssl, re, socket
+import json, os, time, ssl, re, socket, threading
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
@@ -42,7 +42,7 @@ def _load_config():
         return {
             "base_url": env_cfg["base_url"],
             "api_key": env_cfg["api_key"],
-            "model": env_cfg["model"] or "gpt-5.4-mini",
+            "model": env_cfg["model"] or "gpt-5.5",
         }
 
     try:
@@ -54,20 +54,22 @@ def _load_config():
                 cfg = yaml.safe_load(f) or {}
             model_cfg = cfg.get("model", {})
             return {
-                "base_url": model_cfg.get("base_url", "https://api.deepseek.com/v1"),
+                "base_url": model_cfg.get("base_url", "https://api.psydo.top/v1"),
                 "api_key": model_cfg.get("api_key", ""),
-                "model": model_cfg.get("default", "deepseek-v4-pro"),
+                "model": model_cfg.get("default", "gpt-5.5"),
             }
     except Exception:
         pass
     return {
         "base_url": env_cfg["base_url"],
         "api_key": env_cfg["api_key"],
-        "model": env_cfg["model"] or "deepseek-v4-pro",
+        "model": env_cfg["model"] or "gpt-5.5",
     }
 
 
 _CONFIG = _load_config()
+_WARMUP_STARTED = False
+_WARMUP_LOCK = threading.Lock()
 
 
 def _is_retryable_error_text(text):
@@ -78,6 +80,8 @@ def _is_retryable_error_text(text):
         "connection reset",
         "connection aborted",
         "remote end closed connection",
+        "max retries exceeded",
+        "ssl",
         "temporarily unavailable",
         "timed out",
         "timeout",
@@ -97,6 +101,12 @@ def _read_http_error(e):
 
 def _is_retryable_http_status(status_code):
     return status_code == 429 or 500 <= status_code < 600
+
+
+def _request_timeout(timeout):
+    timeout = max(1, int(timeout or 60))
+    connect_timeout = min(10, max(3, timeout // 4))
+    return (connect_timeout, timeout)
 
 
 def _extract_content_from_chunked_response(raw: str) -> dict:
@@ -154,7 +164,7 @@ def _parse_llm_response(raw):
             }
         usage = chunked.get("usage") or {}
         if usage.get("completion_tokens") == 0:
-            return {"success": False, "error": "上游模型没有生成正文，请尝试换用 gpt-5.4 或 gpt-5.5"}
+            return {"success": False, "error": "上游模型没有生成正文，请检查 LLM 模型配置或稍后重试"}
         return {"success": False, "error": f"上游返回非 JSON 内容: {raw[:300]}"}
 
 
@@ -175,7 +185,7 @@ def call_llm(messages: list, model: str = None, temperature: float = 0.3, max_to
     """
     base_url = _CONFIG.get("base_url", "").rstrip("/")
     api_key = _CONFIG.get("api_key", "")
-    model = model or _CONFIG.get("model", "deepseek-v4-pro")
+    model = model or _CONFIG.get("model", "gpt-5.5")
 
     if not base_url or not api_key:
         return {"success": False, "error": "LLM 未配置 (base_url 或 api_key 缺失)"}
@@ -186,7 +196,6 @@ def call_llm(messages: list, model: str = None, temperature: float = 0.3, max_to
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
-        "max_completion_tokens": max_tokens,
         "top_p": 0.95,
         "stream": False,
     }
@@ -201,11 +210,16 @@ def call_llm(messages: list, model: str = None, temperature: float = 0.3, max_to
 
     def request_with_requests():
         import requests
-        resp = requests.post(url, json=body, headers=headers, timeout=timeout)
-        raw = resp.text or ""
-        if resp.status_code >= 400:
-            raise RuntimeError(f"HTTP {resp.status_code}: {raw[:300]}")
-        return raw
+        session = requests.Session()
+        session.trust_env = False
+        try:
+            resp = session.post(url, json=body, headers=headers, timeout=_request_timeout(timeout), verify=False)
+            raw = resp.text or ""
+            if resp.status_code >= 400:
+                raise RuntimeError(f"HTTP {resp.status_code}: {raw[:300]}")
+            return raw
+        finally:
+            session.close()
 
     def request_with_urllib():
         req = Request(url, data=json.dumps(body).encode("utf-8"))
@@ -240,6 +254,16 @@ def call_llm(messages: list, model: str = None, temperature: float = 0.3, max_to
             if not _is_retryable_error_text(reason) or attempt == max_attempts - 1:
                 return {"success": False, "error": last_error}
         except Exception as e:
+            try:
+                import requests
+                if isinstance(e, (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.SSLError)):
+                    last_error = f"连接失败: {str(e)[:200]}"
+                    if attempt == max_attempts - 1:
+                        return {"success": False, "error": last_error}
+                    time.sleep(_retry_delay(attempt))
+                    continue
+            except Exception:
+                pass
             last_error = str(e)[:300]
             if not _is_retryable_error_text(last_error) or attempt == max_attempts - 1:
                 return {"success": False, "error": last_error}
@@ -247,6 +271,29 @@ def call_llm(messages: list, model: str = None, temperature: float = 0.3, max_to
         time.sleep(_retry_delay(attempt))
 
     return {"success": False, "error": last_error or "AI 调用失败"}
+
+
+def warmup_llm_async():
+    """后台预热 LLM 连接，降低用户第一次点击 AI 撰写时的冷启动失败率。"""
+    global _WARMUP_STARTED
+    with _WARMUP_LOCK:
+        if _WARMUP_STARTED:
+            return
+        _WARMUP_STARTED = True
+
+    def _warmup():
+        try:
+            call_llm(
+                [{"role": "user", "content": "请回复：OK"}],
+                temperature=0,
+                max_tokens=8,
+                timeout=20,
+            )
+        except Exception:
+            pass
+
+    thread = threading.Thread(target=_warmup, name="llm-warmup", daemon=True)
+    thread.start()
 
 
 def analyze_scoring_result(result: dict, data: dict = None) -> dict:

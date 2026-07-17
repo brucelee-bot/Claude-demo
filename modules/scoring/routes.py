@@ -1,12 +1,23 @@
 import json
+import os
+import shutil
+import uuid
+from datetime import datetime, timezone
 
 from flask import render_template, request, redirect, url_for, flash, session
 from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
 
 from models import db, Company, ScoreRecord
 from modules.scoring import scoring_bp
 from modules.scoring.engine import calculate, calculate_growth_rates
 from modules.ai.analyzer import analyze
+from modules.docgen.sales_contracts import (
+    ensure_sales_contract_codes,
+    remap_sales_contract_rows,
+    selectable_sales_contracts,
+)
+from modules.storage import persist_file
 
 
 def _get_or_create_company(company_name: str, app_type: str, data: dict) -> Company:
@@ -57,7 +68,248 @@ def _persist_session_ip_certs(company: Company) -> None:
     except Exception:
         certs = session.get("ip_certificates", [])
     if certs:
+        from modules.docgen.routes import sync_ip_cert_pdfs_to_attachments
+        certs = sync_ip_cert_pdfs_to_attachments(company, certs)
         company.ip_certs_json = json.dumps(certs, ensure_ascii=False)
+
+
+def _load_company_data(company: Company) -> dict:
+    try:
+        data = json.loads(company.data_json or "{}")
+    except (json.JSONDecodeError, TypeError):
+        data = {}
+    return data if isinstance(data, dict) else {}
+
+
+def _seed_required_material_relation_rows(data: dict, company: Company, contracts: list) -> None:
+    relation_table = data.get("gaoxin_relation_table")
+    if not isinstance(relation_table, dict):
+        relation_table = {}
+    rows = relation_table.get("rows")
+    rows = [dict(row) for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+    try:
+        certs = json.loads(company.ip_certs_json or "[]")
+    except (json.JSONDecodeError, TypeError):
+        certs = []
+    certs = certs if isinstance(certs, list) else []
+
+    def empty_row():
+        return {
+            "year": "2025",
+            "rd_code": "",
+            "rd_activity": "",
+            "rd_period": "",
+            "ip_code": "",
+            "ip_name": "",
+            "ip_auth_no": "",
+            "ps_code": "",
+            "ps_name": "",
+            "result_no": "",
+            "result_name": "",
+            "sales_contract_file_id": "",
+            "sales_contract_code": "",
+            "sales_contract_filename": "",
+            "sales_contract_summary": "",
+            "sales_contract_keywords": "",
+        }
+
+    for index, cert in enumerate(certs, start=1):
+        details = ((cert or {}).get("parsed") or {}).get("details") or {}
+        name = str(details.get("name") or "").strip()
+        auth_no = str(details.get("patent_no") or details.get("grant_no") or "").strip()
+        row = next(
+            (
+                item for item in rows
+                if (auth_no and str(item.get("ip_auth_no") or "").strip() == auth_no)
+                or (name and str(item.get("ip_name") or "").strip() == name)
+            ),
+            None,
+        )
+        if row is None:
+            row = empty_row()
+            rows.append(row)
+        row["ip_code"] = row.get("ip_code") or f"IP{index:02d}"
+        row["ip_name"] = row.get("ip_name") or name
+        row["ip_auth_no"] = row.get("ip_auth_no") or auth_no
+
+    ensure_sales_contract_codes(contracts, rows)
+    remap_sales_contract_rows(rows, contracts)
+    contracts_by_id = {
+        str(contract.get("id") or "").strip(): contract
+        for contract in contracts
+        if str(contract.get("id") or "").strip()
+    }
+    for row in rows:
+        file_id = str(row.get("sales_contract_file_id") or "").strip()
+        contract = contracts_by_id.get(file_id)
+        if not contract:
+            continue
+        row["sales_contract_code"] = contract.get("contract_code", "")
+        row["sales_contract_filename"] = contract.get("original_filename", "")
+        row["sales_contract_summary"] = contract.get("summary", "")
+        row["sales_contract_keywords"] = contract.get("keywords", "")
+
+    relation_table["rows"] = rows
+    relation_table.setdefault("tech_field_path", "")
+    data["gaoxin_relation_table"] = relation_table
+
+
+def _persist_required_materials(company: Company) -> None:
+    try:
+        from modules.parser.routes import _clear_required_materials, _get_required_materials
+
+        materials = _get_required_materials()
+    except Exception:
+        return
+
+    data = _load_company_data(company)
+    staff = materials.get("staff") if isinstance(materials.get("staff"), dict) else {}
+    staff_rows = staff.get("rows") if isinstance(staff.get("rows"), list) else []
+    staff_summary = staff.get("summary") if isinstance(staff.get("summary"), dict) else {}
+    if staff_rows:
+        data["hr_staff_rows"] = staff_rows
+        data.update(staff_summary)
+        data["staff_total"] = staff_summary.get("hr_total", len(staff_rows))
+        if staff_summary.get("tech_staff") is not None:
+            data["tech_staff"] = staff_summary["tech_staff"]
+
+    from modules.docgen.routes import (
+        _attachment_relative_path,
+        _load_gaoxin_attachments_from_data,
+        _safe_attachment_path,
+        _source_upload_path,
+    )
+
+    attachments = _load_gaoxin_attachments_from_data(data)
+    contract_files = attachments.setdefault("relation_sales_contract", {"files": []}).setdefault("files", [])
+    relation_rows = ((data.get("gaoxin_relation_table") or {}).get("rows") or [])
+    ensure_sales_contract_codes(contract_files, relation_rows)
+    remap_sales_contract_rows(relation_rows, contract_files)
+    ensure_sales_contract_codes(materials.get("sales_contracts") or [])
+    persisted_contracts = []
+    existing_by_hash = {
+        str(item.get("sha256") or ""): item
+        for item in contract_files
+        if isinstance(item, dict) and item.get("sha256")
+    }
+    existing_by_name = {
+        (
+            str(item.get("year") or ""),
+            str(item.get("original_filename") or ""),
+        ): item
+        for item in contract_files
+        if isinstance(item, dict) and item.get("original_filename")
+    }
+    for staged in materials.get("sales_contracts") or []:
+        if not isinstance(staged, dict):
+            continue
+        source_hash = str(staged.get("sha256") or "")
+        original_filename = str(staged.get("original_filename") or "销售合同.pdf")
+        contract_year = str(staged.get("year") or "").strip()
+        existing = existing_by_hash.get(source_hash) or existing_by_name.get(
+            (contract_year, original_filename)
+        )
+        if existing:
+            if contract_year and not existing.get("year"):
+                existing["year"] = contract_year
+            if staged.get("contract_sequence"):
+                existing["contract_sequence"] = staged.get("contract_sequence")
+            if staged.get("contract_code"):
+                existing["contract_code"] = staged.get("contract_code")
+            persisted_contracts.append(existing)
+            continue
+
+        source_path = _source_upload_path(staged.get("relative_path"))
+        if not source_path or not os.path.exists(source_path):
+            continue
+        safe_name = secure_filename(original_filename) or f"sales_contract_{uuid.uuid4().hex}.pdf"
+        if not safe_name.lower().endswith(".pdf"):
+            safe_name = f"{os.path.splitext(safe_name)[0]}.pdf"
+        file_id = str(staged.get("id") or uuid.uuid4().hex)
+        stored_filename = f"{file_id}_{safe_name}"
+        relative_path = _attachment_relative_path(
+            company.user_id,
+            company.id,
+            "relation_sales_contract",
+            stored_filename,
+        )
+        target_path = _safe_attachment_path(relative_path)
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+        shutil.copy2(source_path, target_path)
+        persist_file(target_path, relative_path)
+        file_meta = {
+            "id": file_id,
+            "original_filename": original_filename,
+            "stored_filename": stored_filename,
+            "relative_path": relative_path,
+            "uploaded_at": staged.get("uploaded_at") or datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "source": "relation_sales_contract",
+            "year": contract_year,
+            "contract_sequence": staged.get("contract_sequence"),
+            "contract_code": staged.get("contract_code", ""),
+            "summary": staged.get("summary", ""),
+            "keywords": staged.get("keywords", ""),
+            "sha256": source_hash,
+            "auto_synced": True,
+        }
+        contract_files.append(file_meta)
+        persisted_contracts.append(file_meta)
+        if source_hash:
+            existing_by_hash[source_hash] = file_meta
+        existing_by_name[(contract_year, original_filename)] = file_meta
+        try:
+            os.remove(source_path)
+        except OSError:
+            pass
+
+    ensure_sales_contract_codes(contract_files, relation_rows)
+    remap_sales_contract_rows(relation_rows, contract_files)
+    data["gaoxin_attachments"] = attachments
+    _seed_required_material_relation_rows(data, company, persisted_contracts)
+    finance_data = session.get("last_finance_data")
+    if not isinstance(finance_data, dict) or not finance_data:
+        finance_data = {
+            key: value
+            for key, value in data.items()
+            if key.startswith("fin_") and value not in (None, "")
+        }
+    try:
+        patent_certs = json.loads(company.ip_certs_json or "[]")
+    except (json.JSONDecodeError, TypeError):
+        patent_certs = []
+    patent_certs = patent_certs if isinstance(patent_certs, list) else []
+    effective_staff_rows = staff_rows or (
+        data.get("hr_staff_rows") if isinstance(data.get("hr_staff_rows"), list) else []
+    )
+    data["required_materials"] = {
+        "finance": {
+            "recognized": bool(finance_data),
+            "field_count": len(finance_data) if isinstance(finance_data, dict) else 0,
+            "validation": session.get("last_finance_validation") or {},
+        },
+        "patents": {"count": len(patent_certs)},
+        "staff": {
+            "filename": staff.get("filename", "")
+            or ((data.get("required_materials") or {}).get("staff") or {}).get("filename", ""),
+            "count": len(effective_staff_rows),
+        },
+        "sales_contracts": [
+            {
+                "id": item.get("id", ""),
+                "original_filename": item.get("original_filename", ""),
+                "year": item.get("year", ""),
+                "contract_sequence": item.get("contract_sequence", ""),
+                "contract_code": item.get("contract_code", ""),
+                "summary": item.get("summary", ""),
+                "keywords": item.get("keywords", ""),
+            }
+            for item in selectable_sales_contracts(contract_files, relation_rows)
+            if isinstance(item, dict)
+        ],
+    }
+    company.data_json = json.dumps(data, ensure_ascii=False)
+    _clear_required_materials()
 
 
 @scoring_bp.route("/", methods=["GET"])
@@ -88,7 +340,7 @@ def zhuanjing():
         session["last_company_id"] = company.id
 
         flash(f"评分完成！总分 {result['total_score']} 分", "success")
-        return redirect(url_for("scoring.result"))
+        return redirect(url_for("scoring.result", company_id=company.id))
 
     return render_template("score_zhuanjing_form.html", rule_type="专精特新")
 
@@ -123,7 +375,7 @@ def xiaojuren():
             flash(f"评分完成！总分 {result['total_score']} 分，⚠️ 基本条件 {conditions['passed_count']}/{conditions['total_count']} 未全部满足", "error")
         else:
             flash(f"评分完成！总分 {result['total_score']} 分", "success")
-        return redirect(url_for("scoring.result"))
+        return redirect(url_for("scoring.result", company_id=company.id))
 
     return render_template("score_zhuanjing_form.html", rule_type="小巨人")
 
@@ -159,6 +411,9 @@ def gaoxin():
 
         # 执行评分
         result = calculate(score_data, rule_type="高新技术")
+        finance_validation = session.get("last_finance_validation")
+        if finance_validation:
+            result["finance_validation"] = finance_validation
 
         # AI 定性分析
         ai_analysis = analyze(result, score_data)
@@ -167,6 +422,7 @@ def gaoxin():
         company_name = form_data.get("company_name", "未命名企业").strip()
         company = _get_or_create_company(company_name, "高新技术", score_data)
         _persist_session_ip_certs(company)
+        _persist_required_materials(company)
         _upsert_score_record(company, "高新技术", result, ai_analysis)
         db.session.commit()
 
@@ -177,7 +433,7 @@ def gaoxin():
         session["last_company_id"] = company.id
 
         flash(f"评分完成！总分 {result['total_score']} 分", "success")
-        return redirect(url_for("scoring.result"))
+        return redirect(url_for("scoring.result", company_id=company.id))
 
     # 读取 IP 分析 token
     token = request.args.get("ip_token", "")
@@ -188,7 +444,7 @@ def gaoxin():
     else:
         session.pop("ip_certificates", None)
 
-    return render_template("score_gaoxin_form.html", ip_eval=ip_eval)
+    return render_template("score_gaoxin_form.html", ip_eval=ip_eval, company_id=session.get("last_company_id"))
 
 
 @scoring_bp.route("/result")
@@ -200,15 +456,16 @@ def result():
     ai_analysis = session.get("last_ai_analysis")
     company_name = session.get("last_company_name", "未知企业")
 
-    if not result_json and company_id:
-        # 从 DB 加载
-        record = (
+    if not result_json:
+        # 会话过期或直接打开结果页时，从指定企业或当前用户的最近评分恢复。
+        record_query = (
             ScoreRecord.query
             .join(Company)
-            .filter(Company.id == int(company_id), Company.user_id == current_user.id)
-            .order_by(ScoreRecord.created_at.desc())
-            .first()
+            .filter(Company.user_id == current_user.id)
         )
+        if company_id:
+            record_query = record_query.filter(Company.id == int(company_id))
+        record = record_query.order_by(ScoreRecord.created_at.desc(), ScoreRecord.id.desc()).first()
         if record:
             # 根据项目类型确定达标线和规则名
             if record.score_type == "专精特新":

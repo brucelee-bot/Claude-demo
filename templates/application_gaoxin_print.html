@@ -4,9 +4,10 @@
 <meta charset="UTF-8" />
 <title>国家高新技术企业认定申请书 — {{ company.name }}</title>
 <style>
-  @page { size: A4; margin: 15mm 18mm; }
+  @page { size: A4; margin: 28mm 18mm 18mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: "SimSun", "宋体", serif; font-size: 12pt; color: #000; line-height: 1.8; }
+  {% include "_generated_document_header_styles.html" %}
   h1 { text-align: center; font-size: 18pt; margin-bottom: 8mm; }
   h2 { font-size: 14pt; margin: 6mm 0 3mm; border-bottom: 1px solid #000; padding-bottom: 2mm; }
   table { width: 100%; border-collapse: collapse; margin: 4mm 0; }
@@ -26,23 +27,23 @@
 </style>
 </head>
 <body>
-
 <h1>国家高新技术企业认定申请书</h1>
 <p class="center">科技部、财政部、国家税务总局编制 · 二〇一六年六月</p>
 
-<div class="declaration">
-  <p><b>声明：</b>本申请书上填写的有关内容和提交的资料均准确、真实、合法、有效、无涉密信息，本企业愿为此承担有关法律责任。</p>
-  <p>法定代表人（签名）：______________ &nbsp;&nbsp;&nbsp;（企业公章）</p>
-  <p>填报号：<span class="value">{{ data.get('app_no', '') }}</span></p>
+<!-- ===== 企业简介 ===== -->
+{% if data.get('company_intro','') or data.get('business_scope','') %}
+<div class="section">
+  <h2>企业简介</h2>
+  {% if data.get('company_intro','') %}<p><b>企业简介：</b></p><div class="text-block">{{ data.get('company_intro','') }}</div>{% endif %}
+  {% if data.get('business_scope','') %}<p><b>经营范围：</b></p><div class="text-block">{{ data.get('business_scope','') }}</div>{% endif %}
 </div>
+{% endif %}
 
 <!-- ===== 一、主要情况 ===== -->
 <div class="section">
   <h2>一、主要情况</h2>
   <table>
     <tr><td class="label">企业名称</td><td class="value">{{ company.name }}</td><td class="label">系统填报号</td><td class="value">{{ data.get('app_no','') }}</td></tr>
-    <tr><td class="label">所在地区</td><td colspan="3" class="value">{{ data.get('province','') }} {{ data.get('city','') }} &nbsp;&nbsp; 认定机构：{{ data.get('cert_agency','') }}</td></tr>
-    <tr><td class="label">申请日期</td><td colspan="3" class="value">{{ data.get('app_year','') }}年{{ data.get('app_month','') }}月{{ data.get('app_day','') }}日</td></tr>
     <tr><td class="label">技术领域</td><td colspan="3" class="value">{{ data.get('tech_field','') }}</td></tr>
     <tr>
       <td class="label" rowspan="2">知识产权数量</td>
@@ -59,19 +60,19 @@
       <th>年度</th><th>净资产</th><th>销售收入</th><th>利润总额</th>
     </tr>
     <tr>
-      <td>{{ data.get('year1_label','第一年') }}</td>
+      <td>{{ data.get('year1_label','2023') }}</td>
       <td>{{ data.get('year1_net_assets','') }}</td>
       <td>{{ data.get('year1_sales','') }}</td>
       <td>{{ data.get('year1_profit','') }}</td>
     </tr>
     <tr>
-      <td>{{ data.get('year2_label','第二年') }}</td>
+      <td>{{ data.get('year2_label','2024') }}</td>
       <td>{{ data.get('year2_net_assets','') }}</td>
       <td>{{ data.get('year2_sales','') }}</td>
       <td>{{ data.get('year2_profit','') }}</td>
     </tr>
     <tr>
-      <td>{{ data.get('year3_label','第三年') }}</td>
+      <td>{{ data.get('year3_label','2025') }}</td>
       <td>{{ data.get('year3_net_assets','') }}</td>
       <td>{{ data.get('year3_sales','') }}</td>
       <td>{{ data.get('year3_profit','') }}</td>
@@ -129,6 +130,18 @@
     <tr><th colspan="2">学历</th><th>博士</th><th>硕士</th><th>本科</th><th>大专及以下</th></tr>
     <tr><td colspan="2">人数</td><td>{{ data.get('edu_phd','0') }}</td><td>{{ data.get('edu_master','0') }}</td><td>{{ data.get('edu_bachelor','0') }}</td><td>{{ data.get('edu_diploma','0') }}</td></tr>
   </table>
+  <table>
+    <tr><th colspan="2">职称</th><th>高级职称</th><th>中级职称</th><th>初级职称</th><th>高级技工</th></tr>
+    <tr><td colspan="2">人数</td><td>{{ data.get('title_senior','0') }}</td><td>{{ data.get('title_mid','0') }}</td><td>{{ data.get('title_junior','0') }}</td><td>{{ data.get('title_tech','0') }}</td></tr>
+  </table>
+  {% if data.get('hr_staff_rows') %}
+  <table>
+    <tr><th>序号</th><th>姓名</th><th>身份证号</th><th>是否签订合同</th><th>入职时间</th><th>是否缴纳社保</th><th>工作性质</th><th>学历</th><th>是否科技人员</th></tr>
+    {% for row in data.get('hr_staff_rows', []) %}
+    <tr><td>{{ row.get('序号','') }}</td><td>{{ row.get('姓名','') }}</td><td>{{ row.get('身份证号','') or row.get('身份证','') }}</td><td>{{ row.get('是否签订合同','') }}</td><td>{{ row.get('入职时间','') }}</td><td>{{ row.get('是否缴纳社保','') }}</td><td>{{ row.get('工作性质','') }}</td><td>{{ row.get('学历','') }}</td><td>{{ row.get('是否科技人员','') }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
 </div>
 
 <div class="page-break"></div>
@@ -220,6 +233,30 @@
   <div class="text-block">{{ data.get('innovation_transform','') }}</div>
   <p><b>研究开发与技术创新组织管理情况：</b></p>
   <div class="text-block">{{ data.get('innovation_rd_mgmt','') }}</div>
+  <h2>组织管理制度文件框架</h2>
+  <table>
+    <tr><th>制度模块</th><th>建议制度文件</th><th>框架要点及佐证材料</th></tr>
+    <tr>
+      <td class="label">企业研究开发组织管理</td>
+      <td class="value">{{ data.get('system_rd_files','') }}</td>
+      <td class="value">{{ data.get('system_rd_points','') }}</td>
+    </tr>
+    <tr>
+      <td class="label">研发机构与产学研合作</td>
+      <td class="value">{{ data.get('system_org_files','') }}</td>
+      <td class="value">{{ data.get('system_org_points','') }}</td>
+    </tr>
+    <tr>
+      <td class="label">科技成果转化与创新平台</td>
+      <td class="value">{{ data.get('system_transform_files','') }}</td>
+      <td class="value">{{ data.get('system_transform_points','') }}</td>
+    </tr>
+    <tr>
+      <td class="label">科技人员培养与绩效激励</td>
+      <td class="value">{{ data.get('system_talent_files','') }}</td>
+      <td class="value">{{ data.get('system_talent_points','') }}</td>
+    </tr>
+  </table>
   <p><b>管理与科技人员情况：</b></p>
   <div class="text-block">{{ data.get('innovation_staff','') }}</div>
 </div>

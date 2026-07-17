@@ -1,0 +1,19 @@
+{
+  "services": {
+    "declare-assistant": {
+      "root": ".",
+      "runtime": "python",
+      "framework": "flask",
+      "entrypoint": "app:app"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": {
+        "type": "service",
+        "service": "declare-assistant"
+      }
+    }
+  ]
+}

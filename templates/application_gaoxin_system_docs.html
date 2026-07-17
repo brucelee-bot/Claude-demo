@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+{% block title %}高新制度文件生成 — {{ company.name }}{% endblock %}
+{% block head_extra %}
+<style>
+  .system-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 18px;
+    padding: 22px;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(8,145,178,0.08), rgba(37,99,235,0.05)), var(--bg-primary);
+  }
+  .system-header h1 { margin: 0; font-size: 28px; color: var(--text-primary); letter-spacing: 0; }
+  .system-header p { margin: 8px 0 0; color: var(--text-secondary); max-width: 860px; }
+  .system-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  .system-grid { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; }
+  .system-panel { border: 1px solid var(--border-light); border-radius: 10px; background: var(--bg-primary); padding: 18px; }
+  .system-panel h2 { margin: 0 0 12px; font-size: 18px; color: var(--text-primary); }
+  .base-fields { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .base-field label { display: block; margin-bottom: 4px; font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+  .base-field input, .base-field textarea, .doc-card textarea, .word-target input {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 8px 10px;
+    box-sizing: border-box;
+  }
+  .base-field textarea { min-height: 128px; resize: vertical; line-height: 1.6; }
+  .base-field textarea.compact-base-textarea { min-height: 76px; }
+  .base-field textarea.long-base-textarea { min-height: 150px; }
+  .batch-generate-box { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-light); display: grid; gap: 8px; }
+  .batch-status { min-height: 18px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+  .batch-status.error { color: var(--danger); }
+  .batch-status.success { color: var(--success); }
+  .doc-list { display: grid; gap: 14px; }
+  .doc-card { border: 1px solid var(--border-light); border-radius: 10px; background: var(--bg-primary); padding: 16px; }
+  .doc-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  .doc-card h3 { margin: 0; font-size: 17px; color: var(--text-primary); }
+  .doc-card .guide { margin: 6px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+  .doc-card textarea { min-height: 360px; resize: vertical; line-height: 1.7; }
+  .doc-card textarea.evidence-textarea { min-height: 210px; }
+  .doc-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .evidence-block { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-light); }
+  .evidence-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .evidence-head strong { color: var(--text-primary); font-size: 14px; }
+  .signature-hint { margin-top: 6px; text-align: right; color: var(--text-secondary); font-size: 12px; }
+  .doc-count { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+  .word-target { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 12px; }
+  .word-target input { width: 78px; padding: 5px 8px; }
+  .doc-status { margin-top: 8px; color: var(--text-secondary); font-size: 12px; min-height: 18px; }
+  .doc-status.error { color: var(--danger); }
+  .doc-status.success { color: var(--success); }
+  @media (max-width: 1080px) {
+    .system-header { grid-template-columns: 1fr; }
+    .system-actions { justify-content: flex-start; }
+    .system-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="system-header">
+  <div>
+    <h1>高新制度文件生成</h1>
+    <p>{{ company.name }}：围绕高新认定组织管理要求，在线生成可直接下载的制度正文和个性化佐证材料。请优先在左侧基础信息中填写项目和审批信息，导出的制度汇编会在每项制度后附上对应佐证表单，减少生成后手工修改。</p>
+  </div>
+  <div class="system-actions">
+    <a class="btn btn-secondary btn-sm" href="{{ url_for('docgen.gaoxin_book', company_id=company.id) }}#material-innovation">返回申请书</a>
+    <button type="submit" form="system-docs-form" class="btn btn-success btn-sm">保存制度</button>
+    <button type="button" class="btn btn-primary btn-sm" onclick="exportWord()">导出制度及佐证材料 Word</button>
+  </div>
+</div>
+
+<form id="system-docs-form" method="POST" action="{{ url_for('docgen.gaoxin_system_docs', company_id=company.id) }}">
+  <div class="system-grid">
+    <aside class="system-panel">
+      <h2>制度生成基础信息</h2>
+      <div class="base-fields">
+        {% for key, label in base_fields %}
+        <div class="base-field">
+          <label for="base-{{ key }}">{{ label }}</label>
+          {% if key in ['generation_notes', 'evidence_project_goal', 'evidence_project_content', 'evidence_project_innovation', 'evidence_acceptance_standard', 'evidence_expected_result'] %}
+          <textarea id="base-{{ key }}" name="{{ key }}" class="{% if key == 'generation_notes' %}long-base-textarea{% else %}compact-base-textarea{% endif %}" placeholder="{% if key == 'generation_notes' %}填写制度正文和佐证文件需要体现的企业独特情况，例如研发管理流程、部门分工、财务归集口径、会议培训安排、已有台账或审批习惯等。{% else %}填写后会自动带入佐证材料 Word 表单，尽量减少导出后手工修改。{% endif %}">{{ system_docs.base.get(key, '') }}</textarea>
+          {% else %}
+          <input id="base-{{ key }}" name="{{ key }}" value="{{ system_docs.base.get(key, '') }}" />
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="batch-generate-box">
+        <button type="button" class="btn btn-primary btn-sm" data-generate-all onclick="generateAllSystemDocs()">自动生成全部制度正文和佐证文件</button>
+        <div class="batch-status" data-batch-status>填写左侧基础信息后点击生成，右侧制度正文和简化后的佐证文件要求会自动填充。</div>
+      </div>
+    </aside>
+
+    <section class="system-panel">
+      <h2>制度正文 <span class="text-muted" style="font-size:13px;font-weight:400">已完成 {{ completed_count }}/{{ doc_types|length }}</span></h2>
+      <div class="doc-list">
+        {% for doc in doc_types %}
+        {% set content = system_docs.docs.get(doc.key, '') %}
+        {% set evidence = system_docs.evidence.get(doc.key, '') %}
+        <article class="doc-card" data-doc-key="{{ doc.key }}">
+          <div class="doc-card-head">
+            <div>
+              <h3>{{ loop.index }}. {{ doc.title }}</h3>
+              <p class="guide">{{ doc.guide }}</p>
+            </div>
+            <div class="doc-tools">
+              <label class="word-target">目标字数 <input type="number" value="1000" min="600" max="1600" step="100" data-target-words /></label>
+              <button type="button" class="btn btn-sm btn-primary" onclick="generateDoc(this, '{{ doc.key }}')">AI 撰写</button>
+            </div>
+          </div>
+          <textarea name="doc_{{ doc.key }}" data-doc-content>{{ content }}</textarea>
+          <div class="signature-hint">导出 Word 时落款右对齐：{{ system_docs.base.get('company_name') or company.name }} · {{ system_docs.base.get('effective_date') or '日期留空待填' }}</div>
+          <div class="doc-status"><span data-status-message></span><span data-word-count>{{ content|replace('\n','')|replace(' ','')|length }}</span> 字</div>
+
+          <div class="evidence-block">
+            <div class="evidence-head">
+              <strong>表格化佐证材料生成规则</strong>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="generateEvidence(this, '{{ doc.key }}')">AI 生成规则</button>
+            </div>
+            <textarea name="evidence_{{ doc.key }}" class="evidence-textarea" data-evidence-content placeholder="可补充少量特殊生成规则；导出时会优先整理成表格和简短说明，并紧跟在对应制度正文后面。">{{ evidence }}</textarea>
+            <div class="doc-status"><span data-evidence-status-message></span><span data-evidence-count>{{ evidence|replace('\n','')|replace(' ','')|length }}</span> 字</div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+const generateUrl = '{{ url_for("docgen.gaoxin_system_docs_ai_generate", company_id=company.id) }}';
+const evidenceGenerateUrl = '{{ url_for("docgen.gaoxin_system_docs_ai_generate_evidence", company_id=company.id) }}';
+const exportUrl = '{{ url_for("docgen.gaoxin_system_docs_word", company_id=company.id) }}';
+
+function basePayload() {
+  const payload = {};
+  document.querySelectorAll('#system-docs-form .base-field input, #system-docs-form .base-field textarea').forEach(function(input) {
+    payload[input.name] = input.value.trim();
+  });
+  return payload;
+}
+
+function updateCount(card) {
+  const textarea = card.querySelector('[data-doc-content]');
+  const count = card.querySelector('[data-word-count]');
+  if (textarea && count) count.textContent = textarea.value.replace(/\s/g, '').length;
+  const evidence = card.querySelector('[data-evidence-content]');
+  const evidenceCount = card.querySelector('[data-evidence-count]');
+  if (evidence && evidenceCount) evidenceCount.textContent = evidence.value.replace(/\s/g, '').length;
+}
+
+function normalizeDocText(text) {
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*\*/g, '')
+    .split('\n')
+    .map(function(line) { return line.trimEnd(); })
+    .reduce(function(lines, line) {
+      if (!line.trim()) {
+        if (lines.length && lines[lines.length - 1] !== '') lines.push('');
+      } else {
+        lines.push(line.trim());
+      }
+      return lines;
+    }, [])
+    .join('\n')
+    .trim();
+}
+
+function normalizeAllDocs() {
+  document.querySelectorAll('.doc-card').forEach(function(card) {
+    const textarea = card.querySelector('[data-doc-content]');
+    if (textarea) textarea.value = normalizeDocText(textarea.value);
+    const evidence = card.querySelector('[data-evidence-content]');
+    if (evidence) evidence.value = normalizeDocText(evidence.value);
+    updateCount(card);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.doc-card').forEach(function(card) {
+    const textarea = card.querySelector('[data-doc-content]');
+    if (textarea) {
+      textarea.value = normalizeDocText(textarea.value);
+      textarea.addEventListener('input', function() { updateCount(card); });
+    }
+    const evidence = card.querySelector('[data-evidence-content]');
+    if (evidence) {
+      evidence.value = normalizeDocText(evidence.value);
+      evidence.addEventListener('input', function() { updateCount(card); });
+    }
+    updateCount(card);
+  });
+  const form = document.getElementById('system-docs-form');
+  if (form) form.addEventListener('submit', normalizeAllDocs);
+});
+
+function setStatus(card, text, kind) {
+  const status = card.querySelector('.doc-status');
+  if (!status) return;
+  status.classList.remove('error', 'success');
+  if (kind) status.classList.add(kind);
+  const message = card.querySelector('[data-status-message]');
+  if (message) message.textContent = text ? text + ' · ' : '';
+}
+
+function setEvidenceStatus(card, text, kind) {
+  const message = card.querySelector('[data-evidence-status-message]');
+  if (!message) return;
+  const status = message.closest('.doc-status');
+  if (status) {
+    status.classList.remove('error', 'success');
+    if (kind) status.classList.add(kind);
+  }
+  message.textContent = text ? text + ' · ' : '';
+}
+
+function postJson(url, payload) {
+  return fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  }).then(function(resp) {
+    return resp.json().then(function(data) { return {ok: resp.ok, data: data}; });
+  }).then(function(result) {
+    if (!result.ok || !result.data.success) throw new Error(result.data.error || 'AI 生成失败');
+    return result.data;
+  });
+}
+
+function generateDocForCard(card, docKey, overwrite) {
+  const textarea = card.querySelector('[data-doc-content]');
+  const targetInput = card.querySelector('[data-target-words]');
+  const existing = textarea ? textarea.value.trim() : '';
+  setStatus(card, 'AI 正在撰写制度正文', '');
+  return postJson(generateUrl, {
+    doc_key: docKey,
+    base: basePayload(),
+    existing: overwrite ? '' : existing,
+    target_words: targetInput ? targetInput.value : 1000
+  }).then(function(data) {
+    textarea.value = normalizeDocText(data.text || '');
+    textarea.dispatchEvent(new Event('input', {bubbles: true}));
+    setStatus(card, '制度正文已自动生成', 'success');
+    return textarea.value;
+  });
+}
+
+function generateEvidenceForCard(card, docKey, overwrite) {
+  const docTextarea = card.querySelector('[data-doc-content]');
+  const evidenceTextarea = card.querySelector('[data-evidence-content]');
+  const existing = evidenceTextarea ? evidenceTextarea.value.trim() : '';
+  setEvidenceStatus(card, 'AI 正在生成佐证文件内容要求', '');
+  return postJson(evidenceGenerateUrl, {
+    doc_key: docKey,
+    base: basePayload(),
+    doc_content: docTextarea ? docTextarea.value : '',
+    existing: overwrite ? '' : existing
+  }).then(function(data) {
+    evidenceTextarea.value = normalizeDocText(data.text || '');
+    evidenceTextarea.dispatchEvent(new Event('input', {bubbles: true}));
+    setEvidenceStatus(card, '佐证文件内容要求已自动生成', 'success');
+    return evidenceTextarea.value;
+  });
+}
+
+function generateDoc(btn, docKey) {
+  const card = btn.closest('.doc-card');
+  const textarea = card.querySelector('[data-doc-content]');
+  const existing = textarea ? textarea.value.trim() : '';
+  if (existing && !confirm('当前制度已有正文，AI 撰写会覆盖当前内容。是否继续？')) return;
+
+  const original = btn.textContent;
+  btn.textContent = '撰写中...';
+  btn.disabled = true;
+  generateDocForCard(card, docKey, true)
+    .catch(function(err) { setStatus(card, err.message || 'AI 生成失败', 'error'); })
+    .finally(function() {
+      btn.textContent = original;
+      btn.disabled = false;
+    });
+}
+
+function generateEvidence(btn, docKey) {
+  const card = btn.closest('.doc-card');
+  const evidenceTextarea = card.querySelector('[data-evidence-content]');
+  const existing = evidenceTextarea ? evidenceTextarea.value.trim() : '';
+  if (existing && !confirm('当前佐证材料已有内容，AI 生成会覆盖当前内容。是否继续？')) return;
+
+  const original = btn.textContent;
+  btn.textContent = '生成中...';
+  btn.disabled = true;
+  generateEvidenceForCard(card, docKey, true)
+    .catch(function(err) { setEvidenceStatus(card, err.message || 'AI 生成失败', 'error'); })
+    .finally(function() {
+      btn.textContent = original;
+      btn.disabled = false;
+    });
+}
+
+function setBatchStatus(text, kind) {
+  const status = document.querySelector('[data-batch-status]');
+  if (!status) return;
+  status.classList.remove('error', 'success');
+  if (kind) status.classList.add(kind);
+  status.textContent = text || '';
+}
+
+async function generateAllSystemDocs() {
+  const cards = Array.from(document.querySelectorAll('.doc-card'));
+  const btn = document.querySelector('[data-generate-all]');
+  const hasContent = cards.some(function(card) {
+    const docText = card.querySelector('[data-doc-content]')?.value.trim();
+    const evidenceText = card.querySelector('[data-evidence-content]')?.value.trim();
+    return docText || evidenceText;
+  });
+  if (hasContent && !confirm('将根据左侧基础信息重新生成全部制度正文和佐证文件内容，并覆盖右侧现有内容。是否继续？')) return;
+
+  const original = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '自动生成中...';
+  }
+  document.querySelectorAll('.doc-tools button, .evidence-head button').forEach(function(button) { button.disabled = true; });
+  try {
+    for (let index = 0; index < cards.length; index += 1) {
+      const card = cards[index];
+      const docKey = card.dataset.docKey;
+      const title = card.querySelector('h3')?.textContent.trim() || '制度文件';
+      setBatchStatus('正在生成 ' + (index + 1) + '/' + cards.length + '：' + title, '');
+      await generateDocForCard(card, docKey, true);
+      await generateEvidenceForCard(card, docKey, true);
+    }
+    normalizeAllDocs();
+    setBatchStatus('全部制度正文和佐证文件内容已生成，可直接保存或导出制度及佐证材料 Word。', 'success');
+  } catch (err) {
+    setBatchStatus(err.message || '自动生成失败，请检查后重试。', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+    document.querySelectorAll('.doc-tools button, .evidence-head button').forEach(function(button) { button.disabled = false; });
+  }
+}
+
+function exportWord() {
+  normalizeAllDocs();
+  const form = document.getElementById('system-docs-form');
+  const originalAction = form.action;
+  form.action = exportUrl;
+  form.method = 'POST';
+  form.submit();
+  form.action = originalAction;
+}
+</script>
+{% endblock %}

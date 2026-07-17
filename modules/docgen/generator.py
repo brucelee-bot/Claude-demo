@@ -10,6 +10,8 @@ from typing import Any
 from docx import Document
 from docx.shared import Pt, Cm
 
+from modules.docgen.document_headers import add_company_header
+
 
 TEMPLATE_PATH = os.path.expanduser("~/Desktop/高新技术企业认定申请书模板.docx")
 
@@ -91,6 +93,11 @@ def generate(data: dict, output_path: str = None) -> str:
         "standards": [{...}, ...],
     }
     """
+    data = dict(data or {})
+    data.setdefault("year1", "2023")
+    data.setdefault("year2", "2024")
+    data.setdefault("year3", "2025")
+
     if not os.path.exists(TEMPLATE_PATH):
         raise FileNotFoundError(f"模板文件不存在: {TEMPLATE_PATH}")
 
@@ -107,6 +114,11 @@ def generate(data: dict, output_path: str = None) -> str:
     shutil.copy(TEMPLATE_PATH, output_path)
 
     doc = Document(output_path)
+    add_company_header(
+        doc,
+        data.get("company_name"),
+        data.get("company_english_name"),
+    )
 
     # === 替换段落文本中的占位符 ===
     _fill_paragraphs(doc, data)

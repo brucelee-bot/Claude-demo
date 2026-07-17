@@ -29,6 +29,22 @@
   {% endif %}
 </div>
 
+{% set finance_validation = result.get('finance_validation') if result is mapping else none %}
+{% if finance_validation %}
+<div class="card" style="border-color:{% if finance_validation.status == 'warning' %}var(--warning){% else %}var(--success){% endif %};background:{% if finance_validation.status == 'warning' %}rgba(210,153,29,0.08){% else %}rgba(63,185,80,0.08){% endif %}">
+  <h3 style="margin-bottom:8px">财务报表核验</h3>
+  {% set mismatch_count = finance_validation.mismatched|length if finance_validation.mismatched else 0 %}
+  {% if mismatch_count %}
+  <p style="margin:0;color:var(--warning)">Claude 识别与 GPT-5.5 复核存在 {{ mismatch_count }} 处差异，请以原始财务报表人工核对后再提交申报材料。</p>
+  {% else %}
+  <p style="margin:0;color:var(--success)">Claude 识别与 GPT-5.5 复核一致，已用于本次评分的财务数据回填。</p>
+  {% endif %}
+  {% if finance_validation.verifier_error %}
+  <p class="text-muted" style="font-size:12px;margin-top:6px">GPT-5.5 复核提示：{{ finance_validation.verifier_error }}</p>
+  {% endif %}
+</div>
+{% endif %}
+
 <!-- 小巨人基本条件校验 -->
 {% if basic_conditions %}
 <div class="card mt-2" style="border-color:{% if basic_conditions.all_passed %}var(--success){% else %}var(--danger){% endif %}">

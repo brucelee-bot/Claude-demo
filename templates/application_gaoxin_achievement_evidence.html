@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% block title %}成果附件制作 — {{ company.name }}{% endblock %}
+{% block head_extra %}
+<style>
+.evidence-shell { max-width: 1180px; margin: 0 auto; padding-bottom: 40px; }
+.evidence-hero { background: linear-gradient(135deg, #0f766e 0%, #7c3aed 100%); color: #fff; border-radius: 22px; padding: 26px 30px; margin-bottom: 18px; box-shadow: 0 20px 50px rgba(37,99,235,.2); }
+.evidence-hero h1 { margin: 0 0 10px; font-size: 28px; }
+.evidence-hero p { margin: 0; opacity: .92; line-height: 1.7; }
+.evidence-card { background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(15,23,42,.05); }
+.evidence-card-synced { border-color: #86efac; background: #f0fdf4; }
+.synced-tip { display: inline-flex; align-items: center; margin-bottom: 8px; padding: 5px 9px; border: 1px solid #86efac; border-radius: 999px; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 700; }
+.evidence-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.evidence-meta div { background: var(--bg-secondary); border-radius: 12px; padding: 12px; }
+.evidence-meta b { display: block; margin-bottom: 4px; color: var(--text-muted); font-size: 12px; }
+.evidence-upload-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.evidence-edit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.evidence-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+.evidence-editor { width: 100%; min-height: 330px; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1.7; }
+.evidence-preview { width: 100%; height: 430px; border: 1px solid var(--border); border-radius: 12px; background: #f8fafc; }
+.evidence-file-list { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.evidence-file-list li { display: flex; justify-content: space-between; gap: 10px; align-items: center; border: 1px solid var(--border); border-radius: 12px; padding: 9px 10px; background: #f8fafc; }
+.file-meta { min-width: 0; }
+.file-name { font-weight: 600; word-break: break-all; }
+.synced-file-badge { display: inline-block; margin-left: 6px; padding: 2px 6px; border-radius: 999px; background: #bbf7d0; color: #166534; font-size: 11px; font-weight: 700; }
+.file-time { color: var(--text-muted); font-size: 12px; margin-top: 3px; }
+.file-tools { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.status-text { color: var(--text-muted); font-size: 13px; }
+@media (max-width: 1100px) { .evidence-edit-grid, .evidence-upload-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .evidence-meta { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .evidence-meta { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="evidence-shell">
+  <section class="evidence-hero">
+    <h1>{{ achievement.result_no or '成果' }} 附件制作</h1>
+    <p>{{ company.name }}：上传专利证书、销售合同、销售发票、产品照片，并在线撰写检测报告和用户使用报告。</p>
+  </section>
+
+  <div class="evidence-card">
+    <div class="evidence-meta">
+      <div><b>成果序号</b>{{ achievement.result_no or '—' }}</div>
+      <div><b>成果名称</b>{{ achievement.result_name or '—' }}</div>
+      <div><b>对应RD</b>{{ achievement.rd_code or '—' }} {{ achievement.rd_name or '' }}</div>
+      <div><b>起止时间</b>{{ achievement.period or '—' }}</div>
+    </div>
+    <p class="status-text" style="margin-top:12px">对应PS：{{ achievement.ps or '—' }}；对应IP：{{ achievement.ip or '—' }}{% if achievement.ip_auth_no %}（{{ achievement.ip_auth_no }}）{% endif %}</p>
+    <div class="evidence-actions">
+      <a class="btn btn-secondary" href="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}#attachment-achievement_transform">返回成果转化文件</a>
+    </div>
+  </div>
+
+  <section class="evidence-card">
+    <h2 style="margin-top:0">PDF附件上传</h2>
+    <div class="evidence-upload-grid">
+      {% for item in upload_evidence_types %}
+      <div class="evidence-card{% if item.key == 'patent_cert' and item.files|selectattr('auto_synced')|list %} evidence-card-synced{% endif %}" style="margin:0" data-evidence-upload="{{ item.key }}">
+        <h3 style="margin:0 0 8px">{{ item.title }}</h3>
+        {% if item.key == 'patent_cert' and item.files|selectattr('auto_synced')|list %}
+        <div class="synced-tip">已自动带入对应知识产权PDF，无需重复上传。</div>
+        {% endif %}
+        <p class="status-text">{{ item.hint }}</p>
+        <div class="evidence-actions">
+          <input type="file" accept=".pdf,application/pdf" data-evidence-pdf-input>
+          <button type="button" class="btn btn-primary btn-sm" onclick="uploadEvidencePdf('{{ item.key }}', this)">上传PDF</button>
+          <span class="status-text" data-upload-status></span>
+        </div>
+        <ul class="evidence-file-list" data-file-list>
+          {% for file in item.files %}
+          <li data-file-id="{{ file.id }}">
+            <div class="file-meta">
+              <div class="file-name">{{ file.original_filename }}{% if file.get('auto_synced') and file.get('source') == 'achievement_ip_auto_sync' %}<span class="synced-file-badge">自动带入</span>{% endif %}</div>
+              <div class="file-time">{{ file.uploaded_at }}</div>
+            </div>
+            <div class="file-tools">
+              <a class="btn btn-sm btn-secondary" target="_blank" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='achievement_transform', file_id=file.id) }}">预览</a>
+              <a class="btn btn-sm btn-secondary" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='achievement_transform', file_id=file.id) }}?download=1">下载</a>
+              <button type="button" class="btn btn-sm btn-danger" onclick="deleteEvidencePdf('{{ file.id }}', this)">删除</button>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        <p class="status-text" data-empty-message {% if item.files %}style="display:none"{% endif %}>暂未上传{{ item.title }}。</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <form method="POST" id="achievement-evidence-form">
+    <div class="evidence-edit-grid">
+      {% for item in edit_evidence_types %}
+      <section class="evidence-card" data-evidence-edit="{{ item.key }}">
+        <h2 style="margin-top:0">{{ item.title }}</h2>
+        <div class="evidence-actions">
+          <button type="button" class="btn btn-primary" onclick="writeEvidenceDoc('{{ item.key }}', '{{ item.ai_field }}', this)">AI撰写{{ item.title }}</button>
+          <button type="submit" class="btn btn-success">保存</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="refreshEvidencePreview('{{ item.key }}')">刷新预览</button>
+          <a class="btn btn-secondary btn-sm" target="_blank" href="{{ url_for('docgen.gaoxin_achievement_evidence_pdf', company_id=company.id, achievement_index=achievement_index, evidence_key=item.key) }}">新窗口打开</a>
+          <span class="status-text" data-ai-status></span>
+        </div>
+        <textarea class="evidence-editor" name="{{ item.field_name }}" placeholder="点击 AI 撰写，或直接编辑{{ item.title }}内容。">{{ auto_data.get(item.field_name, '') }}</textarea>
+        <p class="status-text">预览使用已保存内容；编辑后请先保存再刷新。</p>
+        <iframe class="evidence-preview" data-pdf-preview="{{ item.key }}" src="{{ url_for('docgen.gaoxin_achievement_evidence_pdf', company_id=company.id, achievement_index=achievement_index, evidence_key=item.key) }}"></iframe>
+      </section>
+      {% endfor %}
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const achievementContext = {{ achievement | tojson | safe }};
+const uploadUrl = '{{ url_for("docgen.gaoxin_attachment_upload", company_id=company.id, section_key="achievement_transform") }}';
+const deleteUrlTemplate = '{{ url_for("docgen.gaoxin_attachment_delete", company_id=company.id, section_key="achievement_transform", file_id="__file__") }}';
+const evidencePdfUrls = {
+  {% for item in edit_evidence_types %}
+  '{{ item.key }}': '{{ url_for('docgen.gaoxin_achievement_evidence_pdf', company_id=company.id, achievement_index=achievement_index, evidence_key=item.key) }}'{% if not loop.last %},{% endif %}
+  {% endfor %}
+};
+
+function escapeHtml(value) {
+  return String(value || '').replace(/[&<>"]/g, function(ch) {
+    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch];
+  });
+}
+
+function normalizeAiTextSpacing(text) {
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/^\s{0,3}#{1,6}\s*/gm, '')
+    .replace(/^\s*\|/gm, '')
+    .replace(/\|\s*$/gm, '')
+    .replace(/^\s*:?-{3,}:?(\s*\|\s*:?-{3,}:?)*\s*$/gm, '')
+    .replace(/\|/g, '，')
+    .trim();
+}
+
+function renderEvidenceFile(scope, file) {
+  const list = scope.querySelector('[data-file-list]');
+  const empty = scope.querySelector('[data-empty-message]');
+  const li = document.createElement('li');
+  li.dataset.fileId = file.id;
+  li.innerHTML = '<div class="file-meta"><div class="file-name">' + escapeHtml(file.original_filename) + '</div><div class="file-time">' + escapeHtml(file.uploaded_at || '') + '</div></div>' +
+    '<div class="file-tools"><a class="btn btn-sm btn-secondary" target="_blank" href="' + file.view_url + '">预览</a>' +
+    '<a class="btn btn-sm btn-secondary" href="' + file.view_url + '?download=1">下载</a>' +
+    '<button type="button" class="btn btn-sm btn-danger" onclick="deleteEvidencePdf(\'' + file.id + '\', this)">删除</button></div>';
+  list.appendChild(li);
+  if (empty) empty.style.display = 'none';
+}
+
+async function uploadEvidencePdf(evidenceType, button) {
+  const scope = button.closest('[data-evidence-upload]');
+  const input = scope.querySelector('[data-evidence-pdf-input]');
+  const status = scope.querySelector('[data-upload-status]');
+  if (!input.files.length) {
+    if (status) { status.textContent = '请选择 PDF'; status.style.color = 'var(--danger)'; }
+    return;
+  }
+  const file = input.files[0];
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    if (status) { status.textContent = '仅支持 PDF'; status.style.color = 'var(--danger)'; }
+    return;
+  }
+  const body = new FormData();
+  body.append('file', file);
+  body.append('achievement_index', '{{ achievement_index }}');
+  body.append('achievement_evidence_type', evidenceType);
+  button.disabled = true;
+  if (status) { status.textContent = '上传中...'; status.style.color = 'var(--text-muted)'; }
+  try {
+    const response = await fetch(uploadUrl, {method: 'POST', body});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || '上传失败');
+    renderEvidenceFile(scope, result.file);
+    input.value = '';
+    if (status) { status.textContent = '上传成功'; status.style.color = 'var(--success)'; }
+  } catch (error) {
+    if (status) { status.textContent = error.message || '上传失败'; status.style.color = 'var(--danger)'; }
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function deleteEvidencePdf(fileId, button) {
+  if (!confirm('确定删除这个 PDF 附件吗？')) return;
+  button.disabled = true;
+  try {
+    const response = await fetch(deleteUrlTemplate.replace('__file__', fileId), {method: 'POST'});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || '删除失败');
+    const li = button.closest('li');
+    const scope = button.closest('[data-evidence-upload]');
+    li.remove();
+    if (scope && !scope.querySelector('[data-file-list] li')) {
+      const empty = scope.querySelector('[data-empty-message]');
+      if (empty) empty.style.display = '';
+    }
+  } catch (error) {
+    alert(error.message || '删除失败');
+    button.disabled = false;
+  }
+}
+
+function refreshEvidencePreview(evidenceKey) {
+  const iframe = document.querySelector('[data-pdf-preview="' + evidenceKey + '"]');
+  if (iframe && evidencePdfUrls[evidenceKey]) iframe.src = evidencePdfUrls[evidenceKey] + '?t=' + Date.now();
+}
+
+function userReportTemplate() {
+  return [
+    '用户使用报告',
+    '使用单位：________________',
+    '被评价单位：{{ company.name }}',
+    (achievementContext.type_label || '产品') + '名称：' + (achievementContext.ps || achievementContext.result_name || ''),
+    '使用时间：________________',
+    '应用场景：________________',
+    '功能适用性：________________',
+    '运行稳定性：________________',
+    '操作便利性：________________',
+    '服务响应：________________',
+    '综合评价：________________',
+    '客户意见及建议：________________',
+    '使用单位（盖章）：________________',
+    '日期：____年__月__日'
+  ].join('\n');
+}
+
+function testReportTemplate() {
+  return [
+    '检测报告',
+    '检测单位：{{ company.name }}',
+    '检测对象：' + (achievementContext.ps || achievementContext.result_name || ''),
+    '被检测技术：' + (achievementContext.result_name || ''),
+    '检测目的：________________',
+    '检测依据：________________',
+    '检测方法：________________',
+    '检测项目1：________________',
+    '检测结果1：________________',
+    '检测项目2：________________',
+    '检测结果2：________________',
+    '检测项目3：________________',
+    '检测结果3：________________',
+    '检测结论：________________',
+    '检测单位（盖章）：________________',
+    '日期：____年__月__日'
+  ].join('\n');
+}
+
+function writeEvidenceDoc(evidenceKey, aiField, btn) {
+  const card = btn.closest('[data-evidence-edit]');
+  const ta = card.querySelector('textarea');
+  const status = card.querySelector('[data-ai-status]');
+  if (!ta) return;
+  if (ta.value.trim() && !confirm('当前已有内容，是否覆盖？')) return;
+  const originalText = btn.textContent;
+  btn.textContent = '撰写中...';
+  btn.disabled = true;
+  if (status) status.textContent = '';
+  fetch('/parser/ai_write', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      field: aiField,
+      context: {
+        company_name: '{{ company.name }}',
+        achievement_no: achievementContext.result_no || '',
+        achievement_name: achievementContext.result_name || '',
+        achievement_rd: (achievementContext.rd_code || '') + ' ' + (achievementContext.rd_name || ''),
+        achievement_ps: achievementContext.ps || '',
+        ps_name: achievementContext.ps_name || achievementContext.ps || '',
+        ps_kind: achievementContext.ps_kind || '',
+        achievement_period: achievementContext.period || '',
+        achievement_ip: achievementContext.ip_auth_no ? (achievementContext.ip || '') + '（' + achievementContext.ip_auth_no + '）' : (achievementContext.ip || ''),
+        achievement_technology: achievementContext.technology || ''
+      },
+      template: evidenceKey === 'test_report' ? testReportTemplate() : (evidenceKey === 'user_report' ? userReportTemplate() : (ta.value || '')),
+      target_words: evidenceKey === 'test_report' ? 220 : 180
+    })
+  }).then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (!result.success) throw new Error(result.error || 'AI撰写失败');
+      ta.value = normalizeAiTextSpacing(result.text);
+      if (status) status.textContent = '已生成，请保存后刷新预览。';
+    })
+    .catch(function(error) {
+      if (status) status.textContent = error.message || '撰写失败';
+      alert(error.message || '撰写失败');
+    })
+    .finally(function() { btn.textContent = originalText; btn.disabled = false; });
+}
+</script>
+{% endblock %}

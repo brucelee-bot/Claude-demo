@@ -1,3 +1,5 @@
+anthropic==0.70.0
+certifi==2026.6.17
 blinker==1.9.0
 click==8.4.1
 et_xmlfile==2.0.0
@@ -10,10 +12,13 @@ lxml==6.1.1
 MarkupSafe==3.0.3
 numpy==2.5.0
 openpyxl==3.1.5
+python-calamine==0.5.4
+xlrd3==1.1.0
 pandas==3.0.3
 pdfplumber==0.11.4
 python-dateutil==2.9.0.post0
 python-docx==1.2.0
+pypinyin==0.55.0
 python-dotenv==1.2.2
 six==1.17.0
 SQLAlchemy==2.0.51

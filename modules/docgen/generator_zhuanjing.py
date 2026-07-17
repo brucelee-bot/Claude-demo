@@ -8,6 +8,8 @@ from datetime import datetime
 from docx import Document
 from docx.shared import Pt
 
+from modules.docgen.document_headers import add_company_header
+
 
 TEMPLATE_PATH = os.path.expanduser("~/Desktop/申报通知/专精特新/浙江省专精特新中小企业申请书.docx")
 
@@ -49,6 +51,11 @@ def generate_zhuanjing(data: dict, output_path: str = None) -> str:
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     shutil.copy(TEMPLATE_PATH, output_path)
     doc = Document(output_path)
+    add_company_header(
+        doc,
+        data.get("company_name"),
+        data.get("company_english_name"),
+    )
     table = doc.tables[0]
 
     # === 一、企业基本情况 (Rows 1-14) ===

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>{{ summary_labels.title }}</title>
+  <style>
+    @page { size: A4 landscape; margin: 28mm 12mm 14mm; }
+    body { margin: 0; font-family: "Songti SC", SimSun, serif; color: #111827; font-size: 13px; line-height: 1.65; }
+    {% include "_generated_document_header_styles.html" %}
+    h1 { text-align: center; font-size: 22px; margin: 0 0 18px; }
+    h2 { font-size: 17px; margin: 18px 0 10px; padding: 6px 10px; background: #f3f4f6; border-left: 4px solid #2563eb; }
+    p { margin: 7px 0; }
+    .meta, .summary-table, .content-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-family: "Microsoft YaHei", sans-serif; font-size: 12px; }
+    .meta th, .meta td, .summary-table th, .summary-table td, .content-table th, .content-table td { border: 1.2px solid #9ca3af; padding: 8px 10px; text-align: left; vertical-align: top; }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    .meta th, .summary-table th, .content-table th { background: #f3f4f6; font-weight: 700; }
+    .meta th { width: 90px; }
+    .content { white-space: pre-wrap; }
+    .empty { color: #6b7280; text-align: center; padding: 40px 0; border: 1px dashed #d1d5db; }
+  </style>
+</head>
+<body>
+  <h1>{{ summary_labels.title }}</h1>
+  <table class="meta">
+    <tr><th>企业名称</th><td>{{ company.name }}</td><th>{{ summary_labels.count_label }}</th><td>{{ products|length }}</td></tr>
+  </table>
+
+  <table class="summary-table">
+    <thead>
+      <tr>
+        <th style="width:70px">编号</th>
+        <th style="width:150px">{{ summary_labels.name_label }}</th>
+        <th>技术领域</th>
+        <th style="width:95px">上年度销售收入（万元）</th>
+        <th>知识产权获得情况（IP，授权号）</th>
+        <th style="width:150px">证明材料</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for product in products %}
+      <tr>
+        <td>{{ product.ps_code }}</td>
+        <td>{{ product.ps_name }}</td>
+        <td>{{ product.field }}</td>
+        <td>{{ product.revenue or '—' }}</td>
+        <td>
+          {% for ip in product.ips %}
+          {{ ip.label }}{% if ip.auth_no %}，授权号/登记号：{{ ip.auth_no }}{% endif %}{% if not loop.last %}<br>{% endif %}
+          {% endfor %}
+        </td>
+        <td>{% for proof in product.proofs %}{{ proof }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" style="text-align:center;color:#6b7280">暂无PS数据。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if summary_text %}
+  <h2>撰写内容</h2>
+  <div class="content">{{ summary_text }}</div>
+  {% else %}
+  <div class="empty">暂未撰写汇总表，请返回详情页生成或填写内容后保存。</div>
+  {% endif %}
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>成果转化汇总表</title>
+  <style>
+    @page { size: A4 landscape; margin: 28mm 12mm 14mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #111827;
+      font-family: "Songti SC", SimSun, serif;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    h1 {
+      margin: 0 0 12px;
+      text-align: center;
+      font-size: 21px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-family: "Microsoft YaHei", sans-serif;
+    }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    th, td {
+      border: 1px solid #b8c0cc;
+      padding: 6px 7px;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    th {
+      background: #f3f4f6;
+      text-align: center;
+      font-weight: 700;
+    }
+    .col-no { width: 9%; }
+    .col-result { width: 25%; }
+    .col-rd { width: 27%; }
+    .col-ip { width: 23%; }
+    .col-ps { width: 16%; }
+    .empty { color: #6b7280; text-align: center; padding: 24px; }
+  </style>
+</head>
+<body>
+  <h1>成果转化汇总表</h1>
+  <table>
+    <thead>
+      <tr>
+        <th class="col-no">成果序号</th>
+        <th class="col-result">成果名称</th>
+        <th class="col-rd">RD项目</th>
+        <th class="col-ip">对应IP</th>
+        <th class="col-ps">对应PS</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in achievements %}
+      <tr>
+        <td>{{ row.result_no }}</td>
+        <td>{{ row.result_name }}</td>
+        <td>{{ row.rd_code }}{% if row.rd_name %}<br>{{ row.rd_name }}{% endif %}</td>
+        <td>{{ row.ip }}{% if row.ip_auth_no %}<br>{{ row.ip_auth_no }}{% endif %}</td>
+        <td>{{ row.ps }}</td>
+      </tr>
+      {% else %}
+      <tr><td class="empty" colspan="5">暂无成果转化数据。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

@@ -188,9 +188,19 @@ def create_app():
     with app.app_context():
         db.create_all()
 
+    if not os.environ.get("VERCEL"):
+        try:
+            from modules.ai.llm_client import warmup_llm_async
+            if os.environ.get("WERKZEUG_RUN_MAIN") in (None, "true"):
+                warmup_llm_async()
+        except Exception:
+            pass
+
     return app
 
 
+app = create_app()
+
+
 if __name__ == "__main__":
-    app = create_app()
     app.run(debug=True, use_reloader=True, port=8081)

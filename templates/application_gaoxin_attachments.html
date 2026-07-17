@@ -1,0 +1,1437 @@
+{% extends 'base.html' %}
+{% block title %}高新附件制作 — {{ company.name }}{% endblock %}
+{% block head_extra %}
+<style>
+.attach-shell { max-width: 1280px; margin: 0 auto; padding-bottom: 92px; }
+.attach-hero { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #38bdf8 100%); color: #fff; border-radius: 24px; padding: 28px 32px; box-shadow: 0 24px 60px rgba(37, 99, 235, .22); margin-bottom: 20px; }
+.attach-hero h1 { margin: 0 0 10px; font-size: 30px; }
+.attach-hero p { margin: 0; max-width: 880px; opacity: .92; line-height: 1.7; }
+.attach-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+.attach-actions .btn { background: rgba(255,255,255,.14); color: #fff; border-color: rgba(255,255,255,.35); }
+.attach-actions .btn-primary { background: #fff; color: #1e40af; border-color: #fff; }
+.attach-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 18px; align-items: start; }
+.attach-nav { position: sticky; top: 88px; background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 12px; box-shadow: 0 10px 30px rgba(15, 23, 42, .06); }
+.attach-nav a { display: block; padding: 9px 10px; border-radius: 10px; color: var(--text); text-decoration: none; font-size: 14px; }
+.attach-nav a:hover { background: var(--bg-secondary); color: var(--primary); }
+.attach-card { background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(15, 23, 42, .05); }
+.attach-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 14px; }
+.attach-card h2 { margin: 0 0 6px; font-size: 21px; color: var(--text); }
+.attach-card .hint { color: var(--text-muted); line-height: 1.6; margin: 0; }
+.badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 10px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.upload-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 12px; background: var(--bg-secondary); border-radius: 12px; }
+.upload-row input[type=file] { flex: 1; min-width: 240px; }
+.file-list { margin: 12px 0 0; padding: 0; list-style: none; }
+.file-list li { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; }
+.file-meta { min-width: 0; }
+.file-name { font-weight: 600; word-break: break-all; }
+.file-time { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+.file-tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.empty-file { color: var(--text-muted); margin: 12px 0 0; }
+.placeholder-panel { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 14px; padding: 14px; line-height: 1.7; }
+.book-table { width: 100%; border-collapse: collapse; }
+.book-table th, .book-table td { border: 1px solid var(--border); padding: 10px; vertical-align: top; }
+.book-table th { background: var(--bg-secondary); }
+.book-table textarea, .attach-card textarea, .attach-card input[type=text] { width: 100%; box-sizing: border-box; }
+.inline-group input { display: inline-block; }
+.cv-item { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.cv-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.cv-line span { display: inline-flex; align-items: center; gap: 4px; }
+.cv-line input { width: auto; }
+.action-dock { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 20; background: rgba(255,255,255,.96); border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(15,23,42,.18); border-radius: 999px; padding: 10px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.status-text { color: var(--text-muted); font-size: 13px; }
+.achievement-batch-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.achievement-batch-button { position: relative; overflow: hidden; min-width: 250px; }
+.achievement-batch-button::before { content: ""; position: absolute; z-index: 0; inset: 0 auto 0 0; width: var(--batch-progress, 0%); background: rgba(15, 118, 110, .48); transition: width .25s ease; pointer-events: none; }
+.achievement-batch-button > span { position: relative; z-index: 1; }
+.achievement-batch-button.is-running { cursor: wait; }
+.achievement-batch-status { min-height: 20px; max-width: 580px; }
+.achievement-material-status { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
+.achievement-material-status span { display: inline-flex; padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted); background: var(--bg-secondary); font-size: 11px; }
+.achievement-material-status span.is-ready { border-color: #86efac; color: #166534; background: #f0fdf4; }
+.achievement-material-status span.is-failed { border-color: #fecaca; color: #b91c1c; background: #fef2f2; }
+.rd-project-action { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rd-project-status { display: inline-flex; padding: 3px 7px; border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted); background: var(--bg-secondary); font-size: 12px; white-space: nowrap; }
+.rd-project-status.is-ready { border-color: #86efac; color: #166534; background: #f0fdf4; font-weight: 600; }
+.export-status-toast { position: fixed; left: 50%; bottom: 88px; z-index: 22; transform: translateX(-50%); min-width: 320px; max-width: calc(100% - 32px); padding: 10px 14px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; color: #1e40af; box-shadow: 0 12px 30px rgba(15,23,42,.16); text-align: center; font-size: 14px; }
+.export-status-toast.is-success { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.export-status-toast.is-error { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+@media (max-width: 900px) { .attach-layout { grid-template-columns: 1fr; } .attach-nav { position: static; } .action-dock { width: calc(100% - 24px); border-radius: 18px; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="attach-shell">
+  <section class="attach-hero">
+    <h1>高新技术企业认定附件制作</h1>
+    <p>{{ company.name }}：集中上传 PDF 附件，维护成果转化文件和制度材料。成果转化与制度框架继续沿用申请书导出字段，保存后会同步到高新申请书 Word。</p>
+    <div class="attach-actions">
+      <a href="{{ url_for('docgen.gaoxin_book', company_id=company.id) }}" class="btn btn-secondary">返回申请书</a>
+      <button type="submit" form="gaoxin-attachments-form" class="btn btn-primary">保存附件</button>
+      <button type="button" class="btn btn-secondary" data-export-pdf-button onclick="saveAndExportPdf()">导出 PDF</button>
+    </div>
+  </section>
+
+  <form id="gaoxin-attachments-form" method="POST" action="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}">
+    <div class="attach-layout">
+      <nav class="attach-nav" aria-label="附件目录">
+        {% for section in attachment_sections %}
+        <a href="#attachment-{{ section.key }}">{{ section.no }}. {{ section.title }}</a>
+        {% endfor %}
+      </nav>
+
+      <div>
+        {% for section in attachment_sections %}
+        <section class="attach-card" id="attachment-{{ section.key }}" data-section-key="{{ section.key }}" data-section-kind="{{ section.kind }}">
+          <div class="attach-card-head">
+            <div>
+              <h2>{{ section.no }}. {{ section.title }}</h2>
+              <p class="hint">{{ section.hint }}</p>
+            </div>
+            <span class="badge">{{ '导出生成' if section.key == 'commitment' else ('PDF上传' if section.kind == 'pdf' else ('可编辑' if section.kind in ['achievement', 'system'] or section.key == 'staff_statement' else '待完善')) }}</span>
+          </div>
+
+          {% if section.kind == 'pdf' %}
+          {% if section.key == 'ip' %}
+          <div class="placeholder-panel" style="margin-bottom:12px">
+            本板块已联通申请书中的“二、知识产权汇总表”。申请书里维护的数量和明细会自动照搬到这里；请在每条知识产权明细行最后上传对应 PDF。
+          </div>
+          <div style="overflow-x:auto;margin-bottom:12px">
+            {% set ip_files = attachments.get('ip', {}).get('files', []) %}
+            <table class="book-table" style="font-size:12px">
+              <thead><tr><th>编号</th><th>名称</th><th>专利类型</th><th>法律状态</th><th>专利号</th><th>申请日期</th><th>专利权人</th><th>授权日期</th><th>知识产权PDF</th></tr></thead>
+              <tbody>
+                {% for row in ip_attachment.rows %}
+                {% set row_files = [] %}
+                {% set synced_files = [] %}
+                {% for file in ip_files %}
+                  {% if (row.cert_id and file.get('ip_cert_id') == row.cert_id) or ((not row.cert_id or not file.get('ip_cert_id')) and file.get('ip_seq') == row.seq) %}
+                    {% set _ = row_files.append(file) %}
+                    {% if file.get('auto_synced') and file.get('source') == 'score_ip_upload' %}{% set _ = synced_files.append(file) %}{% endif %}
+                  {% endif %}
+                {% endfor %}
+                <tr {% if synced_files %}style="background:#f0fdf4"{% endif %}>
+                  <td>{{ row.seq }}</td><td>{{ row.name }}</td><td>{{ row.type }}</td><td>{{ row.status }}</td>
+                  <td>{{ row.patent_no }}</td><td>{{ row.app_date }}</td><td>{{ row.applicant }}</td><td>{{ row.grant_date }}</td>
+                  <td data-ip-upload-cell data-ip-seq="{{ row.seq }}" style="min-width:260px">
+                    {% if synced_files %}
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:6px 8px;border:1px solid #86efac;border-radius:10px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600">
+                      <span>已从评分同步</span><span style="font-weight:400">无需重复上传</span>
+                    </div>
+                    {% endif %}
+                    <div class="upload-row" style="padding:8px;margin-bottom:8px">
+                      <input type="file" accept=".pdf,application/pdf" data-ip-pdf-input style="min-width:150px" />
+                      <button type="button" class="btn btn-primary btn-sm" onclick="uploadIpAttachmentPdf('{{ row.seq }}', this)">上传</button>
+                      <span class="status-text" data-upload-status></span>
+                    </div>
+                    <ul class="file-list" data-file-list style="margin-top:6px">
+                      {% for file in row_files %}
+                      <li data-file-id="{{ file.get('id') }}">
+                        <div class="file-meta">
+                          <div class="file-name">{{ file.get('original_filename') }}{% if file.get('auto_synced') and file.get('source') == 'score_ip_upload' %}<span style="display:inline-block;margin-left:6px;padding:2px 6px;border-radius:999px;background:#bbf7d0;color:#166534;font-size:11px">评分同步</span>{% endif %}</div>
+                          <div class="file-time">{{ file.get('uploaded_at', '') }}</div>
+                        </div>
+                        <div class="file-tools">
+                          <a class="btn btn-sm btn-secondary" target="_blank" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='ip', file_id=file.get('id')) }}">预览</a>
+                          <a class="btn btn-sm btn-secondary" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='ip', file_id=file.get('id'), download=1) }}">下载</a>
+                          <button type="button" class="btn btn-sm btn-danger" onclick="deleteAttachmentPdf('ip', '{{ file.get('id') }}', this)">删除</button>
+                        </div>
+                      </li>
+                      {% endfor %}
+                    </ul>
+                    <p class="empty-file" data-empty-message {% if row_files %}style="display:none"{% endif %}>未上传</p>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" style="text-align:center;color:var(--text-muted)">暂无申请书知识产权数据，请先在申请书“二、知识产权汇总表”维护明细。</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+          {% if section.key == 'commitment' %}
+          <div class="placeholder-panel" style="margin-bottom:12px">
+            承诺书将在导出附件 PDF 时自动生成，无需上传或单独保存。
+          </div>
+          {% elif section.key != 'ip' %}
+          {% if section.key in ['rd_expense_audit', 'annual_audit', 'tax_settlement'] %}
+          {% set yearly_files = attachments.get(section.key, {}).get('files', []) %}
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:12px">
+          {% for year in ['2023', '2024', '2025'] %}
+          {% set files_for_year = [] %}
+          {% for file in yearly_files %}
+            {% if file.get('attachment_year') == year %}{% set _ = files_for_year.append(file) %}{% endif %}
+          {% endfor %}
+          <div class="yearly-attachment-upload" data-yearly-section="{{ section.key }}" data-attachment-year="{{ year }}" style="border:1px solid var(--border);border-radius:14px;padding:12px;background:var(--bg-secondary)">
+            <h3 style="margin:0 0 8px;font-size:15px">{{ year }}年{{ '研发费用专项审计报告' if section.key == 'rd_expense_audit' else ('年度审计报告' if section.key == 'annual_audit' else '汇算清缴') }}</h3>
+            <div class="upload-row" style="padding:8px">
+              <input type="file" accept=".pdf,application/pdf" data-yearly-pdf-input style="min-width:140px;width:100%" />
+              <button type="button" class="btn btn-primary btn-sm" onclick="uploadYearlyAttachmentPdf('{{ section.key }}', '{{ year }}', this)">上传</button>
+              <span class="status-text" data-upload-status></span>
+            </div>
+            <ul class="file-list" data-file-list>
+              {% for file in files_for_year %}
+              <li data-file-id="{{ file.get('id') }}" style="align-items:flex-start">
+                <div class="file-meta">
+                  <div class="file-name">{{ file.get('original_filename') }}</div>
+                  <div class="file-time">{{ file.get('uploaded_at', '') }}</div>
+                </div>
+                <div class="file-tools">
+                  <a class="btn btn-sm btn-secondary" target="_blank" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key=section.key, file_id=file.get('id')) }}">预览</a>
+                  <a class="btn btn-sm btn-secondary" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key=section.key, file_id=file.get('id'), download=1) }}">下载</a>
+                  <button type="button" class="btn btn-sm btn-danger" onclick="deleteAttachmentPdf('{{ section.key }}', '{{ file.get('id') }}', this)">删除</button>
+                </div>
+              </li>
+              {% endfor %}
+            </ul>
+            <p class="empty-file" data-empty-message {% if files_for_year %}style="display:none"{% endif %}>暂未上传。</p>
+          </div>
+          {% endfor %}
+          </div>
+          {% else %}
+          <div class="upload-row">
+            <input type="file" accept=".pdf,application/pdf" data-pdf-input />
+            <button type="button" class="btn btn-primary btn-sm" onclick="uploadAttachmentPdf('{{ section.key }}')">上传 PDF</button>
+            <span class="status-text" data-upload-status></span>
+          </div>
+          <ul class="file-list" data-file-list>
+            {% for file in attachments.get(section.key, {}).get('files', []) %}
+            <li data-file-id="{{ file.get('id') }}">
+              <div class="file-meta">
+                <div class="file-name">{{ file.get('original_filename') }}</div>
+                <div class="file-time">{{ file.get('uploaded_at', '') }}</div>
+              </div>
+              <div class="file-tools">
+                <a class="btn btn-sm btn-secondary" target="_blank" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key=section.key, file_id=file.get('id')) }}">预览</a>
+                <a class="btn btn-sm btn-secondary" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key=section.key, file_id=file.get('id'), download=1) }}">下载</a>
+                <button type="button" class="btn btn-sm btn-danger" onclick="deleteAttachmentPdf('{{ section.key }}', '{{ file.get('id') }}', this)">删除</button>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+          <p class="empty-file" data-empty-message {% if attachments.get(section.key, {}).get('files', []) %}style="display:none"{% endif %}>暂未上传 PDF。</p>
+          {% endif %}
+          {% endif %}
+
+          {% elif section.kind == 'placeholder' %}
+          {% if section.key == 'staff_statement' %}
+          {% set staff_files = attachments.get('staff_statement', {}).get('files', []) %}
+          {% set social_2025_files = [] %}
+          {% set social_latest_files = [] %}
+          {% set education_certificate_files = [] %}
+          {% set title_certificate_files = [] %}
+          {% for file in staff_files %}
+            {% if file.get('staff_file_type') == 'social_2025_12' %}{% set _ = social_2025_files.append(file) %}{% endif %}
+            {% if file.get('staff_file_type') == 'social_latest' %}{% set _ = social_latest_files.append(file) %}{% endif %}
+            {% if file.get('staff_file_type') == 'education_certificate' %}{% set _ = education_certificate_files.append(file) %}{% endif %}
+            {% if file.get('staff_file_type') == 'title_certificate' %}{% set _ = title_certificate_files.append(file) %}{% endif %}
+          {% endfor %}
+
+          <h3 style="margin:12px 0 8px">企业职工人员情况说明</h3>
+          {% set generated_staff_statement = auto_data.get('attachment_staff_statement_generated', '') %}
+          <textarea name="attachment_staff_statement_text" rows="9" placeholder="填写企业职工人员情况说明" {% if generated_staff_statement %}readonly{% endif %}>{{ generated_staff_statement or auto_data.get('attachment_staff_statement_text', '') }}</textarea>
+
+          <h3 style="margin:12px 0 8px">2025年12月份研发人员名单</h3>
+          <p class="hint">请按模板字段填写研发人员名单，保存后会同步到附件 PDF 导出。</p>
+          <div style="overflow-x:auto;margin-bottom:12px">
+            <table class="book-table" style="font-size:12px" id="rd-staff-table">
+              <thead><tr><th>序号</th><th>姓名</th><th>身份证号</th><th>是否签订合同</th><th>是否缴纳社保</th><th>学历</th><th>职称</th><th>是否科技人员</th><th style="width:44px">操作</th></tr></thead>
+              <tbody id="rd-staff-body">
+                {% set rd_staff_source = auto_data.get('attachment_rd_staff_rows', []) %}
+                {% for i in range([5, rd_staff_source|length]|max) %}
+                {% set row = rd_staff_source[i] if i < rd_staff_source|length else {} %}
+                {% set is_tech_value = auto_data.get('attachment_rd_staff_' ~ i ~ '_is_tech') or row.get('is_tech') or '是' %}
+                <tr>
+                  <td><input type="text" name="attachment_rd_staff_{{ i }}_seq" value="{{ auto_data.get('attachment_rd_staff_' ~ i ~ '_seq') or row.get('seq', i + 1) }}" style="width:48px;text-align:center" /></td>
+                  <td><input type="text" name="attachment_rd_staff_{{ i }}_name" value="{{ auto_data.get('attachment_rd_staff_' ~ i ~ '_name') or row.get('name', '') }}" style="width:90px" /></td>
+                  <td><input type="text" name="attachment_rd_staff_{{ i }}_id_no" value="{{ auto_data.get('attachment_rd_staff_' ~ i ~ '_id_no') or row.get('id_no', '') }}" style="width:160px" /></td>
+                  <td><select name="attachment_rd_staff_{{ i }}_contract" style="width:70px"><option value="">—</option><option value="是" {{ 'selected' if (auto_data.get('attachment_rd_staff_' ~ i ~ '_contract') or row.get('contract', '')) == '是' }}>是</option><option value="否" {{ 'selected' if (auto_data.get('attachment_rd_staff_' ~ i ~ '_contract') or row.get('contract', '')) == '否' }}>否</option></select></td>
+                  <td><select name="attachment_rd_staff_{{ i }}_social_security" style="width:70px"><option value="">—</option><option value="是" {{ 'selected' if (auto_data.get('attachment_rd_staff_' ~ i ~ '_social_security') or row.get('social_security', '')) == '是' }}>是</option><option value="否" {{ 'selected' if (auto_data.get('attachment_rd_staff_' ~ i ~ '_social_security') or row.get('social_security', '')) == '否' }}>否</option></select></td>
+                  <td><input type="text" name="attachment_rd_staff_{{ i }}_education" value="{{ auto_data.get('attachment_rd_staff_' ~ i ~ '_education') or row.get('education', '') }}" style="width:80px" /></td>
+                  <td><input type="text" name="attachment_rd_staff_{{ i }}_title" value="{{ auto_data.get('attachment_rd_staff_' ~ i ~ '_title') or row.get('title', '') }}" style="width:100px" /></td>
+                  <td><select name="attachment_rd_staff_{{ i }}_is_tech" style="width:80px"><option value="是" {{ 'selected' if is_tech_value == '是' }}>是</option><option value="否" {{ 'selected' if is_tech_value == '否' }}>否</option></select></td>
+                  <td><button type="button" class="btn btn-danger btn-sm" onclick="removeRdStaffRow(this)">×</button></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addRdStaffRow()">添加研发人员</button>
+
+          <h3 style="margin:12px 0 8px">企业职工总数、科技人员数统计表</h3>
+          <p class="hint">各月职工人数自动取自2025年12月份研发人员名单；科技人员默认按“是”统计，明确选择“否”时不计入。</p>
+          <div style="overflow-x:auto;margin-bottom:12px">
+            <table class="book-table" style="font-size:12px;min-width:780px">
+              <thead>
+                <tr>
+                  <th>月份</th><th>月初职工总数</th><th>月初科技人员数</th><th>月末职工总数</th><th>月末科技人员数</th><th>月平均职工总数</th><th>月平均科技人员数</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for i in range(12) %}
+                <tr>
+                  <td><input type="text" name="attachment_staff_month_{{ i }}_month" value="{{ auto_data.get('attachment_staff_month_' ~ i ~ '_month') or '2025年' ~ (i + 1) ~ '月' }}" style="width:82px" readonly /></td>
+                  <td><input type="number" name="attachment_staff_month_{{ i }}_start_total" value="{{ auto_data.get('attachment_staff_month_' ~ i ~ '_start_total', 0) }}" style="width:92px" readonly /></td>
+                  <td><input type="number" name="attachment_staff_month_{{ i }}_start_tech" value="{{ auto_data.get('attachment_staff_month_' ~ i ~ '_start_tech', 0) }}" style="width:92px" readonly /></td>
+                  <td><input type="number" name="attachment_staff_month_{{ i }}_end_total" value="{{ auto_data.get('attachment_staff_month_' ~ i ~ '_end_total', 0) }}" style="width:92px" readonly /></td>
+                  <td><input type="number" name="attachment_staff_month_{{ i }}_end_tech" value="{{ auto_data.get('attachment_staff_month_' ~ i ~ '_end_tech', 0) }}" style="width:92px" readonly /></td>
+                  <td><input type="number" name="attachment_staff_month_{{ i }}_avg_total" value="{{ auto_data.get('attachment_staff_month_' ~ i ~ '_avg_total', 0) }}" style="width:92px" readonly /></td>
+                  <td><input type="number" name="attachment_staff_month_{{ i }}_avg_tech" value="{{ auto_data.get('attachment_staff_month_' ~ i ~ '_avg_tech', 0) }}" style="width:92px" readonly /></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th colspan="2">年平均职工总数</th>
+                  <td><input type="number" name="attachment_staff_year_avg_total" value="{{ auto_data.get('attachment_staff_year_avg_total', 0) }}" style="width:92px" readonly /></td>
+                  <th colspan="2">年平均科技人员数</th>
+                  <td colspan="2"><input type="number" name="attachment_staff_year_avg_tech" value="{{ auto_data.get('attachment_staff_year_avg_tech', 0) }}" style="width:92px" readonly /></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="staff-social-upload" data-staff-upload-type="social_2025_12" style="margin-top:14px">
+            <h3 style="margin:12px 0 8px">2025年12月份社保单（PDF）</h3>
+            <div class="upload-row">
+              <input type="file" accept=".pdf,application/pdf" data-staff-pdf-input />
+              <button type="button" class="btn btn-primary btn-sm" onclick="uploadStaffAttachmentPdf('social_2025_12', this)">上传 PDF</button>
+              <span class="status-text" data-upload-status></span>
+            </div>
+            <ul class="file-list" data-file-list>
+              {% for file in social_2025_files %}
+              <li data-file-id="{{ file.get('id') }}"><div class="file-meta"><div class="file-name">{{ file.get('original_filename') }}</div><div class="file-time">{{ file.get('uploaded_at', '') }}</div></div><div class="file-tools"><a class="btn btn-sm btn-secondary" target="_blank" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='staff_statement', file_id=file.get('id')) }}">预览</a><a class="btn btn-sm btn-secondary" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='staff_statement', file_id=file.get('id'), download=1) }}">下载</a><button type="button" class="btn btn-sm btn-danger" onclick="deleteAttachmentPdf('staff_statement', '{{ file.get('id') }}', this)">删除</button></div></li>
+              {% endfor %}
+            </ul>
+            <p class="empty-file" data-empty-message {% if social_2025_files %}style="display:none"{% endif %}>暂未上传 2025年12月份社保单。</p>
+          </div>
+
+          <div class="staff-social-upload" data-staff-upload-type="social_latest" style="margin-top:14px">
+            <h3 style="margin:12px 0 8px">最新月份社保单（PDF）</h3>
+            <div class="upload-row">
+              <input type="file" accept=".pdf,application/pdf" data-staff-pdf-input />
+              <button type="button" class="btn btn-primary btn-sm" onclick="uploadStaffAttachmentPdf('social_latest', this)">上传 PDF</button>
+              <span class="status-text" data-upload-status></span>
+            </div>
+            <ul class="file-list" data-file-list>
+              {% for file in social_latest_files %}
+              <li data-file-id="{{ file.get('id') }}"><div class="file-meta"><div class="file-name">{{ file.get('original_filename') }}</div><div class="file-time">{{ file.get('uploaded_at', '') }}</div></div><div class="file-tools"><a class="btn btn-sm btn-secondary" target="_blank" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='staff_statement', file_id=file.get('id')) }}">预览</a><a class="btn btn-sm btn-secondary" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='staff_statement', file_id=file.get('id'), download=1) }}">下载</a><button type="button" class="btn btn-sm btn-danger" onclick="deleteAttachmentPdf('staff_statement', '{{ file.get('id') }}', this)">删除</button></div></li>
+              {% endfor %}
+            </ul>
+            <p class="empty-file" data-empty-message {% if social_latest_files %}style="display:none"{% endif %}>暂未上传最新月份社保单。</p>
+          </div>
+
+          <div class="staff-social-upload" data-staff-upload-type="education_certificate" style="margin-top:14px">
+            <h3 style="margin:12px 0 8px">毕业证书（PDF/图片）</h3>
+            <div class="upload-row">
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff,application/pdf,image/jpeg,image/png,image/webp,image/bmp,image/tiff" multiple data-staff-certificate-input />
+              <button type="button" class="btn btn-primary btn-sm" onclick="uploadStaffCertificates('education_certificate', this)">批量上传</button>
+              <span class="status-text" data-upload-status></span>
+            </div>
+            <ul class="file-list" data-file-list>
+              {% for file in education_certificate_files %}
+              {% set match = file.get('certificate_match', {}) %}
+              <li data-file-id="{{ file.get('id') }}"><div class="file-meta"><div class="file-name">{{ file.get('original_filename') }}</div><div class="file-time">{{ file.get('uploaded_at', '') }}{% if match.get('status') == 'matched' %} · 已匹配 {{ match.get('matched_name') }}：{{ match.get('value') }}{% else %} · 待人工核对{% endif %}</div></div><div class="file-tools"><a class="btn btn-sm btn-secondary" target="_blank" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='staff_statement', file_id=file.get('id')) }}">预览</a><a class="btn btn-sm btn-secondary" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='staff_statement', file_id=file.get('id'), download=1) }}">下载</a><button type="button" class="btn btn-sm btn-danger" onclick="deleteAttachmentPdf('staff_statement', '{{ file.get('id') }}', this)">删除</button></div></li>
+              {% endfor %}
+            </ul>
+            <p class="empty-file" data-empty-message {% if education_certificate_files %}style="display:none"{% endif %}>暂未上传毕业证书。</p>
+          </div>
+
+          <div class="staff-social-upload" data-staff-upload-type="title_certificate" style="margin-top:14px">
+            <h3 style="margin:12px 0 8px">职称证书（PDF/图片）</h3>
+            <div class="upload-row">
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff,application/pdf,image/jpeg,image/png,image/webp,image/bmp,image/tiff" multiple data-staff-certificate-input />
+              <button type="button" class="btn btn-primary btn-sm" onclick="uploadStaffCertificates('title_certificate', this)">批量上传</button>
+              <span class="status-text" data-upload-status></span>
+            </div>
+            <ul class="file-list" data-file-list>
+              {% for file in title_certificate_files %}
+              {% set match = file.get('certificate_match', {}) %}
+              <li data-file-id="{{ file.get('id') }}"><div class="file-meta"><div class="file-name">{{ file.get('original_filename') }}</div><div class="file-time">{{ file.get('uploaded_at', '') }}{% if match.get('status') == 'matched' %} · 已匹配 {{ match.get('matched_name') }}：{{ match.get('value') }}{% else %} · 待人工核对{% endif %}</div></div><div class="file-tools"><a class="btn btn-sm btn-secondary" target="_blank" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='staff_statement', file_id=file.get('id')) }}">预览</a><a class="btn btn-sm btn-secondary" href="{{ url_for('docgen.gaoxin_attachment_file', company_id=company.id, section_key='staff_statement', file_id=file.get('id'), download=1) }}">下载</a><button type="button" class="btn btn-sm btn-danger" onclick="deleteAttachmentPdf('staff_statement', '{{ file.get('id') }}', this)">删除</button></div></li>
+              {% endfor %}
+            </ul>
+            <p class="empty-file" data-empty-message {% if title_certificate_files %}style="display:none"{% endif %}>暂未上传职称证书。</p>
+          </div>
+          {% else %}
+          {% if section.key == 'rd_project_table' %}
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+            <p class="hint">从 RD-IP-PS 关系表自动提取研发项目基础信息；如需修改，请先编辑关系表。</p>
+            <div class="achievement-batch-controls">
+              <button type="button" id="rd-project-batch-button" class="btn btn-sm btn-primary achievement-batch-button" onclick="generateAllRdProjectBooks(this)" {% if not rd_project_rows %}disabled{% endif %}>
+                <span id="rd-project-batch-button-label">一键生成所有科研项目书</span>
+              </button>
+              <a href="{{ url_for('docgen.gaoxin_relation_table', company_id=company.id) }}" class="btn btn-sm btn-secondary">编辑 RD-IP-PS 关系表</a>
+              <span class="status-text achievement-batch-status" id="rd-project-batch-status" role="status" aria-live="polite">{% if not rd_project_rows %}暂无可生成的科研项目{% endif %}</span>
+            </div>
+          </div>
+          <div style="overflow-x:auto;margin-bottom:12px">
+            <table class="book-table">
+              <thead><tr><th>年份</th><th>RD序号</th><th>研发活动</th><th>研发周期</th><th style="width:230px">科研项目书</th></tr></thead>
+              <tbody>
+                {% for row in rd_project_rows %}
+                <tr>
+                  <td>{{ row.year }}</td>
+                  <td>{{ row.rd_code }}</td>
+                  <td>{{ row.rd_activity }}</td>
+                  <td>{{ row.rd_period }}</td>
+                  <td data-rd-project-action="{{ row.index }}">
+                    <div class="rd-project-action">
+                      <span data-rd-project-status class="rd-project-status{{ ' is-ready' if row.application else '' }}">{{ '已有内容' if row.application else '暂无内容' }}</span>
+                      <a class="btn btn-sm btn-primary" href="{{ url_for('docgen.gaoxin_rd_project_application', company_id=company.id, project_index=row.index) }}">{{ '查看和编辑' if row.application else '撰写科研项目书' }}</a>
+                    </div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align:center;color:var(--text-muted)">暂无 RD-IP-PS 关系表数据，请先编辑关系表。</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          {% if section.key == 'hitech_products' %}
+          {% set hitech_product_rows = [] %}
+          {% set hitech_product_keys = [] %}
+          {% for row in auto_data.get('gaoxin_relation_table', {}).get('rows', []) %}
+            {% set ps_code = row.get('ps_code', '') %}
+            {% set ps_name = row.get('ps_name', '') %}
+            {% set ps_key = ps_code or ps_name %}
+            {% if ps_key and ps_key not in hitech_product_keys %}
+              {% set idx = hitech_product_rows|length %}
+              {% set _ = hitech_product_keys.append(ps_key) %}
+              {% set _ = hitech_product_rows.append({'index': idx, 'ps_code': ps_code or 'PS%02d' % (idx + 1), 'ps_name': ps_name, 'field': auto_data.get('ps_' ~ idx ~ '_field') or auto_data.get('tech_field', ''), 'revenue': auto_data.get('ps_' ~ idx ~ '_revenue', '')}) %}
+            {% endif %}
+          {% endfor %}
+          {% for i in range(20) %}
+            {% set ps_name = auto_data.get('ps_' ~ i ~ '_name', '') %}
+            {% set ps_code = auto_data.get('ps_' ~ i ~ '_no') or 'PS%02d' % (i + 1) %}
+            {% if ps_name and ps_code not in hitech_product_keys and ps_name not in hitech_product_keys %}
+              {% set idx = hitech_product_rows|length %}
+              {% set _ = hitech_product_keys.append(ps_code) %}
+              {% set _ = hitech_product_rows.append({'index': idx, 'ps_code': ps_code, 'ps_name': ps_name, 'field': auto_data.get('ps_' ~ i ~ '_field') or auto_data.get('tech_field', ''), 'revenue': auto_data.get('ps_' ~ i ~ '_revenue', '')}) %}
+            {% endif %}
+          {% endfor %}
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+            <p class="hint">从 RD-IP-PS 关系表和申请书高新技术产品字段带出产品名称、技术领域、收入和知识产权，用于生成汇总表和 PS 情况说明。</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <a href="{{ url_for('docgen.gaoxin_hitech_product_summary', company_id=company.id) }}" class="btn btn-sm btn-primary">撰写汇总表</a>
+            </div>
+          </div>
+          <div style="overflow-x:auto;margin-bottom:12px">
+            <table class="book-table">
+              <thead><tr><th>PS编号</th><th>高新技术产品（服务）名称</th><th>技术领域</th><th>销售收入（万元）</th><th style="width:260px">产品材料</th></tr></thead>
+              <tbody>
+                {% for row in hitech_product_rows %}
+                <tr>
+                  <td>{{ row.ps_code }}</td>
+                  <td>{{ row.ps_name }}</td>
+                  <td>{{ row.field }}</td>
+                  <td>{{ row.revenue }}</td>
+                  <td><div style="display:flex;gap:6px;flex-wrap:wrap"><a class="btn btn-sm btn-primary" href="{{ url_for('docgen.gaoxin_ps_statement', company_id=company.id, product_index=row.index) }}">撰写PS情况说明</a><a class="btn btn-sm btn-secondary" href="{{ url_for('docgen.gaoxin_hitech_product_evidence', company_id=company.id, product_index=row.index) }}">附件制作</a></div></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align:center;color:var(--text-muted)">暂无高新技术产品（服务）数据，请先编辑 RD-IP-PS 关系表。</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="placeholder-panel">
+            {{ section.title }}模板表格待提供，后续会在此处生成或填写对应附件。
+          </div>
+          {% endif %}
+          {% endif %}
+          {% endif %}
+
+          {% elif section.kind == 'achievement' %}
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+            <p class="hint">由 RD-IP-PS 关系表带出成果信息，可逐项维护，也可一次生成全部成果的转化结果描述、检测报告和用户使用报告。</p>
+            <div class="achievement-batch-controls">
+              <button type="button" id="achievement-batch-button" class="btn btn-sm btn-primary achievement-batch-button" onclick="generateAllAchievementMaterials(this)" {% if not achievement_rows %}disabled{% endif %}>
+                <span id="achievement-batch-button-label">一键生成所有成果材料</span>
+              </button>
+              <span class="status-text achievement-batch-status" id="achievement-batch-status" role="status" aria-live="polite">{% if not achievement_rows %}暂无可生成的成果{% endif %}</span>
+            </div>
+          </div>
+          <div style="overflow-x:auto;margin-bottom:12px">
+            <table class="book-table" style="font-size:12px;min-width:1120px">
+              <thead>
+                <tr><th>成果序号</th><th>成果名称</th><th>对应RD编号</th><th>对应RD名称</th><th>对应PS</th><th>起止时间</th><th>对应IP</th><th style="width:350px">操作</th></tr>
+              </thead>
+              <tbody>
+                {% for row in achievement_rows %}
+                <tr>
+                  <td>{{ row.result_no }}</td>
+                  <td>{{ row.result_name }}</td>
+                  <td>{{ row.rd_code }}</td>
+                  <td>{{ row.rd_name }}</td>
+                  <td>{{ row.ps }}</td>
+                  <td>{{ row.period }}</td>
+                  <td>{{ row.ip }}{% if row.ip_auth_no %}<br>{{ row.ip_auth_no }}{% endif %}</td>
+                  <td>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                      <a class="btn btn-sm btn-primary" href="{{ url_for('docgen.gaoxin_achievement_description', company_id=company.id, achievement_index=row.index) }}">撰写转化结果描述</a>
+                      <a class="btn btn-sm btn-secondary" href="{{ url_for('docgen.gaoxin_achievement_evidence', company_id=company.id, achievement_index=row.index) }}">附件制作</a>
+                    </div>
+                    <div class="achievement-material-status" data-achievement-material-status="{{ row.index }}">
+                      <span data-material="description" class="{{ 'is-ready' if row.materials.description else '' }}">转化结果描述{{ ' 已有' if row.materials.description else ' 待生成' }}</span>
+                      <span data-material="test_report" class="{{ 'is-ready' if row.materials.test_report else '' }}">检测报告{{ ' 已有' if row.materials.test_report else ' 待生成' }}</span>
+                      <span data-material="user_report" class="{{ 'is-ready' if row.materials.user_report else '' }}">用户使用报告{{ ' 已有' if row.materials.user_report else ' 待生成' }}</span>
+                    </div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" style="text-align:center;color:var(--text-muted)">暂无成果转化数据，请先在 RD-IP-PS 关系表中维护成果序号和成果名称。</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div id="cv-container" style="display:none">
+            <template id="cv-template">
+              <div class="cv-item">
+                <div class="cv-line">
+                  <b>序号 {no}：</b>
+                  <span><b>RD项目：</b><input type="text" class="cv-rd-fixed" name="cv_{i}_rd" style="width:130px;background:var(--bg-tertiary)" readonly placeholder="由关系表带出" /></span>
+                  <span style="color:var(--accent);font-weight:600">→</span>
+                  <span><b>知识产权：</b><input type="text" class="cv-ip-fixed" name="cv_{i}_ip" style="width:160px;background:var(--bg-tertiary)" readonly placeholder="由关系表带出" /></span>
+                  <span style="color:var(--accent);font-weight:600">→</span>
+                  <span><b>PS产品：</b><input type="text" class="cv-ps-fixed" name="cv_{i}_ps" style="width:150px;background:var(--bg-tertiary)" readonly placeholder="由关系表带出" /></span>
+                  <span><b>成果名称：</b><input type="text" name="cv_{i}_result_name" style="width:220px" placeholder="从关联表提取" /></span>
+                  <button type="button" class="btn btn-danger btn-sm cv-remove" onclick="removeCV(this)" title="删除此转化记录">×</button>
+                </div>
+                <div style="margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+                  <b>转化结果描述（限200字）：</b>
+                  <div style="display:flex;gap:4px">
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="fillTemplateCV(this)">模板</button>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="aiWriteCV(this)">AI撰写</button>
+                  </div>
+                </div>
+                <textarea name="cv_{i}_desc" rows="4" placeholder="描述该RD成果如何通过IP转化为PS产品，包括转化时间、转化形式、产生的经济效益等"></textarea>
+              </div>
+            </template>
+            <div class="cv-item">
+              <div class="cv-line">
+                <b>序号 01：</b>
+                <span><b>RD项目：</b><input type="text" class="cv-rd-fixed" name="cv_0_rd" style="width:130px;background:var(--bg-tertiary)" readonly placeholder="由关系表带出" /></span>
+                <span style="color:var(--accent);font-weight:600">→</span>
+                <span><b>知识产权：</b><input type="text" class="cv-ip-fixed" name="cv_0_ip" style="width:160px;background:var(--bg-tertiary)" readonly placeholder="由关系表带出" /></span>
+                <span style="color:var(--accent);font-weight:600">→</span>
+                <span><b>PS产品：</b><input type="text" class="cv-ps-fixed" name="cv_0_ps" style="width:150px;background:var(--bg-tertiary)" readonly placeholder="由关系表带出" /></span>
+                <span><b>成果名称：</b><input type="text" name="cv_0_result_name" style="width:220px" placeholder="从关联表提取" /></span>
+                <button type="button" class="btn btn-danger btn-sm cv-remove" onclick="removeCV(this)" title="删除此转化记录">×</button>
+              </div>
+              <div style="margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+                <b>转化结果描述（限200字）：</b>
+                <div style="display:flex;gap:4px">
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="fillTemplateCV(this)">模板</button>
+                  <button type="button" class="btn btn-sm btn-primary" onclick="aiWriteCV(this)">AI撰写</button>
+                </div>
+              </div>
+              <textarea name="cv_0_desc" rows="4" placeholder="描述该RD成果如何通过IP转化为PS产品，包括转化时间、转化形式、产生的经济效益等"></textarea>
+            </div>
+            <div style="text-align:center;margin-top:16px" id="cv-add-area">
+              <button type="button" class="btn btn-secondary" onclick="addCV()">添加成果转化记录</button>
+            </div>
+          </div>
+
+          {% elif section.kind == 'system' %}
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+            <p class="hint">维护申请书中的组织管理佐证材料框架；完整制度正文和佐证文件仍在制度生成页面生成。</p>
+            <a href="{{ url_for('docgen.gaoxin_system_docs', company_id=company.id) }}" class="btn btn-sm btn-primary">生成制度正文</a>
+          </div>
+          <table class="book-table system-framework-table">
+            <thead><tr><th>制度模块</th><th>建议制度文件</th><th>框架要点及佐证材料</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>企业研究开发组织管理</b></td>
+                <td><textarea name="system_rd_files" rows="4">{{ auto_data.get('system_rd_files') or '《研究开发组织管理制度》\n《研发项目立项管理办法》\n《研发投入核算管理制度》\n《研发费用辅助账管理办法》' }}</textarea></td>
+                <td><textarea name="system_rd_points" rows="4">{{ auto_data.get('system_rd_points') or '明确研发中心、项目负责人、研发小组、财务部门的职责分工；规定研发项目立项、预算、过程记录、验收归档流程；建立研发投入核算体系，按项目编制研发费用辅助账，形成研发项目台账、预算审批表、费用归集表、辅助账等佐证材料。' }}</textarea></td>
+              </tr>
+              <tr>
+                <td><b>研发机构与产学研合作</b></td>
+                <td><textarea name="system_org_files" rows="4">{{ auto_data.get('system_org_files') or '《研发中心管理制度》\n《科研条件与设备管理制度》\n《产学研合作管理办法》\n《外部研发合作项目管理制度》' }}</textarea></td>
+                <td><textarea name="system_org_points" rows="4">{{ auto_data.get('system_org_points') or '明确内部科学技术研究开发机构的组织架构、人员配置、场地设备、科研条件保障机制；规范与高校、科研院所、行业机构等开展联合研发、技术咨询、委托开发、成果共建等合作形式，留存研发机构设立文件、场地设备清单、合作协议、项目记录等材料。' }}</textarea></td>
+              </tr>
+              <tr>
+                <td><b>科技成果转化与创新平台</b></td>
+                <td><textarea name="system_transform_files" rows="4">{{ auto_data.get('system_transform_files') or '《科技成果转化组织实施制度》\n《科技成果转化激励奖励制度》\n《创新创业平台管理办法》\n《新产品试制与成果应用管理制度》' }}</textarea></td>
+                <td><textarea name="system_transform_points" rows="4">{{ auto_data.get('system_transform_points') or '建立科技成果筛选、评审、试制、应用、产业化和效果评价流程；明确成果转化奖励、项目收益分配、技术骨干激励规则；建设开放式创新创业平台，支持内部项目孵化、外部资源协同和成果推广，形成成果转化清单、奖励记录、平台活动记录、销售或应用证明等材料。' }}</textarea></td>
+              </tr>
+              <tr>
+                <td><b>科技人员培养与绩效激励</b></td>
+                <td><textarea name="system_talent_files" rows="4">{{ auto_data.get('system_talent_files') or '《科技人员培养进修制度》\n《职工技能培训制度》\n《优秀人才引进制度》\n《人才绩效评价与奖励制度》' }}</textarea></td>
+                <td><textarea name="system_talent_points" rows="4">{{ auto_data.get('system_talent_points') or '建立科技人员培养进修、岗位技能培训、优秀人才引进和人才梯队建设机制；将研发项目贡献、知识产权产出、成果转化效果、技术改进成效纳入绩效评价和奖励依据，形成年度培训计划、培训签到及记录、人才引进材料、绩效考核表和奖励发放记录等佐证材料。' }}</textarea></td>
+              </tr>
+            </tbody>
+          </table>
+          {% endif %}
+        </section>
+        {% endfor %}
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="export-status-toast" id="export-pdf-status" role="status" aria-live="polite" hidden></div>
+
+<div class="action-dock">
+  <a href="{{ url_for('docgen.gaoxin_book', company_id=company.id) }}" class="btn btn-secondary btn-lg">返回申请书</a>
+  <button type="submit" form="gaoxin-attachments-form" class="btn btn-success btn-lg">保存附件</button>
+  <button type="button" class="btn btn-primary btn-lg" data-export-pdf-button onclick="saveAndExportPdf()">导出 PDF</button>
+  <a href="#" class="btn btn-secondary btn-lg">回到顶部</a>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const uploadUrls = {
+{% for section in attachment_sections if section.kind == 'pdf' %}
+  '{{ section.key }}': '{{ url_for("docgen.gaoxin_attachment_upload", company_id=company.id, section_key=section.key) }}'{% if not loop.last %},{% endif %}
+{% endfor %}
+};
+uploadUrls.staff_statement = '{{ url_for("docgen.gaoxin_attachment_upload", company_id=company.id, section_key="staff_statement") }}';
+const exportPdfUrl = '{{ url_for("docgen.gaoxin_attachments_pdf", company_id=company.id) }}';
+const exportPdfFilename = {{ ('高新技术企业认定附件制作_' ~ company.name ~ '.pdf') | tojson | safe }};
+const autoData = {{ auto_data | tojson | safe }};
+const achievementRows = {{ achievement_rows | tojson | safe }};
+const achievementCompanyName = {{ company.name | tojson | safe }};
+const rdProjectRows = {{ rd_project_rows | default([]) | tojson | safe }};
+const achievementMaterialSaveUrlTemplate = '{{ url_for("docgen.gaoxin_achievement_material_save", company_id=company.id, achievement_index=999999) }}'.replace('999999', '__index__');
+const rdProjectBookSaveUrlTemplate = '{{ url_for("docgen.gaoxin_rd_project_book_save", company_id=company.id, project_index=999999) }}'.replace('999999', '__index__');
+const achievementMaterialTypes = [
+  {key: 'description', label: '转化结果描述', field: 'cv_desc', targetWords: 220},
+  {key: 'test_report', label: '检测报告', field: 'achievement_test_report', targetWords: 220},
+  {key: 'user_report', label: '用户使用报告', field: 'achievement_user_report', targetWords: 180}
+];
+const rdProjectBookTemplate = {{ rd_project_ai_template | tojson | safe }};
+
+function achievementDescriptionTemplate(achievement) {
+  const typeLabel = achievement.type_label || '产品';
+  const status = achievement.status || '待补充';
+  const statusDisplay = status === '已完成' ? '已到计划结束时间' : status;
+  const rdLabel = [achievement.rd_code, achievement.rd_name].filter(Boolean).join(' - ') || '待补充';
+  let ipLabel = achievement.ip || '待补充';
+  if (achievement.ip_auth_no) ipLabel += '（授权号/登记号：' + achievement.ip_auth_no + '）';
+  const psLabel = achievement.ps || '待补充';
+  const technology = achievement.technology
+    ? '该成果与上述RD、IP及' + typeLabel + '建立资料对应关系，现有资料登记的技术内容包括：' + achievement.technology + '。'
+    : '该成果与上述RD、IP及' + typeLabel + '建立资料对应关系，具体技术内容待依据研发任务书、过程记录、测试资料和成果文件补充核实。';
+  let statusNote = '项目周期信息不完整，当前仅保留资料对应关系，实际成果形成、转化和应用状态待补充日期及证明材料后核实。';
+  if (status === '计划中') {
+    statusNote = '项目尚未到计划开始时间，当前仅记录成果规划和资料对应关系，不得据此认定成果已经形成、转化或投入应用。';
+  } else if (status === '研发中') {
+    statusNote = '项目处于研发周期内，当前仅记录研发进展、阶段材料和后续转化安排，不得据此认定已经完成成果转化。';
+  } else if (status === '已完成') {
+    statusNote = '项目已到计划结束时间，但计划日期不等于实际完成日期，不得仅依据计划周期对成果形成、验收结论、转化实施或实际应用作出完成式认定。';
+  }
+  return normalizeAiTextSpacing([
+    '科技成果名称：' + (achievement.result_name || '待补充'),
+    '项目时间状态：' + statusDisplay,
+    '关联研发项目：' + rdLabel,
+    '计划周期：' + (achievement.period || '待补充'),
+    '关联知识产权：' + ipLabel,
+    '关联' + typeLabel + '：' + psLabel,
+    '技术关联说明：' + technology,
+    '时间及状态说明：' + statusNote,
+    '核验说明：实际成果形成、转化实施、应用效果和经济效益，应根据研发记录、验收记录、合同、发票、检测报告、用户使用报告及归档材料逐项核实。',
+    '成果转化核验材料：研发过程及成果文件、知识产权证明、验收或测试记录、销售合同及发票、应用或用户反馈材料，以及能够证明实际转化日期和效果的其他资料。'
+  ].join('\n'));
+}
+
+function achievementUserReportTemplate(achievement) {
+  return [
+    '用户使用报告',
+    '使用单位：________________',
+    '被评价单位：' + achievementCompanyName,
+    (achievement.type_label || '产品') + '名称：' + (achievement.ps || achievement.result_name || ''),
+    '使用时间：________________',
+    '应用场景：________________',
+    '功能适用性：________________',
+    '运行稳定性：________________',
+    '操作便利性：________________',
+    '服务响应：________________',
+    '综合评价：________________',
+    '客户意见及建议：________________',
+    '使用单位（盖章）：________________',
+    '日期：____年__月__日'
+  ].join('\n');
+}
+
+function achievementTestReportTemplate(achievement) {
+  return [
+    '检测报告',
+    '检测单位：' + achievementCompanyName,
+    '检测对象：' + (achievement.ps || achievement.result_name || ''),
+    '被检测技术：' + (achievement.result_name || ''),
+    '检测目的：________________',
+    '检测依据：________________',
+    '检测方法：________________',
+    '检测项目1：________________',
+    '检测结果1：________________',
+    '检测项目2：________________',
+    '检测结果2：________________',
+    '检测项目3：________________',
+    '检测结果3：________________',
+    '检测结论：________________',
+    '检测单位（盖章）：________________',
+    '日期：____年__月__日'
+  ].join('\n');
+}
+
+function achievementAiContext(achievement, materialKey) {
+  const ipText = achievement.ip_auth_no
+    ? (achievement.ip || '') + '（' + achievement.ip_auth_no + '）'
+    : (achievement.ip || '');
+  if (materialKey === 'description') {
+    return {
+      company_name: achievementCompanyName,
+      cv_rd: (achievement.rd_code || '') + ' ' + (achievement.rd_name || ''),
+      cv_ip: ipText,
+      cv_ps: achievement.ps || '',
+      ps_name: achievement.ps_name || achievement.ps || '',
+      ps_kind: achievement.ps_kind || '',
+      cv_result_name: achievement.result_name || '',
+      cv_period: achievement.period || '',
+      cv_technology: achievement.technology || ''
+    };
+  }
+  return {
+    company_name: achievementCompanyName,
+    achievement_no: achievement.result_no || '',
+    achievement_name: achievement.result_name || '',
+    achievement_rd: (achievement.rd_code || '') + ' ' + (achievement.rd_name || ''),
+    achievement_ps: achievement.ps || '',
+    ps_name: achievement.ps_name || achievement.ps || '',
+    ps_kind: achievement.ps_kind || '',
+    achievement_period: achievement.period || '',
+    achievement_ip: ipText,
+    achievement_technology: achievement.technology || ''
+  };
+}
+
+function setAchievementMaterialStatus(achievementIndex, materialKey, state) {
+  const scope = document.querySelector('[data-achievement-material-status="' + achievementIndex + '"]');
+  const item = scope && scope.querySelector('[data-material="' + materialKey + '"]');
+  const type = achievementMaterialTypes.find(function(entry) { return entry.key === materialKey; });
+  if (!item || !type) return;
+  item.classList.toggle('is-ready', state === 'ready');
+  item.classList.toggle('is-failed', state === 'failed');
+  item.textContent = type.label + (state === 'ready' ? ' 已生成' : (state === 'failed' ? ' 失败' : ' 生成中'));
+}
+
+async function responseJson(response, fallbackMessage) {
+  let result = {};
+  try {
+    result = await response.json();
+  } catch (error) {
+    throw new Error(fallbackMessage);
+  }
+  if (!response.ok || result.success === false || result.ok === false) {
+    throw new Error(result.error || fallbackMessage);
+  }
+  return result;
+}
+
+async function generateAchievementMaterial(achievement, materialType) {
+  let materialTemplate = (achievement.materials || {})[materialType.key] || '';
+  if (materialType.key === 'description') materialTemplate = achievementDescriptionTemplate(achievement);
+  if (materialType.key === 'test_report') materialTemplate = achievementTestReportTemplate(achievement);
+  if (materialType.key === 'user_report') materialTemplate = achievementUserReportTemplate(achievement);
+  const response = await fetch('/parser/ai_write', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      field: materialType.field,
+      context: achievementAiContext(achievement, materialType.key),
+      template: materialTemplate,
+      target_words: materialType.targetWords
+    })
+  });
+  const generated = await responseJson(response, materialType.label + '生成失败');
+  const content = normalizeAiTextSpacing(generated.text || '');
+  if (!content) throw new Error(materialType.label + '生成内容为空');
+
+  const saveResponse = await fetch(achievementMaterialSaveUrlTemplate.replace('__index__', achievement.index), {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({material: materialType.key, content: content})
+  });
+  await responseJson(saveResponse, materialType.label + '保存失败');
+  achievement.materials = achievement.materials || {};
+  achievement.materials[materialType.key] = content;
+  if (materialType.key === 'description') {
+    const descriptionInput = document.querySelector('[name="cv_' + achievement.index + '_desc"]');
+    if (descriptionInput) descriptionInput.value = content;
+  }
+}
+
+async function generateAllAchievementMaterials(button) {
+  if (!achievementRows.length || button.disabled) return;
+  const existingCount = achievementRows.reduce(function(total, achievement) {
+    return total + achievementMaterialTypes.filter(function(type) {
+      return Boolean(String((achievement.materials || {})[type.key] || '').trim());
+    }).length;
+  }, 0);
+  if (existingCount && !confirm('已有 ' + existingCount + ' 项成果材料，本次生成会覆盖这些内容。确定继续吗？')) return;
+
+  const label = document.getElementById('achievement-batch-button-label');
+  const status = document.getElementById('achievement-batch-status');
+  const tasks = [];
+  achievementRows.forEach(function(achievement) {
+    achievementMaterialTypes.forEach(function(materialType) {
+      tasks.push({achievement: achievement, materialType: materialType});
+    });
+  });
+  const errors = [];
+  let successCount = 0;
+  if (button._resetTimer) window.clearTimeout(button._resetTimer);
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  button.classList.add('is-running');
+  button.style.setProperty('--batch-progress', '0%');
+  status.style.color = '';
+
+  for (let index = 0; index < tasks.length; index += 1) {
+    const task = tasks[index];
+    const position = index + 1;
+    const itemLabel = (task.achievement.result_no || '成果' + (task.achievement.index + 1)) + ' ' + task.materialType.label;
+    label.textContent = '生成中 ' + position + '/' + tasks.length;
+    status.textContent = '正在生成：' + itemLabel;
+    button.style.setProperty('--batch-progress', Math.round((index / tasks.length) * 100) + '%');
+    setAchievementMaterialStatus(task.achievement.index, task.materialType.key, 'running');
+    try {
+      await generateAchievementMaterial(task.achievement, task.materialType);
+      successCount += 1;
+      setAchievementMaterialStatus(task.achievement.index, task.materialType.key, 'ready');
+    } catch (error) {
+      errors.push(itemLabel + '：' + (error.message || '生成失败'));
+      setAchievementMaterialStatus(task.achievement.index, task.materialType.key, 'failed');
+    }
+    button.style.setProperty('--batch-progress', Math.round((position / tasks.length) * 100) + '%');
+  }
+
+  button.classList.remove('is-running');
+  button.removeAttribute('aria-busy');
+  button.disabled = false;
+  label.textContent = errors.length ? '已完成 ' + successCount + '/' + tasks.length : '全部生成完成';
+  if (errors.length) {
+    status.style.color = 'var(--danger)';
+    status.textContent = '成功 ' + successCount + ' 项，失败 ' + errors.length + ' 项：' + errors.join('；');
+  } else {
+    status.style.color = 'var(--success)';
+    status.textContent = '共 ' + successCount + ' 项材料已生成并保存。';
+  }
+  button._resetTimer = window.setTimeout(function() {
+    label.textContent = '一键生成所有成果材料';
+    button.style.setProperty('--batch-progress', '0%');
+  }, 2500);
+}
+
+async function generateRdProjectBook(project) {
+  const response = await fetch('/parser/ai_write', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      field: 'rd_application',
+      context: {
+        company_name: achievementCompanyName,
+        rd_year: project.year || '',
+        rd_code: project.rd_code || '',
+        rd_name: project.rd_activity || '',
+        rd_period: project.rd_period || '',
+        rd_field: project.field || '',
+        rd_source: project.source || '自主研发',
+        rd_purpose: project.purpose || '',
+        rd_innovation: project.innovation || '',
+        rd_result: project.result || '',
+        rd_budget: project.budget_display || '',
+        rd_ip: (project.ip_labels || []).join('；'),
+        rd_ps: (project.ps_labels || []).join('；'),
+        rd_technologies: (project.technologies || []).join('；'),
+        rd_result_names: (project.result_names || []).join('；')
+      },
+      template: rdProjectBookTemplate,
+      target_words: 3000
+    })
+  });
+  const generated = await responseJson(response, '科研项目书生成失败');
+  const content = normalizeAiTextSpacing(generated.text || '');
+  if (!content) throw new Error('科研项目书生成内容为空');
+
+  const saveResponse = await fetch(rdProjectBookSaveUrlTemplate.replace('__index__', project.index), {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({content: content})
+  });
+  await responseJson(saveResponse, '科研项目书保存失败');
+  project.application = content;
+  const action = document.querySelector('[data-rd-project-action="' + project.index + '"]');
+  if (action) {
+    const status = action.querySelector('[data-rd-project-status]');
+    if (status) {
+      status.textContent = '已有内容';
+      status.classList.add('is-ready');
+    }
+    const link = action.querySelector('a');
+    if (link) link.textContent = '查看和编辑';
+  }
+}
+
+async function generateAllRdProjectBooks(button) {
+  if (!rdProjectRows.length || button.disabled) return;
+  const existingCount = rdProjectRows.filter(function(project) {
+    return Boolean(String(project.application || '').trim());
+  }).length;
+  if (existingCount && !confirm('已有 ' + existingCount + ' 份科研项目书，本次生成会覆盖这些内容。确定继续吗？')) return;
+
+  const label = document.getElementById('rd-project-batch-button-label');
+  const status = document.getElementById('rd-project-batch-status');
+  const errors = [];
+  let successCount = 0;
+  if (button._resetTimer) window.clearTimeout(button._resetTimer);
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  button.classList.add('is-running');
+  button.style.setProperty('--batch-progress', '0%');
+  status.style.color = '';
+
+  for (let index = 0; index < rdProjectRows.length; index += 1) {
+    const project = rdProjectRows[index];
+    const position = index + 1;
+    const projectLabel = project.rd_code || ('RD' + position);
+    label.textContent = '生成中 ' + position + '/' + rdProjectRows.length;
+    status.textContent = '正在生成：' + projectLabel + ' 科研项目书';
+    button.style.setProperty('--batch-progress', Math.round((index / rdProjectRows.length) * 100) + '%');
+    try {
+      await generateRdProjectBook(project);
+      successCount += 1;
+    } catch (error) {
+      errors.push(projectLabel + '：' + (error.message || '生成失败'));
+    }
+    button.style.setProperty('--batch-progress', Math.round((position / rdProjectRows.length) * 100) + '%');
+  }
+
+  button.classList.remove('is-running');
+  button.removeAttribute('aria-busy');
+  button.disabled = false;
+  label.textContent = errors.length ? '已完成 ' + successCount + '/' + rdProjectRows.length : '全部生成完成';
+  if (errors.length) {
+    status.style.color = 'var(--danger)';
+    status.textContent = '成功 ' + successCount + ' 项，失败 ' + errors.length + ' 项：' + errors.join('；');
+  } else {
+    status.style.color = 'var(--success)';
+    status.textContent = '共 ' + successCount + ' 份科研项目书已生成并保存。';
+  }
+  button._resetTimer = window.setTimeout(function() {
+    label.textContent = '一键生成所有科研项目书';
+    button.style.setProperty('--batch-progress', '0%');
+  }, 2500);
+}
+
+function escapeHtml(text) {
+  return String(text || '').replace(/[&<>'"]/g, function(ch) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch];
+  });
+}
+
+async function saveAndExportPdf() {
+  const form = document.getElementById('gaoxin-attachments-form');
+  const buttons = Array.from(document.querySelectorAll('[data-export-pdf-button]'));
+  if (buttons.some(function(button) { return button.disabled; })) return;
+  const status = document.getElementById('export-pdf-status');
+  const startedAt = Date.now();
+  let stage = '正在保存附件信息';
+  const timer = window.setInterval(function() {
+    const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+    status.textContent = stage + '，已用时 ' + seconds + ' 秒';
+  }, 1000);
+  buttons.forEach(function(button) {
+    button.disabled = true;
+    button.dataset.originalText = button.textContent;
+    button.textContent = '正在生成 PDF...';
+  });
+  status.hidden = false;
+  status.className = 'export-status-toast';
+  status.textContent = stage;
+  try {
+    const saveResponse = await fetch(form.action, {method: 'POST', body: new FormData(form)});
+    if (!saveResponse.ok) throw new Error('保存附件失败');
+
+    stage = '正在整理并生成附件 PDF';
+    status.textContent = stage;
+    const response = await fetch(exportPdfUrl, {headers: {'Accept': 'application/pdf'}});
+    if (!response.ok) {
+      let message = 'PDF 导出失败';
+      try {
+        const result = await response.json();
+        message = result.error || message;
+      } catch (error) {
+        const text = await response.text();
+        if (text) message = text;
+      }
+      throw new Error(message);
+    }
+
+    stage = '正在下载 PDF';
+    status.textContent = stage;
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = exportPdfFilename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(function() { URL.revokeObjectURL(downloadUrl); }, 30000);
+
+    const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+    status.className = 'export-status-toast is-success';
+    status.textContent = 'PDF 已生成并开始下载，共用时 ' + seconds + ' 秒';
+    window.setTimeout(function() { status.hidden = true; }, 5000);
+  } catch (error) {
+    status.className = 'export-status-toast is-error';
+    status.textContent = error.message || '导出失败';
+  } finally {
+    window.clearInterval(timer);
+    buttons.forEach(function(button) {
+      button.disabled = false;
+      button.textContent = button.dataset.originalText || '导出 PDF';
+      delete button.dataset.originalText;
+    });
+  }
+}
+
+function setUploadStatus(card, text, color) {
+  const status = card.querySelector('[data-upload-status]');
+  if (status) {
+    status.textContent = text || '';
+    status.style.color = color || '';
+  }
+}
+
+function renderUploadedFile(sectionKey, file) {
+  const card = document.querySelector('[data-section-key="' + sectionKey + '"]');
+  const list = card.querySelector('[data-file-list]');
+  const empty = card.querySelector('[data-empty-message]');
+  const li = document.createElement('li');
+  li.dataset.fileId = file.id;
+  li.innerHTML = '<div class="file-meta"><div class="file-name">' + escapeHtml(file.original_filename) + '</div><div class="file-time">' + escapeHtml(file.uploaded_at || '') + '</div></div>' +
+    '<div class="file-tools"><a class="btn btn-sm btn-secondary" target="_blank" href="' + file.view_url + '">预览</a>' +
+    '<a class="btn btn-sm btn-secondary" href="' + file.view_url + '?download=1">下载</a>' +
+    '<button type="button" class="btn btn-sm btn-danger" onclick="deleteAttachmentPdf(\'' + sectionKey + '\', \'' + file.id + '\', this)">删除</button></div>';
+  list.appendChild(li);
+  if (empty) empty.style.display = 'none';
+}
+
+function renderScopedUploadedFile(scope, sectionKey, file) {
+  const list = scope.querySelector('[data-file-list]');
+  const empty = scope.querySelector('[data-empty-message]');
+  const match = file.certificate_match || {};
+  const matchText = match.status === 'matched'
+    ? ' · 已匹配 ' + (match.matched_name || '') + '：' + (match.value || '')
+    : (match.status ? ' · 待人工核对' : '');
+  const li = document.createElement('li');
+  li.dataset.fileId = file.id;
+  li.innerHTML = '<div class="file-meta"><div class="file-name">' + escapeHtml(file.original_filename) + '</div><div class="file-time">' + escapeHtml((file.uploaded_at || '') + matchText) + '</div></div>' +
+    '<div class="file-tools"><a class="btn btn-sm btn-secondary" target="_blank" href="' + file.view_url + '">预览</a>' +
+    '<a class="btn btn-sm btn-secondary" href="' + file.view_url + '?download=1">下载</a>' +
+    '<button type="button" class="btn btn-sm btn-danger" onclick="deleteAttachmentPdf(\'' + sectionKey + '\', \'' + file.id + '\', this)">删除</button></div>';
+  list.appendChild(li);
+  if (empty) empty.style.display = 'none';
+}
+
+function renderIpUploadedFile(cell, file) {
+  renderScopedUploadedFile(cell, 'ip', file);
+}
+
+async function uploadIpAttachmentPdf(ipSeq, button) {
+  const cell = button.closest('[data-ip-upload-cell]');
+  const input = cell.querySelector('[data-ip-pdf-input]');
+  const status = cell.querySelector('[data-upload-status]');
+  if (!input.files.length) {
+    if (status) { status.textContent = '请选择 PDF'; status.style.color = 'var(--danger)'; }
+    return;
+  }
+  const file = input.files[0];
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    if (status) { status.textContent = '仅支持 PDF'; status.style.color = 'var(--danger)'; }
+    return;
+  }
+  const body = new FormData();
+  body.append('file', file);
+  body.append('ip_seq', ipSeq);
+  button.disabled = true;
+  if (status) { status.textContent = '上传中...'; status.style.color = 'var(--text-muted)'; }
+  try {
+    const response = await fetch(uploadUrls.ip, {method: 'POST', body});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || '上传失败');
+    renderIpUploadedFile(cell, result.file);
+    input.value = '';
+    if (status) { status.textContent = '上传成功'; status.style.color = 'var(--success)'; }
+  } catch (error) {
+    if (status) { status.textContent = error.message || '上传失败'; status.style.color = 'var(--danger)'; }
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function uploadStaffAttachmentPdf(staffFileType, button) {
+  const scope = button.closest('[data-staff-upload-type]');
+  const input = scope.querySelector('[data-staff-pdf-input]');
+  const status = scope.querySelector('[data-upload-status]');
+  if (!input.files.length) {
+    if (status) { status.textContent = '请选择 PDF'; status.style.color = 'var(--danger)'; }
+    return;
+  }
+  const file = input.files[0];
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    if (status) { status.textContent = '仅支持 PDF'; status.style.color = 'var(--danger)'; }
+    return;
+  }
+  const body = new FormData();
+  body.append('file', file);
+  body.append('staff_file_type', staffFileType);
+  button.disabled = true;
+  if (status) { status.textContent = '上传中...'; status.style.color = 'var(--text-muted)'; }
+  try {
+    const response = await fetch(uploadUrls.staff_statement, {method: 'POST', body});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || '上传失败');
+    renderScopedUploadedFile(scope, 'staff_statement', result.file);
+    input.value = '';
+    if (status) { status.textContent = '上传成功'; status.style.color = 'var(--success)'; }
+  } catch (error) {
+    if (status) { status.textContent = error.message || '上传失败'; status.style.color = 'var(--danger)'; }
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function currentRdStaffRows() {
+  return Array.from(document.querySelectorAll('#rd-staff-body tr')).map(function(row, index) {
+    const input = row.querySelector('[name$="_name"]');
+    return {index: index, name: input ? input.value.trim() : ''};
+  }).filter(function(row) { return row.name; });
+}
+
+function applyStaffCertificateMatch(match) {
+  if (!match || match.status !== 'matched' || match.matched_index === null || match.matched_index === undefined) return;
+  const field = match.field === 'title' ? 'title' : 'education';
+  const input = document.querySelector('[name="attachment_rd_staff_' + match.matched_index + '_' + field + '"]');
+  if (!input) return;
+  input.value = match.value || '';
+  input.classList.add('auto-filled');
+}
+
+async function uploadStaffCertificates(staffFileType, button) {
+  const scope = button.closest('[data-staff-upload-type]');
+  const input = scope.querySelector('[data-staff-certificate-input]');
+  const status = scope.querySelector('[data-upload-status]');
+  const files = Array.from(input.files || []);
+  if (!files.length) {
+    if (status) { status.textContent = '请选择 PDF 或图片'; status.style.color = 'var(--danger)'; }
+    return;
+  }
+  const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tif', '.tiff'];
+  if (files.some(function(file) {
+    const name = file.name.toLowerCase();
+    return !allowedExtensions.some(function(extension) { return name.endsWith(extension); });
+  })) {
+    if (status) { status.textContent = '支持 PDF 和常见图片格式'; status.style.color = 'var(--danger)'; }
+    return;
+  }
+
+  const body = new FormData();
+  files.forEach(function(file) { body.append('files', file); });
+  body.append('staff_file_type', staffFileType);
+  body.append('staff_rows', JSON.stringify(currentRdStaffRows()));
+  button.disabled = true;
+  if (status) {
+    status.textContent = '正在上传并识别 ' + files.length + ' 份证书...';
+    status.style.color = 'var(--text-muted)';
+  }
+  try {
+    const response = await fetch(uploadUrls.staff_statement, {method: 'POST', body});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || '上传失败');
+    (result.files || []).forEach(function(file) {
+      renderScopedUploadedFile(scope, 'staff_statement', file);
+    });
+    (result.matches || []).forEach(applyStaffCertificateMatch);
+    input.value = '';
+
+    const matched = (result.matches || []).filter(function(item) { return item.status === 'matched'; });
+    const details = matched.map(function(item) {
+      return item.matched_name + '：' + item.value;
+    });
+    const unresolvedCount = files.length - matched.length;
+    if (status) {
+      status.textContent = '已上传 ' + files.length + ' 份，自动匹配 ' + matched.length + ' 份' +
+        (details.length ? '（' + details.join('；') + '）' : '') +
+        (unresolvedCount ? '，另有 ' + unresolvedCount + ' 份待人工核对' : '');
+      status.style.color = unresolvedCount ? 'var(--text-secondary)' : 'var(--success)';
+    }
+  } catch (error) {
+    if (status) { status.textContent = error.message || '上传失败'; status.style.color = 'var(--danger)'; }
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function uploadAttachmentPdf(sectionKey) {
+  const card = document.querySelector('[data-section-key="' + sectionKey + '"]');
+  const input = card.querySelector('[data-pdf-input]');
+  if (!input.files.length) {
+    setUploadStatus(card, '请先选择 PDF 文件', 'var(--danger)');
+    return;
+  }
+  const file = input.files[0];
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    setUploadStatus(card, '仅支持 PDF 文件', 'var(--danger)');
+    return;
+  }
+  const body = new FormData();
+  body.append('file', file);
+  setUploadStatus(card, '上传中...', 'var(--text-muted)');
+  try {
+    const response = await fetch(uploadUrls[sectionKey], {method: 'POST', body});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || '上传失败');
+    renderUploadedFile(sectionKey, result.file);
+    input.value = '';
+    setUploadStatus(card, '上传成功', 'var(--success)');
+  } catch (error) {
+    setUploadStatus(card, error.message || '上传失败', 'var(--danger)');
+  }
+}
+
+async function uploadYearlyAttachmentPdf(sectionKey, year, button) {
+  const scope = button.closest('[data-yearly-section]');
+  const input = scope.querySelector('[data-yearly-pdf-input]');
+  const status = scope.querySelector('[data-upload-status]');
+  if (!input.files.length) {
+    if (status) { status.textContent = '请选择 PDF'; status.style.color = 'var(--danger)'; }
+    return;
+  }
+  const file = input.files[0];
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    if (status) { status.textContent = '仅支持 PDF'; status.style.color = 'var(--danger)'; }
+    return;
+  }
+  const body = new FormData();
+  body.append('file', file);
+  body.append('attachment_year', year);
+  button.disabled = true;
+  if (status) { status.textContent = '上传中...'; status.style.color = 'var(--text-muted)'; }
+  try {
+    const response = await fetch(uploadUrls[sectionKey], {method: 'POST', body});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || '上传失败');
+    renderScopedUploadedFile(scope, sectionKey, result.file);
+    input.value = '';
+    if (status) { status.textContent = '上传成功'; status.style.color = 'var(--success)'; }
+  } catch (error) {
+    if (status) { status.textContent = error.message || '上传失败'; status.style.color = 'var(--danger)'; }
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function deleteAttachmentPdf(sectionKey, fileId, button) {
+  if (!confirm('确定删除这个 PDF 附件吗？')) return;
+  const url = '{{ url_for("docgen.gaoxin_attachment_delete", company_id=company.id, section_key="__section__", file_id="__file__") }}'.replace('__section__', sectionKey).replace('__file__', fileId);
+  button.disabled = true;
+  try {
+    const response = await fetch(url, {method: 'POST'});
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || '删除失败');
+    const li = button.closest('li');
+    const scope = button.closest('[data-ip-upload-cell]') || button.closest('[data-yearly-section]') || button.closest('[data-section-key]');
+    li.remove();
+    if (scope && !scope.querySelector('[data-file-list] li')) {
+      const empty = scope.querySelector('[data-empty-message]');
+      if (empty) empty.style.display = '';
+    }
+  } catch (error) {
+    alert(error.message || '删除失败');
+    button.disabled = false;
+  }
+}
+
+function normalizeAiTextSpacing(text) {
+  return String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+}
+
+function addCV() {
+  const container = document.getElementById('cv-container');
+  const template = document.getElementById('cv-template');
+  const addArea = document.getElementById('cv-add-area');
+  const index = container.querySelectorAll('.cv-item').length;
+  const html = template.innerHTML.replaceAll('{i}', index).replaceAll('{no}', String(index + 1).padStart(2, '0'));
+  addArea.insertAdjacentHTML('beforebegin', html);
+  reindexCV();
+}
+
+function removeCV(btn) {
+  const items = document.querySelectorAll('#cv-container .cv-item');
+  if (items.length <= 1) {
+    const item = btn.closest('.cv-item');
+    item.querySelectorAll('input, textarea').forEach(function(el) { el.value = ''; });
+    return;
+  }
+  btn.closest('.cv-item').remove();
+  reindexCV();
+}
+
+function reindexCV() {
+  document.querySelectorAll('#cv-container .cv-item').forEach(function(item, index) {
+    const title = item.querySelector('.cv-line > b');
+    if (title) title.textContent = '序号 ' + String(index + 1).padStart(2, '0') + '：';
+    item.querySelectorAll('[name]').forEach(function(el) {
+      el.name = el.name.replace(/cv_\d+_/, 'cv_' + index + '_');
+    });
+  });
+}
+
+function fillTemplateCV(btn) {
+  const cvItem = btn.closest('.cv-item');
+  const ta = cvItem.querySelector('[name$="_desc"]');
+  if (!ta) return;
+  if (ta.value.trim() && !confirm('当前已有内容，覆盖吗？')) return;
+  const match = String(ta.name || '').match(/^cv_(\d+)_desc$/);
+  const index = match ? Number(match[1]) : -1;
+  const achievement = Object.assign({}, achievementRows[index] || {}, {
+    rd_name: (cvItem.querySelector('[name$="_rd"]') || {}).value || '【RD项目】',
+    ip: (cvItem.querySelector('[name$="_ip"]') || {}).value || '【知识产权】',
+    ps: (cvItem.querySelector('[name$="_ps"]') || {}).value || '【对应PS】',
+    result_name: (cvItem.querySelector('[name$="_result_name"]') || {}).value || '【技术成果名称】'
+  });
+  achievement.type_label = /服务\s*$/.test(achievement.ps) ? '服务' : '产品';
+  ta.value = achievementDescriptionTemplate(achievement);
+}
+
+function targetWordsForButton() { return 200; }
+
+function aiWriteCV(btn) {
+  const cvItem = btn.closest('.cv-item');
+  const ta = cvItem.querySelector('[name$="_desc"]');
+  if (!ta) return;
+  const context = {
+    cv_rd: (cvItem.querySelector('[name$="_rd"]') || {}).value || '',
+    cv_ip: (cvItem.querySelector('[name$="_ip"]') || {}).value || '',
+    cv_ps: (cvItem.querySelector('[name$="_ps"]') || {}).value || '',
+    ps_name: (cvItem.querySelector('[name$="_ps"]') || {}).value || '',
+    cv_result_name: (cvItem.querySelector('[name$="_result_name"]') || {}).value || '',
+    company_name: '{{ company.name }}',
+    type: 'cv'
+  };
+  const originalText = btn.textContent;
+  btn.textContent = '生成中...';
+  btn.disabled = true;
+  fetch('/parser/ai_write', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({field: 'cv_desc', context: context, template: ta.value || '', target_words: targetWordsForButton(btn)})
+  }).then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (result.success) ta.value = normalizeAiTextSpacing(result.text);
+      else alert('AI撰写失败: ' + (result.error || '未知错误'));
+    })
+    .catch(function() { alert('网络错误'); })
+    .finally(function() { btn.textContent = originalText; btn.disabled = false; });
+}
+
+function setValue(name, value) {
+  if (value === undefined || value === null || value === '') return;
+  const el = document.querySelector('[name="' + name + '"]');
+  if (!el) return;
+  el.value = Array.isArray(value) ? value.join('\n') : value;
+  el.classList.add('auto-filled');
+}
+
+function rdStaffRowHtml(index) {
+  return '<tr>' +
+    '<td><input type="text" name="attachment_rd_staff_' + index + '_seq" value="' + (index + 1) + '" style="width:48px;text-align:center" /></td>' +
+    '<td><input type="text" name="attachment_rd_staff_' + index + '_name" value="" style="width:90px" /></td>' +
+    '<td><input type="text" name="attachment_rd_staff_' + index + '_id_no" value="" style="width:160px" /></td>' +
+    '<td><select name="attachment_rd_staff_' + index + '_contract" style="width:70px"><option value="">—</option><option value="是">是</option><option value="否">否</option></select></td>' +
+    '<td><select name="attachment_rd_staff_' + index + '_social_security" style="width:70px"><option value="">—</option><option value="是">是</option><option value="否">否</option></select></td>' +
+    '<td><input type="text" name="attachment_rd_staff_' + index + '_education" value="" style="width:80px" /></td>' +
+    '<td><input type="text" name="attachment_rd_staff_' + index + '_title" value="" style="width:100px" /></td>' +
+    '<td><select name="attachment_rd_staff_' + index + '_is_tech" style="width:80px"><option value="是" selected>是</option><option value="否">否</option></select></td>' +
+    '<td><button type="button" class="btn btn-danger btn-sm" onclick="removeRdStaffRow(this)">×</button></td>' +
+    '</tr>';
+}
+
+function reindexRdStaffRows() {
+  document.querySelectorAll('#rd-staff-body tr').forEach(function(row, index) {
+    row.querySelectorAll('[name]').forEach(function(el) {
+      el.name = el.name.replace(/attachment_rd_staff_\d+_/, 'attachment_rd_staff_' + index + '_');
+    });
+    const seq = row.querySelector('[name="attachment_rd_staff_' + index + '_seq"]');
+    if (seq && !seq.value.trim()) seq.value = index + 1;
+  });
+}
+
+function addRdStaffRow() {
+  const body = document.getElementById('rd-staff-body');
+  if (!body) return;
+  body.insertAdjacentHTML('beforeend', rdStaffRowHtml(body.querySelectorAll('tr').length));
+  syncStaffMonthCounts();
+}
+
+function removeRdStaffRow(btn) {
+  const rows = document.querySelectorAll('#rd-staff-body tr');
+  if (rows.length <= 1) {
+    const row = btn.closest('tr');
+    row.querySelectorAll('input').forEach(function(el) { el.value = ''; });
+    row.querySelectorAll('select').forEach(function(el) { el.value = ''; });
+    const techSelect = row.querySelector('[name$="_is_tech"]');
+    if (techSelect) techSelect.value = '是';
+    syncStaffMonthCounts();
+    return;
+  }
+  btn.closest('tr').remove();
+  reindexRdStaffRows();
+  syncStaffMonthCounts();
+}
+
+function syncStaffMonthCounts() {
+  const namedRows = Array.from(document.querySelectorAll('#rd-staff-body tr')).filter(function(row) {
+    const nameInput = row.querySelector('[name$="_name"]');
+    return nameInput && nameInput.value.trim();
+  });
+  const totalCount = namedRows.length;
+  const techCount = namedRows.filter(function(row) {
+    const techSelect = row.querySelector('[name$="_is_tech"]');
+    return !techSelect || techSelect.value !== '否';
+  }).length;
+  for (let index = 0; index < 12; index += 1) {
+    ['start_total', 'end_total', 'avg_total'].forEach(function(field) {
+      const input = document.querySelector('[name="attachment_staff_month_' + index + '_' + field + '"]');
+      if (input) input.value = totalCount;
+    });
+    ['start_tech', 'end_tech', 'avg_tech'].forEach(function(field) {
+      const input = document.querySelector('[name="attachment_staff_month_' + index + '_' + field + '"]');
+      if (input) input.value = techCount;
+    });
+  }
+  const yearAverageTotal = document.querySelector('[name="attachment_staff_year_avg_total"]');
+  const yearAverageTech = document.querySelector('[name="attachment_staff_year_avg_tech"]');
+  if (yearAverageTotal) yearAverageTotal.value = totalCount;
+  if (yearAverageTech) yearAverageTech.value = techCount;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const cvTarget = parseInt(autoData._relation_cv_count || 1, 10);
+  while (document.querySelectorAll('#cv-container .cv-item').length < cvTarget) addCV();
+  Object.keys(autoData || {}).forEach(function(key) {
+    if (key.startsWith('cv_')) setValue(key, autoData[key]);
+  });
+  reindexCV();
+  const rdStaffBody = document.getElementById('rd-staff-body');
+  if (rdStaffBody) {
+    rdStaffBody.addEventListener('input', syncStaffMonthCounts);
+    rdStaffBody.addEventListener('change', syncStaffMonthCounts);
+  }
+  syncStaffMonthCounts();
+});
+</script>
+{% endblock %}

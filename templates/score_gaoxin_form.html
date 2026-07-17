@@ -17,7 +17,7 @@
 
 <form method="POST" action="{{ url_for('scoring.gaoxin') }}" id="score-form">
 
-  <!-- Step 1: 基本信息 + 财报上传 -->
+  <!-- Step 1: 基本信息 + 必须上传的材料 -->
   <div class="step-panel active" data-step="1">
     {% include "_upload_component.html" %}
     <div class="card">
@@ -34,19 +34,6 @@
     <div class="card">
       <h3>1️⃣ 知识产权（≤30分）</h3>
       <p class="text-muted" style="font-size:13px;margin-bottom:16px">由技术专家进行定性与定量结合评价</p>
-
-      <div class="form-group" style="padding:12px;border:1px dashed var(--accent);border-radius:8px;background:var(--bg-primary)">
-        <label>上传专利证书 PDF（可多次上传）</label>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input type="file" id="ip-pdf-file" accept=".pdf,application/pdf" multiple style="max-width:360px" />
-          <button type="button" class="btn btn-secondary btn-sm" onclick="uploadPatentPdf(this)">上传并识别</button>
-          <span id="ip-upload-status" class="text-muted" style="font-size:12px"></span>
-        </div>
-        <div class="text-muted" style="font-size:12px;margin-top:6px">
-          系统会识别专利类型、法律状态、专利号、申请日期、专利权人、授权日期，并自动给出知识产权评分建议；“核心支持作用”仍建议人工确认。
-        </div>
-        <div id="ip-recognition-preview" style="display:none;margin-top:10px;font-size:12px;line-height:1.7"></div>
-      </div>
 
       <div class="form-group">
         <label>（1）技术的先进程度 <span class="text-muted">（≤8分）</span></label>
@@ -349,10 +336,11 @@ function applyPatentEvaluation(evaluation) {
   });
 }
 
-async function uploadPatentPdf(btn) {
+async function uploadPatentPdf(selectedFiles) {
   const input = document.getElementById('ip-pdf-file');
+  const zone = document.getElementById('ip-upload-zone');
   const status = document.getElementById('ip-upload-status');
-  const files = Array.from(input && input.files ? input.files : []);
+  const files = Array.from(selectedFiles || (input && input.files ? input.files : []));
   if (!files.length) {
     alert('请先选择专利 PDF 文件');
     return;
@@ -363,9 +351,8 @@ async function uploadPatentPdf(btn) {
     return;
   }
 
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '识别中...';
+  zone.classList.add('is-uploading');
+  zone.setAttribute('aria-busy', 'true');
   if (status) status.textContent = '正在上传并识别 ' + files.length + ' 个文件';
 
   try {
@@ -374,6 +361,7 @@ async function uploadPatentPdf(btn) {
     for (const file of files) {
       const fd = new FormData();
       fd.append('file', file);
+      {% if company_id %}fd.append('company_id', '{{ company_id }}');{% endif %}
       const resp = await fetch('/parser/upload_ip', {method: 'POST', body: fd});
       const result = await resp.json().catch(function() { return {}; });
       if (!resp.ok || !result.success) {
@@ -393,8 +381,9 @@ async function uploadPatentPdf(btn) {
     if (status) status.textContent = '';
     alert('专利识别失败: ' + err.message);
   } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
+    zone.classList.remove('is-uploading');
+    zone.removeAttribute('aria-busy');
+    input.value = '';
   }
 }
 </script>

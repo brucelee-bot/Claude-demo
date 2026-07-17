@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block title %}成果转化汇总表 — {{ company.name }}{% endblock %}
+{% block head_extra %}
+<style>
+.achievement-shell { max-width: 1180px; margin: 0 auto; padding-bottom: 40px; }
+.achievement-hero { background: linear-gradient(135deg, #0f766e 0%, #2563eb 100%); color: #fff; border-radius: 22px; padding: 26px 30px; margin-bottom: 18px; box-shadow: 0 20px 50px rgba(37,99,235,.2); }
+.achievement-hero h1 { margin: 0 0 10px; font-size: 28px; }
+.achievement-hero p { margin: 0; opacity: .92; line-height: 1.7; }
+.achievement-card { background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(15,23,42,.05); }
+.achievement-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.achievement-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.achievement-table th, .achievement-table td { border: 1px solid var(--border); padding: 9px 10px; vertical-align: top; }
+.achievement-table th { background: var(--bg-secondary); white-space: nowrap; }
+.achievement-desc { max-width: 260px; white-space: pre-wrap; color: var(--text-muted); }
+.status-text { color: var(--text-muted); font-size: 13px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="achievement-shell">
+  <section class="achievement-hero">
+    <h1>成果转化汇总表</h1>
+    <p>{{ company.name }}：本表按成果序号从 RD-IP-PS 关系表搬运成果、RD、PS、起止时间和 IP 字段，最后一列维护转化结果描述。</p>
+  </section>
+
+  <section class="achievement-card">
+    <div class="achievement-actions">
+      <a class="btn btn-secondary" href="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}#attachment-achievement_transform">返回成果转化文件</a>
+      <span class="status-text">如需修改成果基础字段，请回到 RD-IP-PS 关系表维护。</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="achievement-table">
+        <thead>
+          <tr>
+            <th>成果序号</th>
+            <th>成果名称</th>
+            <th>对应RD编号</th>
+            <th>对应RD名称</th>
+            <th>对应PS</th>
+            <th>起止时间</th>
+            <th>对应IP</th>
+            <th>转化结果描述</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in achievements %}
+          <tr>
+            <td>{{ row.result_no }}</td>
+            <td>{{ row.result_name }}</td>
+            <td>{{ row.rd_code }}</td>
+            <td>{{ row.rd_name }}</td>
+            <td>{{ row.ps }}</td>
+            <td>{{ row.period }}</td>
+            <td>{{ row.ip }}{% if row.ip_auth_no %}<br>{{ row.ip_auth_no }}{% endif %}</td>
+            <td>
+              <div class="achievement-desc">{{ row.desc or '暂未撰写' }}</div>
+              <div style="margin-top:8px"><a class="btn btn-sm btn-primary" href="{{ url_for('docgen.gaoxin_achievement_description', company_id=company.id, achievement_index=row.index) }}">撰写转化结果描述</a></div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" style="text-align:center;color:var(--text-muted)">暂无成果转化数据，请先在 RD-IP-PS 关系表中维护成果序号和成果名称。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}
