@@ -1813,8 +1813,8 @@ def _render_html_pdf(html, download_name, redirect_endpoint, **redirect_values):
 def _pdf_cjk_font_path():
     font_candidates = [
         os.getenv("PDF_CJK_FONT", ""),
-        "/System/Library/Fonts/STHeiti Light.ttc",
         "/System/Library/Fonts/STHeiti Medium.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
         "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
         "/Library/Fonts/Arial Unicode.ttf",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
@@ -1838,7 +1838,7 @@ def _stamp_generated_pdf_pages(document, page_indexes, company_name, company_eng
     if not chinese_name and not english_name:
         return
 
-    text_color = tuple(value / 255 for value in (75, 85, 99))
+    text_color = tuple(value / 255 for value in (55, 65, 81))
     line_color = tuple(value / 255 for value in (156, 163, 175))
     mm = 72 / 25.4
     text_top = 12.25 * mm

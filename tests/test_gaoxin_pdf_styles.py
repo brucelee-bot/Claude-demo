@@ -38,6 +38,23 @@ class GaoxinPdfStyleTests(unittest.TestCase):
                 with self.subTest(template=template_name, fragment=fragment):
                     self.assertNotIn(fragment, template)
 
+    def test_shared_styles_prioritize_reference_songti_fonts_and_print_contrast(self):
+        shared_styles = (self.template_dir / "_gaoxin_pdf_styles.html").read_text(
+            encoding="utf-8"
+        )
+        header_styles = (
+            self.template_dir / "_generated_document_header_styles.html"
+        ).read_text(encoding="utf-8")
+
+        expected_font_stack = (
+            '"Songti SC", "STSongti-SC", "STSong", "SimSun", serif'
+        )
+        self.assertIn(expected_font_stack, shared_styles)
+        self.assertIn(expected_font_stack, header_styles)
+        self.assertIn("color: #111111;", shared_styles)
+        self.assertIn("border: 0.6pt solid #969da5;", shared_styles)
+        self.assertIn("background: #eef0f2;", shared_styles)
+
     def test_combined_portrait_templates_scope_document_specific_rules(self):
         expected_body_classes = {
             "application_gaoxin_rd_project_print.html": "rd-project-document",
