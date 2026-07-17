@@ -15,6 +15,7 @@ from modules.docgen.routes import (
     GAOXIN_HR_STAFF_HEADERS,
     _import_hr_staff_excel,
     _normalize_relation_rows,
+    _relation_sales_contract_options,
     _summarize_hr_staff_rows,
 )
 from modules.docgen.sales_contracts import (
@@ -22,7 +23,7 @@ from modules.docgen.sales_contracts import (
     remap_sales_contract_rows,
     selectable_sales_contracts,
 )
-from modules.parser.routes import _required_material_store, parser_bp
+from modules.parser.routes import _ip_cert_store, _required_material_store, parser_bp
 from modules.scoring.routes import (
     _persist_required_materials,
     _seed_required_material_relation_rows,
@@ -70,7 +71,20 @@ class RequiredMaterialTemplateTests(unittest.TestCase):
     def test_frontend_calls_staff_and_contract_parser_endpoints(self):
         self.assertIn("fetch('/parser/upload_staff_list'", self.upload_template)
         self.assertIn("fetch('/parser/upload_sales_contract'", self.upload_template)
+        self.assertIn("fetch('/parser/sales_contract_upload_ticket'", self.upload_template)
+        self.assertIn("fetch('/parser/register_sales_contract'", self.upload_template)
+        self.assertIn("https://blob.vercel-storage.com/", self.upload_template)
         self.assertIn("fetch('/parser/sales_contracts'", self.upload_template)
+        self.assertIn("/parser/required_materials/finance/", self.upload_template)
+        self.assertIn("/parser/required_materials/staff/", self.upload_template)
+        self.assertIn("/parser/required_materials/sales_contracts/", self.upload_template)
+        self.assertIn("deletePatentCertificate", self.score_template)
+
+    def test_sales_contract_copy_states_that_upload_only_saves_files(self):
+        self.assertIn("销售合同仅保存，后续按需解析", self.upload_template)
+        self.assertIn("此处不解析合同内容", self.upload_template)
+        self.assertIn("正在保存 ${year} 年合同", self.upload_template)
+        self.assertNotIn("正在识别 ${year} 年合同", self.upload_template)
 
     def test_staff_section_exposes_template_download_and_excel_upload(self):
         self.assertIn(
@@ -193,6 +207,82 @@ class RequiredMaterialStaffImportTests(unittest.TestCase):
 
 
 class RequiredMaterialSalesContractTests(unittest.TestCase):
+    def test_large_pdf_uses_direct_blob_upload_and_registers_without_parsing(self):
+        class TestAnonymousUser(AnonymousUserMixin):
+            id = 1
+
+        app = Flask(__name__)
+        app.secret_key = "test-secret"
+        app.config["LOGIN_DISABLED"] = True
+        login_manager = LoginManager(app)
+        login_manager.anonymous_user = TestAnonymousUser
+
+        @login_manager.user_loader
+        def load_user(_user_id):
+            return None
+
+        app.register_blueprint(parser_bp, url_prefix="/parser")
+
+        with (
+            patch("modules.parser.routes.blob_enabled", return_value=True),
+            patch(
+                "modules.parser.routes.generate_client_upload_token",
+                side_effect=lambda relative_path: {
+                    "client_token": "vercel_blob_client_store_token",
+                    "pathname": f"declare-assistant/{relative_path}",
+                    "store_id": "store",
+                },
+            ),
+            patch(
+                "modules.parser.routes.blob_metadata",
+                return_value={
+                    "url": "https://example.private.blob.vercel-storage.com/contract.pdf",
+                    "downloadUrl": "https://example.private.blob.vercel-storage.com/contract.pdf?download=1",
+                    "etag": "blob-etag",
+                    "size": 6 * 1024 * 1024,
+                },
+            ),
+            patch("modules.docgen.routes._extract_pdf_text") as extract_text,
+            patch("modules.docgen.routes._extract_sales_contract_info") as extract_info,
+            patch.dict(_required_material_store, {}, clear=True),
+        ):
+            client = app.test_client()
+            ticket_response = client.post(
+                "/parser/sales_contract_upload_ticket",
+                json={
+                    "year": "2024",
+                    "filename": "无法解析但可以保存的扫描合同.pdf",
+                    "size": 6 * 1024 * 1024,
+                },
+            )
+            self.assertEqual(ticket_response.status_code, 200)
+            ticket = ticket_response.get_json()
+            self.assertTrue(ticket["direct_upload"])
+            self.assertEqual(
+                ticket["upload"]["original_filename"],
+                "无法解析但可以保存的扫描合同.pdf",
+            )
+
+            register_response = client.post(
+                "/parser/register_sales_contract",
+                json={
+                    "id": ticket["upload"]["id"],
+                    "year": "2024",
+                    "filename": "无法解析但可以保存的扫描合同.pdf",
+                    "relative_path": ticket["upload"]["relative_path"],
+                    "size": 6 * 1024 * 1024,
+                },
+            )
+
+            self.assertEqual(register_response.status_code, 200)
+            saved = register_response.get_json()["file"]
+            self.assertEqual(saved["contract_code"], "2024合同01")
+            self.assertEqual(saved["summary"], "")
+            self.assertEqual(saved["keywords"], "")
+            self.assertEqual(saved["size"], 6 * 1024 * 1024)
+            extract_text.assert_not_called()
+            extract_info.assert_not_called()
+
     def test_each_contract_year_accepts_at_most_four_pdfs(self):
         class TestAnonymousUser(AnonymousUserMixin):
             id = 1
@@ -212,11 +302,11 @@ class RequiredMaterialSalesContractTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as upload_root,
             patch("modules.parser.routes.Config.UPLOAD_FOLDER", upload_root),
-            patch("modules.docgen.routes._extract_pdf_text", return_value="合同正文"),
+            patch("modules.docgen.routes._extract_pdf_text", return_value="合同正文") as extract_text,
             patch(
                 "modules.docgen.routes._extract_sales_contract_info",
                 return_value={"summary": "合同摘要", "keywords": "技术关键词"},
-            ),
+            ) as extract_info,
             patch.dict(_required_material_store, {}, clear=True),
         ):
             client = app.test_client()
@@ -239,6 +329,8 @@ class RequiredMaterialSalesContractTests(unittest.TestCase):
                     payload["file"]["contract_code"],
                     f"2023合同{index:02d}",
                 )
+                self.assertEqual(payload["file"]["summary"], "")
+                self.assertEqual(payload["file"]["keywords"], "")
                 self.assertEqual(payload["count"], index)
 
             over_limit = client.post(
@@ -281,6 +373,166 @@ class RequiredMaterialSalesContractTests(unittest.TestCase):
                     "2024合同01",
                 ],
             )
+            extract_text.assert_not_called()
+            extract_info.assert_not_called()
+
+    def test_saved_contract_can_be_deleted_with_its_file(self):
+        class TestAnonymousUser(AnonymousUserMixin):
+            id = 1
+
+        app = Flask(__name__)
+        app.secret_key = "test-secret"
+        app.config["LOGIN_DISABLED"] = True
+        login_manager = LoginManager(app)
+        login_manager.anonymous_user = TestAnonymousUser
+
+        @login_manager.user_loader
+        def load_user(_user_id):
+            return None
+
+        app.register_blueprint(parser_bp, url_prefix="/parser")
+
+        with (
+            tempfile.TemporaryDirectory() as upload_root,
+            patch("modules.parser.routes.Config.UPLOAD_FOLDER", upload_root),
+            patch.dict(_required_material_store, {}, clear=True),
+        ):
+            client = app.test_client()
+            uploaded = client.post(
+                "/parser/upload_sales_contract",
+                data={
+                    "year": "2024",
+                    "file": (io.BytesIO(b"%PDF-1.4 saved contract"), "合同.pdf"),
+                },
+                content_type="multipart/form-data",
+            )
+            self.assertEqual(uploaded.status_code, 200)
+            file_meta = uploaded.get_json()["file"]
+            stored_path = os.path.join(upload_root, file_meta["relative_path"])
+            self.assertTrue(os.path.exists(stored_path))
+
+            deleted = client.delete(
+                f"/parser/required_materials/sales_contracts/{file_meta['id']}"
+            )
+
+            self.assertEqual(deleted.status_code, 200)
+            self.assertEqual(deleted.get_json()["remaining"], 0)
+            self.assertFalse(os.path.exists(stored_path))
+            restored = client.get("/parser/sales_contracts").get_json()["contracts"]
+            self.assertEqual(restored, [])
+
+
+class RequiredMaterialDeletionTests(unittest.TestCase):
+    def setUp(self):
+        class TestAnonymousUser(AnonymousUserMixin):
+            id = 1
+
+        self.app = Flask(__name__)
+        self.app.secret_key = "test-secret"
+        self.app.config["LOGIN_DISABLED"] = True
+        login_manager = LoginManager(self.app)
+        login_manager.anonymous_user = TestAnonymousUser
+
+        @login_manager.user_loader
+        def load_user(_user_id):
+            return None
+
+        self.app.register_blueprint(parser_bp, url_prefix="/parser")
+
+    def test_finance_and_staff_materials_delete_by_id(self):
+        store_key = "materials-delete-test"
+        materials = {
+            "finance": [
+                {
+                    "id": "finance-1",
+                    "filename": "2024.xlsx",
+                    "data": {"fin_2024_revenue": "100"},
+                    "validation": {"verified": True},
+                },
+                {
+                    "id": "finance-2",
+                    "filename": "2025.xlsx",
+                    "data": {"fin_2025_revenue": "200"},
+                    "validation": {"verified": True},
+                },
+            ],
+            "staff": {
+                "id": "staff-1",
+                "filename": "人员清单.xlsx",
+                "rows": [{"姓名": "张三"}],
+                "summary": {"hr_total": 1},
+            },
+            "sales_contracts": [],
+        }
+
+        with patch.dict(_required_material_store, {store_key: materials}, clear=True):
+            client = self.app.test_client()
+            with client.session_transaction() as client_session:
+                client_session["required_material_store_key"] = store_key
+                client_session["last_finance_data"] = {
+                    "fin_2024_revenue": "100",
+                    "fin_2025_revenue": "200",
+                }
+
+            finance_deleted = client.delete(
+                "/parser/required_materials/finance/finance-2"
+            )
+            self.assertEqual(finance_deleted.status_code, 200)
+            self.assertEqual(
+                finance_deleted.get_json()["data"],
+                {"fin_2024_revenue": "100"},
+            )
+            with client.session_transaction() as client_session:
+                self.assertEqual(
+                    client_session["last_finance_data"],
+                    {"fin_2024_revenue": "100"},
+                )
+
+            staff_deleted = client.delete(
+                "/parser/required_materials/staff/staff-1"
+            )
+            self.assertEqual(staff_deleted.status_code, 200)
+            self.assertEqual(materials["staff"], {})
+
+    def test_patent_delete_uses_stable_id_and_removes_staged_pdf(self):
+        store_key = "ip-delete-test"
+        with (
+            tempfile.TemporaryDirectory() as upload_root,
+            patch("modules.parser.routes.Config.UPLOAD_FOLDER", upload_root),
+            patch.dict(_ip_cert_store, {}, clear=True),
+        ):
+            relative_path = os.path.join("ip_pending", "patent.pdf")
+            staged_path = os.path.join(upload_root, relative_path)
+            os.makedirs(os.path.dirname(staged_path), exist_ok=True)
+            Path(staged_path).write_bytes(b"%PDF-1.4 patent")
+            _ip_cert_store[store_key] = [
+                {
+                    "id": "patent-1",
+                    "filename": "专利证书.pdf",
+                    "parsed": {
+                        "patent_type": "invention",
+                        "details": {"name": "测试专利"},
+                    },
+                    "source_pdf": {
+                        "relative_path": relative_path,
+                        "sync_status": "staged",
+                    },
+                }
+            ]
+
+            client = self.app.test_client()
+            with client.session_transaction() as client_session:
+                client_session["ip_cert_store_key"] = store_key
+
+            deleted = client.post(
+                "/parser/delete_ip",
+                json={"id": "patent-1"},
+            )
+
+            self.assertEqual(deleted.status_code, 200)
+            self.assertEqual(deleted.get_json()["remaining"], 0)
+            self.assertEqual(deleted.get_json()["certificates"], [])
+            self.assertFalse(os.path.exists(staged_path))
 
     def test_legacy_contracts_receive_stable_yearly_codes(self):
         contracts = [
@@ -499,6 +751,91 @@ class RequiredMaterialPersistenceTests(unittest.TestCase):
             self.assertEqual(relation_row["sales_contract_keywords"], "")
             self.assertEqual(relation_row["year"], "2025")
             clear_materials.assert_called_once_with()
+
+    def test_blob_only_contract_remains_selectable_after_scoring_persistence(self):
+        app = Flask(__name__)
+        app.secret_key = "test-secret"
+        with tempfile.TemporaryDirectory() as upload_root:
+            app.config["UPLOAD_FOLDER"] = upload_root
+            staged_relative_path = (
+                "required_materials_pending/7/materials-blob/"
+                "sales_contracts/2024/contract-blob.pdf"
+            )
+            materials = {
+                "staff": {},
+                "sales_contracts": [
+                    {
+                        "id": "contract-blob",
+                        "original_filename": "2024年继电保护服务合同.pdf",
+                        "stored_filename": "contract-blob.pdf",
+                        "relative_path": staged_relative_path,
+                        "year": "2024",
+                        "contract_sequence": 1,
+                        "contract_code": "2024合同01",
+                        "summary": "",
+                        "keywords": "",
+                        "sha256": "",
+                        "blob_url": "https://example.private.blob.vercel-storage.com/contract.pdf",
+                        "blob_download_url": (
+                            "https://example.private.blob.vercel-storage.com/"
+                            "contract.pdf?download=1"
+                        ),
+                        "blob_etag": "blob-etag",
+                        "size": 8 * 1024 * 1024,
+                    }
+                ],
+            }
+            company = SimpleNamespace(
+                id=13,
+                user_id=7,
+                data_json="{}",
+                ip_certs_json="[]",
+            )
+
+            with app.test_request_context("/score/gaoxin", method="POST"):
+                session["required_material_store_key"] = "materials-blob"
+                with (
+                    patch.dict(
+                        _required_material_store,
+                        {"materials-blob": materials},
+                        clear=True,
+                    ),
+                    patch(
+                        "modules.docgen.routes._source_upload_path",
+                        return_value=os.path.join(upload_root, "missing-contract.pdf"),
+                    ),
+                    patch("modules.parser.routes.delete_file") as delete_blob,
+                ):
+                    _persist_required_materials(company)
+                    self.assertNotIn("materials-blob", _required_material_store)
+                    delete_blob.assert_not_called()
+
+            data = json.loads(company.data_json)
+            files = data["gaoxin_attachments"]["relation_sales_contract"]["files"]
+            self.assertEqual(len(files), 1)
+            self.assertEqual(files[0]["id"], "contract-blob")
+            self.assertEqual(files[0]["year"], "2024")
+            self.assertEqual(files[0]["contract_code"], "2024合同01")
+            self.assertEqual(files[0]["original_filename"], "2024年继电保护服务合同.pdf")
+            self.assertEqual(files[0]["relative_path"], staged_relative_path)
+            self.assertEqual(files[0]["blob_etag"], "blob-etag")
+            self.assertEqual(
+                _relation_sales_contract_options(files),
+                [
+                    {
+                        "id": "contract-blob",
+                        "code": "2024合同01",
+                        "year": "2024",
+                        "original_filename": "2024年继电保护服务合同.pdf",
+                        "summary": "",
+                        "keywords": "",
+                    }
+                ],
+            )
+            self.assertEqual(
+                data["required_materials"]["sales_contracts"][0]["id"],
+                "contract-blob",
+            )
 
     def test_relation_rows_preserve_selected_contract_code(self):
         rows = _normalize_relation_rows(

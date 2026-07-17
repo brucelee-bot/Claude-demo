@@ -22,7 +22,14 @@ from modules.docgen.sales_contracts import (
     ensure_sales_contract_codes,
     next_sales_contract_identity,
 )
-from modules.storage import delete_file, ensure_local_file, persist_file
+from modules.storage import (
+    blob_enabled,
+    blob_metadata,
+    delete_file,
+    ensure_local_file,
+    generate_client_upload_token,
+    persist_file,
+)
 
 parser_bp = Blueprint("parser", __name__)
 
@@ -61,8 +68,10 @@ def _get_required_materials() -> dict:
     key = _material_store_key()
     materials = _required_material_store.setdefault(
         key,
-        {"staff": {}, "sales_contracts": []},
+        {"finance": [], "staff": {}, "sales_contracts": []},
     )
+    if not isinstance(materials.get("finance"), list):
+        materials["finance"] = []
     if not isinstance(materials.get("staff"), dict):
         materials["staff"] = {}
     if not isinstance(materials.get("sales_contracts"), list):
@@ -71,10 +80,20 @@ def _get_required_materials() -> dict:
     return materials
 
 
-def _clear_required_materials() -> None:
+def _clear_required_materials(preserve_relative_paths=None) -> None:
+    preserved = {
+        str(path or "").replace("\\", "/").strip("/")
+        for path in (preserve_relative_paths or [])
+        if str(path or "").strip()
+    }
     key = session.get("required_material_store_key")
     if key:
-        _required_material_store.pop(key, None)
+        materials = _required_material_store.pop(key, None) or {}
+        for item in materials.get("sales_contracts") or []:
+            if isinstance(item, dict):
+                relative_path = str(item.get("relative_path") or "").replace("\\", "/").strip("/")
+                if relative_path not in preserved:
+                    _delete_relative_upload(relative_path)
     session.pop("required_material_store_key", None)
 
 
@@ -120,28 +139,28 @@ def _upload_abs_path(relative_path):
     return ensure_local_file(target, relative_path)
 
 
+def _delete_relative_upload(relative_path):
+    relative_path = str(relative_path or "").strip()
+    if not relative_path:
+        return
+    root = os.path.abspath(Config.UPLOAD_FOLDER)
+    target = os.path.abspath(os.path.join(root, relative_path))
+    if target != root and not target.startswith(root + os.sep):
+        return
+    try:
+        if os.path.exists(target):
+            os.remove(target)
+    except OSError:
+        pass
+    delete_file(relative_path)
+
+
 def _file_sha256(path):
     digest = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _delete_staged_source_pdf(cert):
-    source_pdf = cert.get("source_pdf") if isinstance(cert, dict) else {}
-    if not isinstance(source_pdf, dict) or source_pdf.get("sync_status") == "synced":
-        return
-    relative_path = source_pdf.get("relative_path")
-    if not relative_path:
-        return
-    try:
-        path = _upload_abs_path(relative_path)
-        if os.path.exists(path):
-            os.remove(path)
-        delete_file(relative_path)
-    except Exception:
-        pass
 
 
 def _ensure_ip_cert_identity(cert):
@@ -243,7 +262,20 @@ def upload():
         }, 422)
 
     # 持久化财务数据到 session，供评分页和申报书页直接回填
-    session["last_finance_data"] = data
+    materials = _get_required_materials()
+    file_meta = {
+        "id": uuid.uuid4().hex,
+        "filename": filename,
+        "data": data,
+        "validation": validation,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    materials["finance"].append(file_meta)
+    merged_data = {}
+    for item in materials["finance"]:
+        if isinstance(item, dict) and isinstance(item.get("data"), dict):
+            merged_data.update(item["data"])
+    session["last_finance_data"] = merged_data
     session["last_finance_validation"] = validation
 
     try:
@@ -258,6 +290,11 @@ def upload():
         "sources": sources,
         "count": len(data),
         "filename": filename,
+        "file": {
+            "id": file_meta["id"],
+            "filename": filename,
+            "uploaded_at": file_meta["uploaded_at"],
+        },
     })
 
 
@@ -384,6 +421,7 @@ def upload_staff_list():
 
     materials = _get_required_materials()
     materials["staff"] = {
+        "id": uuid.uuid4().hex,
         "filename": _safe_upload_filename(upload_file.filename),
         "rows": rows,
         "summary": summary,
@@ -395,6 +433,11 @@ def upload_staff_list():
         "rows": rows,
         "summary": summary,
         "count": len(rows),
+        "file": {
+            "id": materials["staff"]["id"],
+            "filename": materials["staff"]["filename"],
+            "uploaded_at": materials["staff"]["uploaded_at"],
+        },
     })
 
 
@@ -412,10 +455,215 @@ def staff_list_template():
     )
 
 
+def _sales_contract_year_count(materials, contract_year):
+    return sum(
+        1 for item in materials["sales_contracts"]
+        if str(item.get("year") or "") == contract_year
+    )
+
+
+def _same_name_sales_contract(materials, original_filename, contract_year):
+    return next(
+        (
+            item for item in materials["sales_contracts"]
+            if str(item.get("original_filename") or "") == original_filename
+            and str(item.get("year") or "") == contract_year
+        ),
+        None,
+    )
+
+
+def _sales_contract_relative_path(original_filename, contract_year, file_id):
+    safe_filename = (
+        secure_filename(original_filename)
+        or f"sales_contract_{file_id}.pdf"
+    )
+    stored_filename = f"{file_id}_{safe_filename}"
+    relative_path = _relative_upload_path(
+        "required_materials_pending",
+        current_user.id,
+        _material_store_key(),
+        "sales_contracts",
+        contract_year,
+        stored_filename,
+    )
+    return stored_filename, relative_path
+
+
+def _sales_contract_duplicate_response(contract, materials, contract_year):
+    return jsonify({
+        "success": True,
+        "duplicate": True,
+        "file": contract,
+        "summary": contract.get("summary", ""),
+        "keywords": contract.get("keywords", ""),
+        "count": _sales_contract_year_count(materials, contract_year),
+        "total_count": len(materials["sales_contracts"]),
+    })
+
+
+@parser_bp.route("/sales_contract_upload_ticket", methods=["POST"])
+@login_required
+def sales_contract_upload_ticket():
+    """签发销售合同浏览器直传 Blob 所需的短期凭证。"""
+    payload = request.get_json(silent=True) or {}
+    original_filename = _safe_upload_filename(str(payload.get("filename") or ""))
+    contract_year = str(payload.get("year") or "").strip()
+
+    if not original_filename:
+        return jsonify({"success": False, "error": "请先选择销售合同 PDF 文件"}), 400
+    if not original_filename.lower().endswith(".pdf"):
+        return jsonify({"success": False, "error": "销售合同仅支持 PDF 文件"}), 400
+    if contract_year not in SALES_CONTRACT_YEARS:
+        return jsonify({"success": False, "error": "请选择 2023、2024 或 2025 年销售合同"}), 400
+
+    materials = _get_required_materials()
+    same_name_contract = _same_name_sales_contract(
+        materials,
+        original_filename,
+        contract_year,
+    )
+    if same_name_contract:
+        return _sales_contract_duplicate_response(
+            same_name_contract,
+            materials,
+            contract_year,
+        )
+
+    year_count = _sales_contract_year_count(materials, contract_year)
+    if year_count >= MAX_SALES_CONTRACTS_PER_YEAR:
+        return jsonify({
+            "success": False,
+            "error": f"{contract_year} 年销售合同最多上传 {MAX_SALES_CONTRACTS_PER_YEAR} 份",
+        }), 422
+
+    if not blob_enabled():
+        return jsonify({"success": True, "direct_upload": False})
+
+    file_id = uuid.uuid4().hex
+    stored_filename, relative_path = _sales_contract_relative_path(
+        original_filename,
+        contract_year,
+        file_id,
+    )
+    try:
+        ticket = generate_client_upload_token(relative_path)
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"无法创建上传凭证：{exc}"}), 500
+
+    return jsonify({
+        "success": True,
+        "direct_upload": True,
+        "upload": {
+            "id": file_id,
+            "original_filename": original_filename,
+            "stored_filename": stored_filename,
+            "relative_path": relative_path,
+            **ticket,
+        },
+    })
+
+
+@parser_bp.route("/register_sales_contract", methods=["POST"])
+@login_required
+def register_sales_contract():
+    """登记已由浏览器直接保存到 Vercel Blob 的销售合同。"""
+    payload = request.get_json(silent=True) or {}
+    file_id = str(payload.get("id") or "").strip().lower()
+    original_filename = _safe_upload_filename(str(payload.get("filename") or ""))
+    contract_year = str(payload.get("year") or "").strip()
+    relative_path = str(payload.get("relative_path") or "").replace("\\", "/").strip("/")
+
+    if not re.fullmatch(r"[0-9a-f]{32}", file_id):
+        return jsonify({"success": False, "error": "销售合同文件标识无效"}), 400
+    if not original_filename or not original_filename.lower().endswith(".pdf"):
+        return jsonify({"success": False, "error": "销售合同仅支持 PDF 文件"}), 400
+    if contract_year not in SALES_CONTRACT_YEARS:
+        return jsonify({"success": False, "error": "请选择 2023、2024 或 2025 年销售合同"}), 400
+
+    stored_filename, expected_relative_path = _sales_contract_relative_path(
+        original_filename,
+        contract_year,
+        file_id,
+    )
+    expected_relative_path = expected_relative_path.replace("\\", "/").strip("/")
+    if relative_path != expected_relative_path:
+        return jsonify({"success": False, "error": "销售合同保存路径无效"}), 400
+
+    blob = blob_metadata(relative_path)
+    if not blob:
+        return jsonify({
+            "success": False,
+            "error": "未找到已上传的销售合同，请重新上传",
+        }), 409
+
+    materials = _get_required_materials()
+    same_name_contract = _same_name_sales_contract(
+        materials,
+        original_filename,
+        contract_year,
+    )
+    if same_name_contract:
+        delete_file(relative_path)
+        return _sales_contract_duplicate_response(
+            same_name_contract,
+            materials,
+            contract_year,
+        )
+
+    year_count = _sales_contract_year_count(materials, contract_year)
+    if year_count >= MAX_SALES_CONTRACTS_PER_YEAR:
+        delete_file(relative_path)
+        return jsonify({
+            "success": False,
+            "error": f"{contract_year} 年销售合同最多上传 {MAX_SALES_CONTRACTS_PER_YEAR} 份",
+        }), 422
+
+    contract_sequence, contract_code = next_sales_contract_identity(
+        materials["sales_contracts"],
+        contract_year,
+    )
+    if not contract_sequence:
+        delete_file(relative_path)
+        return jsonify({
+            "success": False,
+            "error": f"{contract_year} 年销售合同编号已用完",
+        }), 422
+
+    file_meta = {
+        "id": file_id,
+        "original_filename": original_filename,
+        "stored_filename": stored_filename,
+        "relative_path": relative_path,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "source": "score_required_material",
+        "year": contract_year,
+        "contract_sequence": contract_sequence,
+        "contract_code": contract_code,
+        "summary": "",
+        "keywords": "",
+        "sha256": "",
+        "blob_url": blob.get("url", ""),
+        "blob_download_url": blob.get("downloadUrl", ""),
+        "blob_etag": blob.get("etag", ""),
+        "size": blob.get("size", payload.get("size", 0)),
+    }
+    materials["sales_contracts"].append(file_meta)
+    return jsonify({
+        "success": True,
+        "duplicate": False,
+        "file": file_meta,
+        "summary": "",
+        "keywords": "",
+        "count": year_count + 1,
+        "total_count": len(materials["sales_contracts"]),
+    })
+
+
 @parser_bp.route("/upload_sales_contract", methods=["POST"])
 @login_required
 def upload_sales_contract():
-    """识别评分阶段上传的销售合同，并暂存 PDF 及结构化摘要。"""
+    """保存评分阶段上传的销售合同，不在申请表阶段解析合同内容。"""
     upload_file = request.files.get("file")
     if not upload_file or not upload_file.filename:
         return jsonify({"success": False, "error": "请先选择销售合同 PDF 文件"}), 400
@@ -428,33 +676,19 @@ def upload_sales_contract():
 
     materials = _get_required_materials()
     original_filename = _safe_upload_filename(upload_file.filename)
-    same_name_contract = next(
-        (
-            item for item in materials["sales_contracts"]
-            if str(item.get("original_filename") or "") == original_filename
-            and str(item.get("year") or "") == contract_year
-        ),
-        None,
+    same_name_contract = _same_name_sales_contract(
+        materials,
+        original_filename,
+        contract_year,
     )
     if same_name_contract:
-        year_count = sum(
-            1 for item in materials["sales_contracts"]
-            if str(item.get("year") or "") == contract_year
+        return _sales_contract_duplicate_response(
+            same_name_contract,
+            materials,
+            contract_year,
         )
-        return jsonify({
-            "success": True,
-            "duplicate": True,
-            "file": same_name_contract,
-            "summary": same_name_contract.get("summary", ""),
-            "keywords": same_name_contract.get("keywords", ""),
-            "count": year_count,
-            "total_count": len(materials["sales_contracts"]),
-        })
 
-    year_count = sum(
-        1 for item in materials["sales_contracts"]
-        if str(item.get("year") or "") == contract_year
-    )
+    year_count = _sales_contract_year_count(materials, contract_year)
     if year_count >= MAX_SALES_CONTRACTS_PER_YEAR:
         return jsonify({
             "success": False,
@@ -470,25 +704,17 @@ def upload_sales_contract():
             "error": f"{contract_year} 年销售合同编号已用完",
         }), 422
 
-    safe_filename = secure_filename(original_filename) or f"sales_contract_{uuid.uuid4().hex}.pdf"
     file_id = uuid.uuid4().hex
-    stored_filename = f"{file_id}_{safe_filename}"
-    relative_path = _relative_upload_path(
-        "required_materials_pending",
-        current_user.id,
-        _material_store_key(),
-        "sales_contracts",
+    stored_filename, relative_path = _sales_contract_relative_path(
+        original_filename,
         contract_year,
-        stored_filename,
+        file_id,
     )
     filepath = _upload_abs_path(relative_path)
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     upload_file.save(filepath)
-    persist_file(filepath, relative_path)
 
     try:
-        from modules.docgen.routes import _extract_pdf_text, _extract_sales_contract_info
-
         file_hash = _file_sha256(filepath)
         duplicate_by_hash = next(
             (
@@ -498,10 +724,7 @@ def upload_sales_contract():
             None,
         )
         if duplicate_by_hash:
-            try:
-                os.remove(filepath)
-            except OSError:
-                pass
+            _delete_relative_upload(relative_path)
             existing_year = str(duplicate_by_hash.get("year") or "")
             if existing_year != contract_year:
                 return jsonify({
@@ -518,8 +741,7 @@ def upload_sales_contract():
                 "total_count": len(materials["sales_contracts"]),
             })
 
-        text = _extract_pdf_text(filepath)
-        extracted = _extract_sales_contract_info(text, {}, original_filename)
+        persist_file(filepath, relative_path)
         file_meta = {
             "id": file_id,
             "original_filename": original_filename,
@@ -530,8 +752,8 @@ def upload_sales_contract():
             "year": contract_year,
             "contract_sequence": contract_sequence,
             "contract_code": contract_code,
-            "summary": extracted.get("summary", ""),
-            "keywords": extracted.get("keywords", ""),
+            "summary": "",
+            "keywords": "",
             "sha256": file_hash,
         }
         materials["sales_contracts"].append(file_meta)
@@ -545,11 +767,8 @@ def upload_sales_contract():
             "total_count": len(materials["sales_contracts"]),
         })
     except Exception as exc:
-        try:
-            os.remove(filepath)
-        except OSError:
-            pass
-        return jsonify({"success": False, "error": f"销售合同识别失败：{exc}"}), 500
+        _delete_relative_upload(relative_path)
+        return jsonify({"success": False, "error": f"销售合同保存失败：{exc}"}), 500
 
 
 @parser_bp.route("/sales_contracts", methods=["GET"])
@@ -566,6 +785,91 @@ def sales_contracts():
         ),
     )
     return jsonify({"success": True, "contracts": contracts})
+
+
+def _merged_finance_material_data(materials):
+    merged = {}
+    for item in materials.get("finance") or []:
+        if isinstance(item, dict) and isinstance(item.get("data"), dict):
+            merged.update(item["data"])
+    return merged
+
+
+@parser_bp.route("/required_materials/<section>/<file_id>", methods=["DELETE", "POST"])
+@login_required
+def delete_required_material(section, file_id):
+    """删除评分申请表中指定的临时上传资料。"""
+    materials = _get_required_materials()
+
+    if section == "finance":
+        finance_files = materials.get("finance") or []
+        removed = next(
+            (item for item in finance_files if str(item.get("id") or "") == file_id),
+            None,
+        )
+        if not removed:
+            return jsonify({"success": False, "error": "财务报表不存在或已删除"}), 404
+        materials["finance"] = [item for item in finance_files if item is not removed]
+        merged_data = _merged_finance_material_data(materials)
+        if merged_data:
+            session["last_finance_data"] = merged_data
+            latest = materials["finance"][-1]
+            session["last_finance_validation"] = latest.get("validation") or {}
+        else:
+            session.pop("last_finance_data", None)
+            session.pop("last_finance_validation", None)
+        return jsonify({
+            "success": True,
+            "remaining": len(materials["finance"]),
+            "data": merged_data,
+        })
+
+    if section == "staff":
+        staff = materials.get("staff") or {}
+        if not staff or str(staff.get("id") or "") != file_id:
+            return jsonify({"success": False, "error": "人员清单不存在或已删除"}), 404
+        materials["staff"] = {}
+        return jsonify({"success": True, "remaining": 0})
+
+    if section == "sales_contracts":
+        contracts = materials.get("sales_contracts") or []
+        removed = next(
+            (item for item in contracts if str(item.get("id") or "") == file_id),
+            None,
+        )
+        if not removed:
+            return jsonify({"success": False, "error": "销售合同不存在或已删除"}), 404
+        materials["sales_contracts"] = [item for item in contracts if item is not removed]
+        _delete_relative_upload(removed.get("relative_path"))
+        return jsonify({
+            "success": True,
+            "remaining": len(materials["sales_contracts"]),
+            "year": removed.get("year", ""),
+        })
+
+    return jsonify({"success": False, "error": "不支持的资料板块"}), 400
+
+
+@parser_bp.route("/required_materials/<section>", methods=["DELETE"])
+@login_required
+def clear_required_material_section(section):
+    """清空评分申请表中的指定资料板块。"""
+    materials = _get_required_materials()
+    if section == "finance":
+        materials["finance"] = []
+        session.pop("last_finance_data", None)
+        session.pop("last_finance_validation", None)
+        return jsonify({"success": True, "remaining": 0, "data": {}})
+    if section == "staff":
+        materials["staff"] = {}
+        return jsonify({"success": True, "remaining": 0})
+    if section == "sales_contracts":
+        for item in materials.get("sales_contracts") or []:
+            if isinstance(item, dict):
+                _delete_relative_upload(item.get("relative_path"))
+        materials["sales_contracts"] = []
+        return jsonify({"success": True, "remaining": 0})
+    return jsonify({"success": False, "error": "不支持的资料板块"}), 400
 
 
 # 内存临时存储 IP 分析结果 {token: result}
@@ -613,25 +917,64 @@ def sort_ip_certs():
 @parser_bp.route("/delete_ip", methods=["POST"])
 @login_required
 def delete_ip():
-    """删除指定索引的知识产权证书（从 session 中移除）"""
+    """按稳定 ID 或索引删除知识产权证书及其暂存文件。"""
     data = request.get_json() or {}
+    cert_id = str(data.get("id") or "").strip()
     idx = data.get("index")
-    if idx is None:
-        return jsonify({"success": False, "error": "缺少 index 参数"}), 400
-
     certs = _get_ip_certs()
-    try:
-        idx = int(idx)
-    except (ValueError, TypeError):
-        return jsonify({"success": False, "error": "index 必须是整数"}), 400
-
-    if 0 <= idx < len(certs):
-        removed = certs.pop(idx)
-        _delete_staged_source_pdf(removed)
-        _set_ip_certs(certs)
-        return jsonify({"success": True, "removed": removed.get("filename", ""), "remaining": len(certs)})
+    if cert_id:
+        idx = next(
+            (
+                index for index, cert in enumerate(certs)
+                if str((cert or {}).get("id") or "") == cert_id
+            ),
+            -1,
+        )
     else:
-        return jsonify({"success": False, "error": f"索引 {idx} 超出范围 (0-{len(certs)-1})"}), 400
+        if idx is None:
+            return jsonify({"success": False, "error": "缺少 id 或 index 参数"}), 400
+        try:
+            idx = int(idx)
+        except (ValueError, TypeError):
+            return jsonify({"success": False, "error": "index 必须是整数"}), 400
+
+    if not 0 <= idx < len(certs):
+        return jsonify({"success": False, "error": "知识产权证书不存在或已删除"}), 404
+
+    removed = certs.pop(idx)
+    source_pdf = removed.get("source_pdf") if isinstance(removed, dict) else {}
+    if isinstance(source_pdf, dict):
+        _delete_relative_upload(source_pdf.get("relative_path"))
+        _delete_relative_upload(source_pdf.get("attachment_relative_path"))
+    _set_ip_certs(certs)
+
+    company_id = data.get("company_id")
+    if company_id:
+        try:
+            from models import Company, db
+            from modules.docgen.routes import sync_ip_cert_pdfs_to_attachments
+
+            company = Company.query.filter_by(
+                id=int(company_id),
+                user_id=current_user.id,
+            ).first()
+            if company:
+                certs = sync_ip_cert_pdfs_to_attachments(company, certs)
+                company.ip_certs_json = json.dumps(certs, ensure_ascii=False)
+                db.session.commit()
+                _set_ip_certs(certs)
+        except (TypeError, ValueError):
+            pass
+
+    from modules.parser.ip_analyzer import evaluate_ip
+
+    return jsonify({
+        "success": True,
+        "removed": removed.get("filename", ""),
+        "remaining": len(certs),
+        "certificates": certs,
+        "evaluation": evaluate_ip(certs),
+    })
 
 
 @parser_bp.route("/save_ip_certs/<int:company_id>", methods=["POST"])

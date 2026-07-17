@@ -3,7 +3,7 @@
   <div class="required-materials-heading">
     <div>
       <h3>必须上传的材料</h3>
-      <p class="text-muted">识别结果将用于 RD-IP-PS-成果关联详情表、申请书和附件。</p>
+      <p class="text-muted">财务、专利和人员资料会自动识别；销售合同仅保存，后续按需解析。</p>
     </div>
     <span class="required-materials-badge">4 类材料</span>
   </div>
@@ -102,7 +102,7 @@
     <div class="required-material-content">
       <div class="required-material-title">
         <strong>销售合同</strong>
-        <span>按年度上传，每年最多 4 份 PDF</span>
+        <span>按年度保存，每年最多 4 份 PDF，此处不解析合同内容</span>
       </div>
 
       <div class="sales-contract-year-grid">
@@ -254,7 +254,7 @@ const YEAR_PATTERNS = [/20(\d{2})/, /FY(\d{2})/, /财年(\d{4})/, /年度(\d{4})
 const DEFAULT_YEAR = new Date().getFullYear() - 1; // 当前年份-1为默认财年
 
 let allExtracted = {};
-let fileStates = {}; // {fileName: {status: 'uploading'|'done'|'error', year: '2023', fields: N}}
+let fileStates = {}; // {fileName: {id, status: 'uploading'|'done'|'error', year: '2023', fields: N}}
 
 function detectYear(filename) {
   for (const re of YEAR_PATTERNS) {
@@ -307,7 +307,13 @@ function uploadFile(file) {
         const validation = result.validation || {};
         const mismatchCount = Array.isArray(validation.mismatched) ? validation.mismatched.length : 0;
         const validationMessage = mismatchCount > 0 ? `GPT-5.5复核发现${mismatchCount}处差异` : 'Claude识别+GPT-5.5复核完成';
-        fileStates[fileName] = {status: 'done', year: year, fields: result.count || 0, message: validationMessage};
+        fileStates[fileName] = {
+          id: result.file && result.file.id ? result.file.id : '',
+          status: 'done',
+          year: year,
+          fields: result.count || 0,
+          message: validationMessage
+        };
         // 合并提取数据
         for (const [key, value] of Object.entries(result.data)) {
           allExtracted[key] = value;
@@ -350,26 +356,61 @@ function renderFileList() {
     const color = state.status === 'done' ? 'var(--success)' : state.status === 'error' ? 'var(--danger)' : 'var(--warning)';
     const detail = state.status === 'done' ? `${state.year}年 · ${state.fields}字段 · ${state.message || '已回填企业成长性'}` :
                    state.status === 'error' ? (state.message || '解析失败') : '解析中...';
+    const deleteButton = state.status === 'uploading' ? '' :
+      '<button type="button" data-file-name="' + materialEscapeHtml(name) + '" onclick="removeFile(this.dataset.fileName)" class="material-delete-button" title="删除">删除</button>';
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:13px">
       <span>${icon}</span>
-      <span style="flex:1;color:var(--text-primary)">${name}</span>
+      <span style="flex:1;color:var(--text-primary)">${materialEscapeHtml(name)}</span>
       <span style="color:${color};font-size:12px">${detail}</span>
-      <button type="button" onclick="removeFile('${name}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px" title="移除">✕</button>
+      ${deleteButton}
     </div>`;
   }).join('');
 }
 
-function removeFile(fileName) {
-  delete fileStates[fileName];
-  // 重建 allExtracted
-  allExtracted = {};
-  for (const [name, state] of Object.entries(fileStates)) {
-    if (state.status === 'done') {
-      // 注意：无法精确还原每个文件的数据，简化处理：不清除已填表单
+async function removeFile(fileName) {
+  const state = fileStates[fileName];
+  if (!state) return;
+  const previousExtracted = Object.assign({}, allExtracted);
+  if (state.id) {
+    if (!confirm('确定删除这份财务报表吗？')) return;
+    try {
+      const response = await fetch('/parser/required_materials/finance/' + encodeURIComponent(state.id), {method: 'DELETE'});
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) throw new Error(result.error || '删除失败');
+      allExtracted = result.data || {};
+    } catch (error) {
+      alert('财务报表删除失败：' + error.message);
+      return;
     }
   }
+  delete fileStates[fileName];
+  reconcileFinanceFormAfterDelete(previousExtracted, allExtracted);
+  syncFinanceUploadHiddenFields();
   renderFileList();
   showPreview();
+}
+
+function reconcileFinanceFormAfterDelete(previousData, remainingData) {
+  Object.entries(previousData || {}).forEach(([key, previousValue]) => {
+    if (Object.prototype.hasOwnProperty.call(remainingData || {}, key)) return;
+    const fieldNames = Array.from(new Set([key].concat(aliasesForKey(key))));
+    fieldNames.forEach(name => {
+      const input = visibleFieldByName(name);
+      if (!input || String(input.value) !== String(previousValue)) return;
+      input.value = '';
+      input.dispatchEvent(new Event('input', {bubbles: true}));
+      input.dispatchEvent(new Event('change', {bubbles: true}));
+    });
+  });
+  applyToForm(remainingData || {});
+  syncGrowthFieldsFromFinancials(remainingData || {});
+  autoCalcGrowth();
+  autoCalcZhuanjing();
+}
+
+function syncFinanceUploadHiddenFields() {
+  document.querySelectorAll('.finance-upload-hidden').forEach(el => el.remove());
+  Object.entries(allExtracted).forEach(([key, value]) => ensureHiddenField(key, value));
 }
 
 function ensureHiddenField(key, value) {
@@ -461,9 +502,21 @@ function showPreview() {
     ).join('');
 }
 
-function clearAllUploads() {
+async function clearAllUploads() {
+  if (!Object.keys(fileStates).length) return;
+  if (!confirm('确定删除全部财务报表吗？')) return;
+  const previousExtracted = Object.assign({}, allExtracted);
+  try {
+    const response = await fetch('/parser/required_materials/finance', {method: 'DELETE'});
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success) throw new Error(result.error || '删除失败');
+  } catch (error) {
+    alert('财务报表删除失败：' + error.message);
+    return;
+  }
   allExtracted = {};
   fileStates = {};
+  reconcileFinanceFormAfterDelete(previousExtracted, {});
   document.getElementById('file-list').style.display = 'none';
   document.getElementById('extracted-preview').style.display = 'none';
   document.getElementById('extracted-count').textContent = '0';
@@ -481,6 +534,8 @@ function materialEscapeHtml(value) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+let recognizedStaffFile = null;
 
 async function uploadStaffList(selectedFiles) {
   const input = document.getElementById('staff-list-file');
@@ -506,12 +561,14 @@ async function uploadStaffList(selectedFiles) {
 
     const rows = Array.isArray(result.rows) ? result.rows : [];
     const summary = result.summary || {};
+    recognizedStaffFile = result.file || null;
     status.textContent = `识别完成，共 ${result.count || rows.length} 人`;
     preview.innerHTML =
       '<div class="material-preview-summary">' +
         '<strong>' + materialEscapeHtml(result.filename || file.name) + '</strong>' +
         '<span>职工 ' + materialEscapeHtml(summary.hr_total || rows.length) + ' 人</span>' +
         '<span>科技人员 ' + materialEscapeHtml(summary.tech_staff || summary.hr_tech || 0) + ' 人</span>' +
+        '<button type="button" class="btn btn-danger btn-sm" onclick="deleteStaffList()">删除</button>' +
       '</div>' +
       '<div class="material-chip-list">' +
         rows.slice(0, 20).map(row => '<span>' + materialEscapeHtml(row['姓名'] || '未命名') + '</span>').join('') +
@@ -526,6 +583,25 @@ async function uploadStaffList(selectedFiles) {
     zone.classList.remove('is-uploading');
     zone.removeAttribute('aria-busy');
     input.value = '';
+  }
+}
+
+async function deleteStaffList() {
+  if (!recognizedStaffFile || !recognizedStaffFile.id) return;
+  if (!confirm('确定删除这份人员清单吗？')) return;
+  try {
+    const response = await fetch(
+      '/parser/required_materials/staff/' + encodeURIComponent(recognizedStaffFile.id),
+      {method: 'DELETE'}
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success) throw new Error(result.error || '删除失败');
+    recognizedStaffFile = null;
+    document.getElementById('staff-upload-status').textContent = '';
+    document.getElementById('staff-recognition-preview').style.display = 'none';
+    document.getElementById('staff-recognition-preview').innerHTML = '';
+  } catch (error) {
+    alert('人员清单删除失败：' + error.message);
   }
 }
 
@@ -547,9 +623,11 @@ function renderSalesContractPreview(year) {
   }
   preview.innerHTML = yearContracts.map(item =>
     '<div class="contract-preview-item">' +
-      '<strong>' + materialEscapeHtml(item.contract_code || '未编号合同') + ' · ' + materialEscapeHtml(item.original_filename || '销售合同.pdf') + '</strong>' +
-      '<div>' + materialEscapeHtml(item.summary || '已上传，未提取到摘要') + '</div>' +
-      (item.keywords ? '<small>关键词：' + materialEscapeHtml(item.keywords) + '</small>' : '') +
+      '<div class="contract-preview-main">' +
+        '<strong>' + materialEscapeHtml(item.contract_code || '未编号合同') + ' · ' + materialEscapeHtml(item.original_filename || '销售合同.pdf') + '</strong>' +
+        '<small>' + materialEscapeHtml(item.uploaded_at || '已保存，待后续按需解析') + '</small>' +
+      '</div>' +
+      '<button type="button" class="btn btn-danger btn-sm" onclick="deleteSalesContract(\'' + materialEscapeHtml(item.id || '') + '\')">删除</button>' +
     '</div>'
   ).join('');
   preview.style.display = 'block';
@@ -587,15 +665,15 @@ async function uploadSalesContracts(year, selectedFiles) {
   let completed = 0;
   try {
     for (const file of files) {
-      status.textContent = `正在识别 ${year} 年合同 ${completed + 1}/${files.length}：${file.name}`;
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('year', year);
-      const resp = await fetch('/parser/upload_sales_contract', {method: 'POST', body: fd});
-      const result = await resp.json().catch(() => ({}));
-      if (!resp.ok || !result.success) {
-        throw new Error((result.error || '识别失败') + '：' + file.name);
-      }
+      status.textContent = `正在保存 ${year} 年合同 ${completed + 1}/${files.length}：${file.name}`;
+      const result = await saveSalesContractFile(
+        year,
+        file,
+        progress => {
+          status.textContent =
+            `正在保存 ${year} 年合同 ${completed + 1}/${files.length}：${file.name}（${progress}%）`;
+        }
+      );
       const fileMeta = result.file || {};
       if (!recognizedSalesContracts.some(item =>
         item.id && item.id === fileMeta.id
@@ -605,14 +683,130 @@ async function uploadSalesContracts(year, selectedFiles) {
       completed += 1;
       renderSalesContractPreview(year);
     }
-    status.textContent = `已自动保存并编号，${year} 年共 ${salesContractsForYear(year).length}/4 份`;
+    status.textContent = `已保存并编号，${year} 年共 ${salesContractsForYear(year).length}/4 份`;
     input.value = '';
   } catch (err) {
     status.textContent = `已完成 ${completed}/${files.length}`;
-    alert('销售合同识别失败：' + err.message);
+    alert('销售合同保存失败：' + err.message);
   } finally {
     zone.classList.remove('is-uploading');
     zone.removeAttribute('aria-busy');
+  }
+}
+
+async function saveSalesContractFile(year, file, onProgress) {
+  const ticketResponse = await fetch('/parser/sales_contract_upload_ticket', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      year: year,
+      filename: file.name,
+      size: file.size
+    })
+  });
+  const ticketResult = await ticketResponse.json().catch(() => ({}));
+  if (!ticketResponse.ok || !ticketResult.success) {
+    throw new Error((ticketResult.error || '无法创建上传任务') + '：' + file.name);
+  }
+  if (ticketResult.duplicate) return ticketResult;
+
+  if (!ticketResult.direct_upload) {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('year', year);
+    const response = await fetch('/parser/upload_sales_contract', {
+      method: 'POST',
+      body: fd
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success) {
+      throw new Error((result.error || '保存失败') + '：' + file.name);
+    }
+    return result;
+  }
+
+  const upload = ticketResult.upload || {};
+  await uploadSalesContractBlob(file, upload, onProgress);
+
+  const registerResponse = await fetch('/parser/register_sales_contract', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      id: upload.id,
+      year: year,
+      filename: file.name,
+      relative_path: upload.relative_path,
+      size: file.size
+    })
+  });
+  const registerResult = await registerResponse.json().catch(() => ({}));
+  if (!registerResponse.ok || !registerResult.success) {
+    throw new Error((registerResult.error || '合同已上传但登记失败') + '：' + file.name);
+  }
+  return registerResult;
+}
+
+function uploadSalesContractBlob(file, upload, onProgress) {
+  return new Promise((resolve, reject) => {
+    if (!upload.client_token || !upload.pathname || !upload.store_id) {
+      reject(new Error('上传凭证不完整'));
+      return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open(
+      'PUT',
+      'https://blob.vercel-storage.com/?pathname=' + encodeURIComponent(upload.pathname)
+    );
+    xhr.setRequestHeader('Authorization', 'Bearer ' + upload.client_token);
+    xhr.setRequestHeader('x-api-version', '10');
+    xhr.setRequestHeader('x-vercel-blob-store-id', upload.store_id);
+    xhr.setRequestHeader('x-vercel-blob-access', 'private');
+    xhr.setRequestHeader('x-content-type', file.type || 'application/pdf');
+
+    xhr.upload.onprogress = event => {
+      if (!event.lengthComputable || typeof onProgress !== 'function') return;
+      onProgress(Math.min(99, Math.round(event.loaded / event.total * 100)));
+    };
+    xhr.onerror = () => reject(new Error('无法连接文件存储服务'));
+    xhr.ontimeout = () => reject(new Error('文件上传超时'));
+    xhr.onload = () => {
+      let result = {};
+      try {
+        result = JSON.parse(xhr.responseText || '{}');
+      } catch (_) {}
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(result.error && result.error.message
+          ? result.error.message
+          : (result.error || '文件存储失败')));
+        return;
+      }
+      if (typeof onProgress === 'function') onProgress(100);
+      resolve(result);
+    };
+    xhr.send(file);
+  });
+}
+
+async function deleteSalesContract(fileId) {
+  if (!fileId || !confirm('确定删除这份销售合同吗？')) return;
+  try {
+    const response = await fetch(
+      '/parser/required_materials/sales_contracts/' + encodeURIComponent(fileId),
+      {method: 'DELETE'}
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success) throw new Error(result.error || '删除失败');
+    const removed = recognizedSalesContracts.find(item => item.id === fileId);
+    recognizedSalesContracts = recognizedSalesContracts.filter(item => item.id !== fileId);
+    const year = String((removed && removed.year) || result.year || '');
+    if (year) {
+      renderSalesContractPreview(year);
+      document.getElementById('sales-contract-status-' + year).textContent =
+        `${year} 年共 ${salesContractsForYear(year).length}/4 份`;
+    }
+  } catch (error) {
+    alert('销售合同删除失败：' + error.message);
   }
 }
 
@@ -882,10 +1076,28 @@ function autoCalcZhuanjing() {
 .material-chip-list {
   margin-top: 8px;
 }
+.material-delete-button {
+  border: 0;
+  background: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.contract-preview-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
 .contract-preview-item + .contract-preview-item {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
+}
+.contract-preview-main {
+  flex: 1;
+  min-width: 0;
 }
 .contract-preview-item strong,
 .contract-preview-item div,

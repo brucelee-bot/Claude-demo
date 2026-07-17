@@ -304,6 +304,7 @@ function renderPatentPreview(certificates, evaluation) {
       '<td>' + escapeHtml(d.app_date || '-') + '</td>' +
       '<td>' + escapeHtml(d.applicant || '-') + '</td>' +
       '<td>' + escapeHtml(d.grant_date || '-') + '</td>' +
+      '<td><button type="button" class="btn btn-danger btn-sm" onclick="deletePatentCertificate(\'' + escapeHtml(cert.id || '') + '\')">删除</button></td>' +
     '</tr>';
   }).join('');
   box.style.display = 'block';
@@ -321,9 +322,38 @@ function renderPatentPreview(certificates, evaluation) {
     scoreSummary +
     (evaluation && evaluation.details ? '<pre style="white-space:pre-wrap;margin:6px 0;color:var(--text-secondary)">' + escapeHtml(evaluation.details) + '</pre>' : '') +
     '<div style="overflow-x:auto"><table class="book-table" style="font-size:12px"><thead><tr>' +
-    '<th>编号</th><th>名称</th><th>专利类型</th><th>法律状态</th><th>专利号</th><th style="cursor:pointer;color:var(--accent)" onclick="sortPatentPreviewByDate()">申请日期 ↕</th><th>专利权人</th><th>授权日期</th>' +
+    '<th>编号</th><th>名称</th><th>专利类型</th><th>法律状态</th><th>专利号</th><th style="cursor:pointer;color:var(--accent)" onclick="sortPatentPreviewByDate()">申请日期 ↕</th><th>专利权人</th><th>授权日期</th><th>操作</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
     '<div class="text-muted" style="margin-top:6px">不确定项：对主要产品的核心支持作用需要结合主营产品人工确认，系统默认按“较强”填入。</div>';
+}
+
+async function deletePatentCertificate(certId) {
+  if (!certId || !confirm('确定删除这份专利证书吗？')) return;
+  try {
+    const resp = await fetch('/parser/delete_ip', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        id: certId,
+        {% if company_id %}company_id: '{{ company_id }}'{% else %}company_id: null{% endif %}
+      })
+    });
+    const result = await resp.json().catch(function() { return {}; });
+    if (!resp.ok || !result.success) throw new Error(result.error || '删除失败');
+    applyPatentEvaluation(result.evaluation);
+    renderPatentPreview(result.certificates || [], result.evaluation || null);
+    const status = document.getElementById('ip-upload-status');
+    if (status) status.textContent = result.remaining ? '已识别 ' + result.remaining + ' 份' : '';
+    if (!result.remaining) {
+      const preview = document.getElementById('ip-recognition-preview');
+      if (preview) {
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+      }
+    }
+  } catch (error) {
+    alert('专利证书删除失败：' + error.message);
+  }
 }
 
 function applyPatentEvaluation(evaluation) {

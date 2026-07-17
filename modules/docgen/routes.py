@@ -3137,7 +3137,12 @@ def _relation_sales_contracts(data, company=None):
     relation_rows = ((data.get("gaoxin_relation_table") or {}).get("rows") or [])
     _recover_relation_sales_contract_files(company, contracts, relation_rows)
     for item in contracts:
-        if not isinstance(item, dict) or item.get("sha256"):
+        if (
+            not isinstance(item, dict)
+            or item.get("sha256")
+            or item.get("blob_url")
+            or item.get("blob_etag")
+        ):
             continue
         relative_path = str(item.get("relative_path") or "").strip()
         path = _safe_attachment_path(relative_path) if relative_path else ""

@@ -201,6 +201,7 @@ def _persist_required_materials(company: Company) -> None:
         for item in contract_files
         if isinstance(item, dict) and item.get("original_filename")
     }
+    preserved_staged_paths = set()
     for staged in materials.get("sales_contracts") or []:
         if not isinstance(staged, dict):
             continue
@@ -220,24 +221,37 @@ def _persist_required_materials(company: Company) -> None:
             persisted_contracts.append(existing)
             continue
 
-        source_path = _source_upload_path(staged.get("relative_path"))
-        if not source_path or not os.path.exists(source_path):
+        staged_relative_path = str(staged.get("relative_path") or "").replace("\\", "/").strip("/")
+        has_blob_reference = any(
+            str(staged.get(key) or "").strip()
+            for key in ("blob_url", "blob_download_url", "blob_etag")
+        )
+        source_path = _source_upload_path(staged_relative_path)
+        source_exists = bool(source_path and os.path.exists(source_path))
+        if not source_exists and not (has_blob_reference and staged_relative_path):
             continue
         safe_name = secure_filename(original_filename) or f"sales_contract_{uuid.uuid4().hex}.pdf"
         if not safe_name.lower().endswith(".pdf"):
             safe_name = f"{os.path.splitext(safe_name)[0]}.pdf"
         file_id = str(staged.get("id") or uuid.uuid4().hex)
         stored_filename = f"{file_id}_{safe_name}"
-        relative_path = _attachment_relative_path(
-            company.user_id,
-            company.id,
-            "relation_sales_contract",
-            stored_filename,
-        )
-        target_path = _safe_attachment_path(relative_path)
-        os.makedirs(os.path.dirname(target_path), exist_ok=True)
-        shutil.copy2(source_path, target_path)
-        persist_file(target_path, relative_path)
+        if source_exists:
+            relative_path = _attachment_relative_path(
+                company.user_id,
+                company.id,
+                "relation_sales_contract",
+                stored_filename,
+            )
+            target_path = _safe_attachment_path(relative_path)
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            shutil.copy2(source_path, target_path)
+            persist_file(target_path, relative_path)
+        else:
+            relative_path = staged_relative_path
+            stored_filename = str(staged.get("stored_filename") or "").strip() or os.path.basename(
+                staged_relative_path
+            )
+            preserved_staged_paths.add(staged_relative_path)
         file_meta = {
             "id": file_id,
             "original_filename": original_filename,
@@ -253,15 +267,19 @@ def _persist_required_materials(company: Company) -> None:
             "sha256": source_hash,
             "auto_synced": True,
         }
+        for key in ("blob_url", "blob_download_url", "blob_etag", "size"):
+            if staged.get(key) not in (None, ""):
+                file_meta[key] = staged.get(key)
         contract_files.append(file_meta)
         persisted_contracts.append(file_meta)
         if source_hash:
             existing_by_hash[source_hash] = file_meta
         existing_by_name[(contract_year, original_filename)] = file_meta
-        try:
-            os.remove(source_path)
-        except OSError:
-            pass
+        if source_exists:
+            try:
+                os.remove(source_path)
+            except OSError:
+                pass
 
     ensure_sales_contract_codes(contract_files, relation_rows)
     remap_sales_contract_rows(relation_rows, contract_files)
@@ -309,7 +327,10 @@ def _persist_required_materials(company: Company) -> None:
         ],
     }
     company.data_json = json.dumps(data, ensure_ascii=False)
-    _clear_required_materials()
+    if preserved_staged_paths:
+        _clear_required_materials(preserve_relative_paths=preserved_staged_paths)
+    else:
+        _clear_required_materials()
 
 
 @scoring_bp.route("/", methods=["GET"])
