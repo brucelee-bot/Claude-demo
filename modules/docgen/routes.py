@@ -2486,8 +2486,15 @@ def _render_export_pdf_file(app, html, output_dir, label):
     return pdf_path
 
 
-def _combine_portrait_export_documents(documents, company_name, company_english_name):
-    """Combine compatible portrait documents into one Chrome print operation."""
+def _combine_export_documents(
+    documents,
+    company_name,
+    company_english_name,
+    *,
+    page_rule,
+    title,
+):
+    """Combine same-orientation documents into one render and optimization pass."""
     from lxml import etree
     from lxml import html as lxml_html
 
@@ -2518,8 +2525,11 @@ def _combine_portrait_export_documents(documents, company_name, company_english_
         )
         first_class = " batch-document-first" if index == 0 else ""
         document_classes = "".join(f" {class_name}" for class_name in body_classes)
+        pymupdf_break = (
+            "" if index == 0 else ' data-pymupdf-page-break-before="true"'
+        )
         document_blocks.append(
-            f'<section class="batch-document{first_class}{document_classes}">'
+            f'<section class="batch-document{first_class}{document_classes}"{pymupdf_break}>'
             f'<div class="batch-document-marker">{marker}</div>{body_html}</section>'
         )
 
@@ -2528,10 +2538,10 @@ def _combine_portrait_export_documents(documents, company_name, company_english_
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <title>高新技术企业认定附件内部材料</title>
+  <title>{html_escape(title)}</title>
   <style>
   {combined_styles}
-  @page {{ size: A4; margin: 28mm 16mm 18mm; }}
+  @page {{ {page_rule} }}
   body {{ padding-top: 0 !important; }}
   thead {{ display: table-header-group; }}
   tr {{ break-inside: avoid; page-break-inside: avoid; }}
@@ -2544,6 +2554,16 @@ def _combine_portrait_export_documents(documents, company_name, company_english_
   {''.join(document_blocks)}
 </body>
 </html>"""
+
+
+def _combine_portrait_export_documents(documents, company_name, company_english_name):
+    return _combine_export_documents(
+        documents,
+        company_name,
+        company_english_name,
+        page_rule="size: A4; margin: 28mm 16mm 18mm;",
+        title="高新技术企业认定附件内部材料",
+    )
 
 
 def _assign_portrait_document_page_ranges(pdf_path, documents):
@@ -2578,6 +2598,62 @@ def _assign_portrait_document_page_ranges(pdf_path, documents):
             )
     finally:
         source_pdf.close()
+
+
+def _prepare_export_attachment_files(app, references):
+    """Resolve uploaded export files concurrently and reuse duplicate paths."""
+    upload_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
+    references_by_path = {}
+    for reference in references:
+        relative_path = str(reference.get("relative_path") or "").strip()
+        if relative_path:
+            references_by_path.setdefault(relative_path, []).append(reference)
+
+    def resolve(relative_path):
+        target = os.path.abspath(os.path.join(upload_root, relative_path))
+        if target != upload_root and not target.startswith(upload_root + os.sep):
+            app.logger.warning("导出附件路径越界，已跳过：%s", relative_path)
+            return None
+        try:
+            resolved = ensure_local_file(target, relative_path)
+            return resolved if os.path.isfile(resolved) else None
+        except Exception:
+            app.logger.exception("导出附件准备失败：%s", relative_path)
+            return None
+
+    configured_workers = max(
+        1,
+        int(app.config.get("PDF_ATTACHMENT_DOWNLOAD_WORKERS", 6)),
+    )
+    worker_count = min(configured_workers, len(references_by_path))
+    if not worker_count:
+        return 0
+
+    with ThreadPoolExecutor(
+        max_workers=worker_count,
+        thread_name_prefix="gaoxin-attachment",
+    ) as executor:
+        resolved_paths = dict(
+            zip(
+                references_by_path,
+                executor.map(resolve, references_by_path),
+            )
+        )
+
+    resolved_count = 0
+    for relative_path, path_references in references_by_path.items():
+        resolved_path = resolved_paths.get(relative_path)
+        for reference in path_references:
+            reference["pdf_path"] = resolved_path
+            if resolved_path:
+                resolved_count += 1
+            else:
+                app.logger.warning(
+                    "%s文件不存在，已跳过：%s",
+                    reference.get("label") or "附件",
+                    relative_path,
+                )
+    return resolved_count
 
 
 def _system_doc_base_defaults(company, data):
@@ -6148,15 +6224,18 @@ def gaoxin_attachments_pdf(company_id):
             section_paths = {str(number): [] for number in range(2, 14)}
             portrait_documents = []
             standalone_documents = []
+            attachment_references = []
             company_english_name = _company_english_name(company, data)
 
             def add_attachment_files(section_no, files, label):
                 for file_meta in files or []:
-                    path = _safe_attachment_path(file_meta.get("relative_path", ""))
-                    if os.path.isfile(path):
-                        section_paths[str(section_no)].append((path, label))
-                    else:
-                        app.logger.warning("%s文件不存在，已跳过：%s", label, path)
+                    reference = {
+                        "relative_path": file_meta.get("relative_path", ""),
+                        "label": label,
+                        "uploaded_attachment": True,
+                    }
+                    attachment_references.append(reference)
+                    section_paths[str(section_no)].append((reference, label))
 
             def add_portrait_document(section_no, document_html, label):
                 document = {"html": document_html, "label": label}
@@ -6375,6 +6454,10 @@ def gaoxin_attachments_pdf(company_id):
                     if str(item.get("attachment_year") or "") == year
                 ], f"{year}年汇算清缴")
 
+            prepared_attachment_count = _prepare_export_attachment_files(
+                app,
+                attachment_references,
+            )
             chrome_available = bool(_chrome_executable(app))
             portrait_html = (
                 _combine_portrait_export_documents(
@@ -6382,13 +6465,10 @@ def gaoxin_attachments_pdf(company_id):
                     company.name,
                     company_english_name,
                 )
-                if chrome_available and portrait_documents
+                if portrait_documents
                 else ""
             )
-            individually_rendered_documents = list(standalone_documents)
-            if not chrome_available:
-                individually_rendered_documents.extend(portrait_documents)
-            render_task_count = 1 + bool(portrait_html) + len(individually_rendered_documents)
+            render_task_count = 1 + bool(portrait_html) + len(standalone_documents)
             configured_workers = max(1, int(app.config.get("PDF_RENDER_WORKERS", 3)))
             render_workers = min(configured_workers, render_task_count) if chrome_available else 1
             with ThreadPoolExecutor(max_workers=render_workers, thread_name_prefix="gaoxin-pdf") as executor:
@@ -6411,7 +6491,7 @@ def gaoxin_attachments_pdf(company_id):
                             document["label"],
                         ),
                     )
-                    for document in individually_rendered_documents
+                    for document in standalone_documents
                 ]
 
                 attachments_pdf_path = attachments_future.result()
@@ -6425,7 +6505,7 @@ def gaoxin_attachments_pdf(company_id):
                 if not portrait_pdf_path:
                     raise RuntimeError("附件内部材料 PDF 生成失败")
                 _assign_portrait_document_page_ranges(portrait_pdf_path, portrait_documents)
-            for document in individually_rendered_documents:
+            for document in standalone_documents:
                 if not document.get("pdf_path"):
                     raise RuntimeError(f"{document['label']} PDF 生成失败")
 
@@ -6497,7 +6577,10 @@ def gaoxin_attachments_pdf(company_id):
                                 to_page = int(source.get("to_page", source_pdf.page_count - 1)) if isinstance(source, dict) else source_pdf.page_count - 1
                                 insert_start = merged_pdf.page_count
                                 merged_pdf.insert_pdf(source_pdf, from_page=from_page, to_page=to_page)
-                                if isinstance(source, dict):
+                                if (
+                                    isinstance(source, dict)
+                                    and not source.get("uploaded_attachment")
+                                ):
                                     generated_page_indexes.extend(range(insert_start, merged_pdf.page_count))
                         finally:
                             if converted_image_pdf is not None:
@@ -6563,6 +6646,12 @@ def gaoxin_attachments_pdf(company_id):
                 render_task_count,
                 len(portrait_documents) + len(standalone_documents),
                 len(pdf_bytes),
+            )
+            app.logger.info(
+                "高新附件源文件准备完成 company_id=%s resolved=%s requested=%s",
+                company.id,
+                prepared_attachment_count,
+                len(attachment_references),
             )
             response = send_file(
                 BytesIO(pdf_bytes),

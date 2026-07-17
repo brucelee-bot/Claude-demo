@@ -3,6 +3,8 @@ import os
 import re
 import struct
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,6 +18,7 @@ from modules.docgen.routes import (
     _combine_portrait_export_documents,
     _export_rd_project_application_text,
     _pdf_cjk_font_path,
+    _prepare_export_attachment_files,
     _rd_project_application_html,
     _rd_project_application_sections,
     _prepare_pymupdf_story_html,
@@ -606,6 +609,104 @@ class PdfRenderingTests(unittest.TestCase):
         )
         self.assertIn(".rd-project-document h1", combined_html)
         self.assertIn(".system-document", combined_html)
+        self.assertEqual(
+            combined_html.count('data-pymupdf-page-break-before="true"'),
+            1,
+        )
+
+    def test_combined_portrait_documents_render_once_with_distinct_page_ranges(self):
+        documents = [
+            {
+                "label": title,
+                "html": (
+                    "<html><head><style>"
+                    "@page { size: A4; margin: 28mm 16mm 18mm; }"
+                    f".document-{index} h1 {{ font-size: 15pt; }}"
+                    "</style></head>"
+                    f'<body class="document-{index}"><h1>{title}</h1>'
+                    f"<p>{title}正文</p></body></html>"
+                ),
+            }
+            for index, title in enumerate(("第一份材料", "第二份材料"))
+        ]
+        combined_html = _combine_portrait_export_documents(
+            documents,
+            "测试科技有限公司",
+            "TEST TECHNOLOGY CO., LTD.",
+        )
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            with patch("modules.docgen.routes._chrome_executable", return_value=None):
+                pdf_path = _render_export_pdf_file(
+                    self.app,
+                    combined_html,
+                    output_dir,
+                    "批量内部材料",
+                )
+
+            self.assertIsNotNone(pdf_path)
+            from modules.docgen.routes import _assign_portrait_document_page_ranges
+
+            _assign_portrait_document_page_ranges(pdf_path, documents)
+            self.assertEqual(documents[0]["pdf_path"], pdf_path)
+            self.assertEqual(documents[1]["pdf_path"], pdf_path)
+            self.assertEqual(documents[0]["from_page"], 0)
+            self.assertEqual(documents[0]["to_page"], 0)
+            self.assertEqual(documents[1]["from_page"], 1)
+            self.assertEqual(documents[1]["to_page"], 1)
+
+            document = fitz.open(pdf_path)
+            try:
+                self.assertEqual(document.page_count, 2)
+                self.assertIn("第一份材料", document[0].get_text())
+                self.assertNotIn("第二份材料", document[0].get_text())
+                self.assertIn("第二份材料", document[1].get_text())
+            finally:
+                document.close()
+
+    def test_export_attachment_files_resolve_concurrently_and_deduplicate_paths(self):
+        active_calls = 0
+        max_active_calls = 0
+        lock = threading.Lock()
+
+        def resolve(local_path, relative_path):
+            nonlocal active_calls, max_active_calls
+            with lock:
+                active_calls += 1
+                max_active_calls = max(max_active_calls, active_calls)
+            try:
+                time.sleep(0.04)
+                Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+                Path(local_path).write_bytes(relative_path.encode("utf-8"))
+                return local_path
+            finally:
+                with lock:
+                    active_calls -= 1
+
+        references = [
+            {"relative_path": "section/a.pdf", "label": "A"},
+            {"relative_path": "section/b.pdf", "label": "B"},
+            {"relative_path": "section/a.pdf", "label": "A副本"},
+        ]
+        with tempfile.TemporaryDirectory() as upload_dir:
+            self.app.config.update(
+                UPLOAD_FOLDER=upload_dir,
+                PDF_ATTACHMENT_DOWNLOAD_WORKERS=3,
+            )
+            with patch(
+                "modules.docgen.routes.ensure_local_file",
+                side_effect=resolve,
+            ) as mocked:
+                resolved_count = _prepare_export_attachment_files(
+                    self.app,
+                    references,
+                )
+
+        self.assertEqual(mocked.call_count, 2)
+        self.assertGreaterEqual(max_active_calls, 2)
+        self.assertEqual(resolved_count, 3)
+        self.assertEqual(references[0]["pdf_path"], references[2]["pdf_path"])
+        self.assertTrue(all(reference.get("pdf_path") for reference in references))
 
 
 if __name__ == "__main__":
