@@ -27,6 +27,9 @@ class Config:
     OUTPUT_FOLDER = os.getenv("OUTPUT_FOLDER", _runtime_folder("outputs"))
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", 50 * 1024 * 1024))  # default 50MB
     MAX_FORM_MEMORY_SIZE = int(os.getenv("MAX_FORM_MEMORY_SIZE", MAX_CONTENT_LENGTH))
+    PDF_PYMUPDF_EXPORT_BATCH_SIZE = int(
+        os.getenv("PDF_PYMUPDF_EXPORT_BATCH_SIZE", 1)
+    )
 
     # AI / LLM 配置
     LLM_API_BASE = os.getenv("LLM_API_BASE", "https://api.psydo.top/v1")

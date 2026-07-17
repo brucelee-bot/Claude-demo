@@ -1,4 +1,5 @@
 import base64
+import copy
 import json
 import mimetypes
 import os
@@ -2127,6 +2128,66 @@ def _prepare_pymupdf_story_html(html, content_width):
             return (0.16, 0.34, 0.16, 0.34)
         return (1 / column_count,) * column_count
 
+    def split_long_text(text, max_chars=180):
+        normalized = str(text or "").strip()
+        if len(normalized) <= max_chars:
+            return [normalized]
+
+        segments = []
+        for paragraph in re.split(r"\n+", normalized):
+            paragraph = paragraph.strip()
+            if not paragraph:
+                continue
+            sentence_parts = re.split(r"(?<=[。！？；])", paragraph)
+            segments.extend(part.strip() for part in sentence_parts if part.strip())
+
+        chunks = []
+        current = ""
+        for segment in segments:
+            while len(segment) > max_chars:
+                if current:
+                    chunks.append(current)
+                    current = ""
+                chunks.append(segment[:max_chars])
+                segment = segment[max_chars:]
+            if not segment:
+                continue
+            if current and len(current) + len(segment) > max_chars:
+                chunks.append(current)
+                current = segment
+            else:
+                current += segment
+        if current:
+            chunks.append(current)
+        return chunks or [normalized]
+
+    def split_oversized_table_rows(table):
+        for row in list(table.xpath(".//tr[not(ancestor::table[2])]")):
+            cells = row.xpath("./th|./td")
+            if not cells:
+                continue
+            cell_texts = [" ".join(cell.text_content().split()) for cell in cells]
+            longest_index = max(range(len(cells)), key=lambda index: len(cell_texts[index]))
+            chunks = split_long_text(cell_texts[longest_index])
+            if len(chunks) <= 1:
+                continue
+
+            parent = row.getparent()
+            insert_at = parent.index(row)
+            for chunk_index, chunk in enumerate(chunks):
+                split_row = copy.deepcopy(row)
+                split_cells = split_row.xpath("./th|./td")
+                for cell_index, cell in enumerate(split_cells):
+                    cell.clear()
+                    if cell_index == longest_index:
+                        cell.text = chunk
+                    elif chunk_index == 0:
+                        cell.text = cell_texts[cell_index]
+                    else:
+                        cell.text = ""
+                parent.insert(insert_at + chunk_index, split_row)
+            parent.remove(row)
+
     root = lxml_html.document_fromstring(html)
     head_nodes = root.xpath("//head")
     head = head_nodes[0] if head_nodes else etree.SubElement(root, "head")
@@ -2154,6 +2215,10 @@ def _prepare_pymupdf_story_html(html, content_width):
         break-after: auto !important;
         page-break-after: auto !important;
       }
+      tr {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+      }
     """
     head.append(compatibility_style)
 
@@ -2163,6 +2228,7 @@ def _prepare_pymupdf_story_html(html, content_width):
     # column sizing without leaving text or visible marks in the PDF.
     spacer_count = max(1, int(round(float(content_width) / 0.75)))
     for table in root.xpath("//table"):
+        split_oversized_table_rows(table)
         rows = table.xpath(".//tr[not(ancestor::table[2])]")
         column_count = 1
         for row in rows:
@@ -2499,10 +2565,16 @@ def _combine_export_documents(
     from lxml import html as lxml_html
 
     style_blocks = []
+    seen_style_blocks = set()
     document_blocks = []
     for index, document in enumerate(documents):
         root = lxml_html.document_fromstring(document["html"])
-        style_blocks.extend(str(style) for style in root.xpath("//style/text()") if str(style).strip())
+        for style in root.xpath("//style/text()"):
+            style_text = str(style)
+            if not style_text.strip() or style_text in seen_style_blocks:
+                continue
+            seen_style_blocks.add(style_text)
+            style_blocks.append(style_text)
         body_nodes = root.xpath("//body")
         if not body_nodes:
             raise ValueError(f"{document['label']}缺少可打印正文")
@@ -2598,6 +2670,86 @@ def _assign_portrait_document_page_ranges(pdf_path, documents):
             )
     finally:
         source_pdf.close()
+
+
+def _portrait_export_document_style_signature(document):
+    from lxml import html as lxml_html
+
+    root = lxml_html.document_fromstring(document["html"])
+    styles = tuple(
+        str(style)
+        for style in root.xpath("//style/text()")
+        if str(style).strip()
+    )
+    body_nodes = root.xpath("//body")
+    body_class = str(body_nodes[0].get("class") or "") if body_nodes else ""
+    return styles, body_class
+
+
+def _portrait_export_document_batches(documents, batch_size):
+    normalized_batch_size = max(1, int(batch_size))
+    batches = []
+    current_batch = []
+    current_signature = None
+    for document in documents:
+        signature = _portrait_export_document_style_signature(document)
+        if (
+            current_batch
+            and (
+                signature != current_signature
+                or len(current_batch) >= normalized_batch_size
+            )
+        ):
+            batches.append(current_batch)
+            current_batch = []
+        if not current_batch:
+            current_signature = signature
+        current_batch.append(document)
+    if current_batch:
+        batches.append(current_batch)
+    return batches
+
+
+def _render_portrait_export_document_batches(
+    app,
+    documents,
+    output_dir,
+    company_name,
+    company_english_name,
+    batch_size,
+):
+    batches = _portrait_export_document_batches(documents, batch_size)
+    pdf_paths = []
+    for batch_index, batch in enumerate(batches, start=1):
+        batch_started = time.perf_counter()
+        first_label = batch[0]["label"]
+        last_label = batch[-1]["label"]
+        combined_html = _combine_portrait_export_documents(
+            batch,
+            company_name,
+            company_english_name,
+        )
+        label = f"附件内部材料（第{batch_index}/{len(batches)}批）"
+        pdf_path = _render_export_pdf_file(
+            app,
+            combined_html,
+            output_dir,
+            label,
+        )
+        if not pdf_path:
+            raise RuntimeError(f"{label} PDF 生成失败")
+        _assign_portrait_document_page_ranges(pdf_path, batch)
+        pdf_paths.append(pdf_path)
+        app.logger.info(
+            "附件内部材料批次 PDF 生成完成 batch=%s/%s documents=%s duration=%.2fs first=%s last=%s",
+            batch_index,
+            len(batches),
+            len(batch),
+            time.perf_counter() - batch_started,
+            first_label,
+            last_label,
+        )
+    return pdf_paths
 
 
 def _prepare_export_attachment_files(app, references):
@@ -6459,16 +6611,19 @@ def gaoxin_attachments_pdf(company_id):
                 attachment_references,
             )
             chrome_available = bool(_chrome_executable(app))
-            portrait_html = (
-                _combine_portrait_export_documents(
-                    portrait_documents,
-                    company.name,
-                    company_english_name,
+            portrait_batch_size = (
+                len(portrait_documents)
+                if chrome_available and portrait_documents
+                else max(
+                    1,
+                    int(app.config.get("PDF_PYMUPDF_EXPORT_BATCH_SIZE", 1)),
                 )
-                if portrait_documents
-                else ""
             )
-            render_task_count = 1 + bool(portrait_html) + len(standalone_documents)
+            portrait_batches = _portrait_export_document_batches(
+                portrait_documents,
+                portrait_batch_size,
+            )
+            render_task_count = 1 + len(portrait_batches) + len(standalone_documents)
             configured_workers = max(1, int(app.config.get("PDF_RENDER_WORKERS", 3)))
             render_workers = min(configured_workers, render_task_count) if chrome_available else 1
             with ThreadPoolExecutor(max_workers=render_workers, thread_name_prefix="gaoxin-pdf") as executor:
@@ -6477,8 +6632,14 @@ def gaoxin_attachments_pdf(company_id):
                 )
                 portrait_future = (
                     executor.submit(
-                        _render_export_pdf_file, app, portrait_html, export_dir, "附件内部材料"
-                    ) if portrait_html else None
+                        _render_portrait_export_document_batches,
+                        app,
+                        portrait_documents,
+                        export_dir,
+                        company.name,
+                        company_english_name,
+                        portrait_batch_size,
+                    ) if portrait_documents else None
                 )
                 standalone_futures = [
                     (
@@ -6495,16 +6656,15 @@ def gaoxin_attachments_pdf(company_id):
                 ]
 
                 attachments_pdf_path = attachments_future.result()
-                portrait_pdf_path = portrait_future.result() if portrait_future else None
+                portrait_pdf_paths = portrait_future.result() if portrait_future else []
                 for document, future in standalone_futures:
                     document["pdf_path"] = future.result()
 
             if not attachments_pdf_path:
                 raise RuntimeError("附件目录 PDF 生成失败")
-            if portrait_html:
-                if not portrait_pdf_path:
+            if portrait_documents:
+                if len(portrait_pdf_paths) != len(portrait_batches):
                     raise RuntimeError("附件内部材料 PDF 生成失败")
-                _assign_portrait_document_page_ranges(portrait_pdf_path, portrait_documents)
             for document in standalone_documents:
                 if not document.get("pdf_path"):
                     raise RuntimeError(f"{document['label']} PDF 生成失败")

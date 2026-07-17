@@ -19,6 +19,8 @@ from modules.docgen.routes import (
     _export_rd_project_application_text,
     _pdf_cjk_font_path,
     _prepare_export_attachment_files,
+    _portrait_export_document_batches,
+    _render_portrait_export_document_batches,
     _rd_project_application_html,
     _rd_project_application_sections,
     _prepare_pymupdf_story_html,
@@ -614,6 +616,27 @@ class PdfRenderingTests(unittest.TestCase):
             1,
         )
 
+    def test_combined_portrait_documents_deduplicate_identical_styles(self):
+        shared_style = ".shared-document h1 { font-size: 15pt; }"
+        documents = [
+            {
+                "label": f"第{index + 1}份材料",
+                "html": (
+                    f"<html><head><style>{shared_style}</style></head>"
+                    f'<body class="shared-document"><h1>第{index + 1}份材料</h1></body></html>'
+                ),
+            }
+            for index in range(5)
+        ]
+
+        combined_html = _combine_portrait_export_documents(
+            documents,
+            "测试科技有限公司",
+            "TEST TECHNOLOGY CO., LTD.",
+        )
+
+        self.assertEqual(combined_html.count(shared_style), 1)
+
     def test_combined_portrait_documents_render_once_with_distinct_page_ranges(self):
         documents = [
             {
@@ -663,6 +686,110 @@ class PdfRenderingTests(unittest.TestCase):
                 self.assertIn("第二份材料", document[1].get_text())
             finally:
                 document.close()
+
+    def test_portrait_documents_render_in_batches_with_page_ranges(self):
+        documents = [
+            {
+                "label": f"第{index + 1}份材料",
+                "html": (
+                    "<html><head><style>"
+                    "@page { size: A4; margin: 28mm 16mm 18mm; }"
+                    "</style></head>"
+                    f"<body><h1>第{index + 1}份材料</h1>"
+                    f"<p>第{index + 1}份材料正文</p></body></html>"
+                ),
+            }
+            for index in range(12)
+        ]
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            with patch("modules.docgen.routes._chrome_executable", return_value=None):
+                pdf_paths = _render_portrait_export_document_batches(
+                    self.app,
+                    documents,
+                    output_dir,
+                    "测试科技有限公司",
+                    "TEST TECHNOLOGY CO., LTD.",
+                    batch_size=5,
+                )
+
+            self.assertEqual(len(pdf_paths), 3)
+            self.assertEqual(len(set(pdf_paths)), 3)
+            for index, document in enumerate(documents):
+                batch_index = index // 5
+                page_index = index % 5
+                self.assertEqual(document["pdf_path"], pdf_paths[batch_index])
+                self.assertEqual(document["from_page"], page_index)
+                self.assertEqual(document["to_page"], page_index)
+
+            page_counts = []
+            for pdf_path in pdf_paths:
+                rendered_pdf = fitz.open(pdf_path)
+                try:
+                    page_counts.append(rendered_pdf.page_count)
+                finally:
+                    rendered_pdf.close()
+            self.assertEqual(page_counts, [5, 5, 2])
+
+    def test_portrait_document_batches_do_not_mix_template_styles(self):
+        def document(label, style, body_class):
+            return {
+                "label": label,
+                "html": (
+                    f"<html><head><style>{style}</style></head>"
+                    f'<body class="{body_class}"><h1>{label}</h1></body></html>'
+                ),
+            }
+
+        documents = [
+            document("A1", ".template-a { font-size: 10pt; }", "template-a"),
+            document("A2", ".template-a { font-size: 10pt; }", "template-a"),
+            document("B1", ".template-b { font-size: 11pt; }", "template-b"),
+            document("B2", ".template-b { font-size: 11pt; }", "template-b"),
+            document("A3", ".template-a { font-size: 10pt; }", "template-a"),
+        ]
+
+        batches = _portrait_export_document_batches(documents, batch_size=5)
+
+        self.assertEqual(
+            [[document["label"] for document in batch] for batch in batches],
+            [["A1", "A2"], ["B1", "B2"], ["A3"]],
+        )
+
+    def test_pymupdf_story_splits_oversized_table_rows_without_losing_text(self):
+        long_text = (
+            "第一段研发任务已经完成关键技术验证，并形成阶段性成果。"
+            "第二段继续说明知识产权积累、产品验证和后续归档情况；"
+            "第三段补充项目测试、应用场景和成果转化进展。"
+        ) * 4
+        html = (
+            "<html><head></head><body><table><tbody>"
+            "<tr><th>序号</th><th>任务</th><th>责任人</th></tr>"
+            f"<tr><td>1</td><td>{long_text}</td><td>测试人员</td></tr>"
+            "</tbody></table></body></html>"
+        )
+
+        prepared_html = _prepare_pymupdf_story_html(html, 500)
+
+        from lxml import html as lxml_html
+
+        root = lxml_html.document_fromstring(prepared_html)
+        rows = root.xpath("//table/tbody/tr[not(contains(@class, 'pymupdf-table-sizer'))]")
+        self.assertGreater(len(rows), 2)
+        split_rows = rows[1:]
+        reconstructed = "".join(
+            " ".join(row.xpath("./td")[1].text_content().split())
+            for row in split_rows
+        )
+        self.assertEqual(reconstructed, long_text)
+        self.assertEqual(split_rows[0].xpath("./td")[0].text_content(), "1")
+        self.assertEqual(split_rows[0].xpath("./td")[2].text_content(), "测试人员")
+        self.assertTrue(
+            all(not row.xpath("./td")[0].text_content() for row in split_rows[1:])
+        )
+        self.assertTrue(
+            all(not row.xpath("./td")[2].text_content() for row in split_rows[1:])
+        )
 
     def test_export_attachment_files_resolve_concurrently_and_deduplicate_paths(self):
         active_calls = 0
