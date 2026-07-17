@@ -1841,12 +1841,16 @@ def _stamp_generated_pdf_pages(document, page_indexes, company_name, company_eng
     text_color = tuple(value / 255 for value in (75, 85, 99))
     line_color = tuple(value / 255 for value in (156, 163, 175))
     mm = 72 / 25.4
-    text_top = 14.5 * mm
-    text_bottom = 20 * mm
+    text_top = 12.25 * mm
+    text_bottom = 20.25 * mm
     line_y = 22 * mm
     header_text = " | ".join(part for part in [chinese_name, english_name] if part)
     cjk_font_path = _pdf_cjk_font_path()
-    header_font_name = "company-header-cjk" if cjk_font_path else "china-s"
+    header_font = (
+        fitz.Font(fontfile=cjk_font_path)
+        if cjk_font_path
+        else fitz.Font("china-s")
+    )
 
     overlays = {}
 
@@ -1859,29 +1863,55 @@ def _stamp_generated_pdf_pages(document, page_indexes, company_name, company_eng
             width=page.rect.width,
             height=page.rect.height,
         )
-        if cjk_font_path:
-            overlay_page.insert_font(
-                fontname=header_font_name,
-                fontfile=cjk_font_path,
-            )
         landscape = page.rect.width > page.rect.height
         horizontal_margin = (12 if landscape else 14) * mm
-        result = overlay_page.insert_textbox(
-            fitz.Rect(
-                horizontal_margin,
-                text_top,
-                page.rect.width - horizontal_margin,
-                text_bottom,
-            ),
+        available_width = page.rect.width - (2 * horizontal_margin)
+        preferred_font_size = 7.5
+        single_line_width = header_font.text_length(
             header_text,
-            fontname=header_font_name,
-            fontsize=7.5,
-            color=text_color,
-            align=fitz.TEXT_ALIGN_CENTER,
+            fontsize=preferred_font_size,
         )
-        if result < 0:
-            overlay_document.close()
-            raise RuntimeError("PDF 双语页眉文字过长，无法完整排入页面")
+        if single_line_width <= available_width:
+            header_lines = [(header_text, preferred_font_size)]
+        else:
+            header_lines = []
+            for text in (chinese_name, english_name):
+                if not text:
+                    continue
+                text_width = header_font.text_length(
+                    text,
+                    fontsize=preferred_font_size,
+                )
+                font_size = preferred_font_size
+                if text_width > available_width:
+                    font_size *= available_width / text_width
+                header_lines.append((text, max(font_size * 0.995, 1.0)))
+
+        line_heights = [
+            (header_font.ascender - header_font.descender) * font_size
+            for _, font_size in header_lines
+        ]
+        total_text_height = sum(line_heights)
+        current_y = text_top + max(
+            0,
+            ((text_bottom - text_top) - total_text_height) / 2,
+        )
+        text_writer = fitz.TextWriter(overlay_page.rect)
+        for (text, font_size), line_height in zip(header_lines, line_heights):
+            text_width = header_font.text_length(text, fontsize=font_size)
+            text_x = horizontal_margin + max(
+                0,
+                (available_width - text_width) / 2,
+            )
+            baseline_y = current_y + (header_font.ascender * font_size)
+            text_writer.append(
+                fitz.Point(text_x, baseline_y),
+                text,
+                font=header_font,
+                fontsize=font_size,
+            )
+            current_y += line_height
+        text_writer.write_text(overlay_page, color=text_color)
         overlay_page.draw_line(
             fitz.Point(horizontal_margin, line_y),
             fitz.Point(page.rect.width - horizontal_margin, line_y),

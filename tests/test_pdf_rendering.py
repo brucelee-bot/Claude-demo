@@ -105,6 +105,54 @@ class PdfRenderingTests(unittest.TestCase):
             finally:
                 document.close()
 
+    def test_long_bilingual_headers_fit_portrait_and_landscape_pages(self):
+        chinese_name = (
+            "内蒙古中煤远兴能源化工有限公司全厂电力系统安全分析及"
+            "继电保护定值计算服务项目管理中心"
+        )
+        english_name = (
+            "INNER MONGOLIA CHINA COAL YUANXING ENERGY AND CHEMICAL "
+            "INDUSTRY CO., LTD. POWER SYSTEM SAFETY ANALYSIS CENTER"
+        )
+        with tempfile.TemporaryDirectory() as output_dir:
+            pdf_path = os.path.join(output_dir, "long-header.pdf")
+            source = fitz.open()
+            try:
+                portrait = source.new_page(width=595, height=842)
+                portrait.insert_text(
+                    fitz.Point(72, 120),
+                    "portrait body",
+                    fontname="helv",
+                    fontsize=12,
+                )
+                landscape = source.new_page(width=842, height=595)
+                landscape.insert_text(
+                    fitz.Point(72, 120),
+                    "landscape body",
+                    fontname="helv",
+                    fontsize=12,
+                )
+                source.save(pdf_path)
+            finally:
+                source.close()
+
+            with patch("modules.docgen.routes._pdf_cjk_font_path", return_value=""):
+                _stamp_pdf_file_headers(pdf_path, chinese_name, english_name)
+
+            document = fitz.open(pdf_path)
+            try:
+                self.assertEqual(document.page_count, 2)
+                for page, body_text in zip(
+                    document,
+                    ("portrait body", "landscape body"),
+                ):
+                    page_text = page.get_text()
+                    self.assertIn(chinese_name, page_text)
+                    self.assertIn(english_name, page_text)
+                    self.assertIn(body_text, page_text)
+            finally:
+                document.close()
+
     def test_multiple_fallback_documents_render_as_separate_pdfs(self):
         with tempfile.TemporaryDirectory() as output_dir:
             generated_paths = []
