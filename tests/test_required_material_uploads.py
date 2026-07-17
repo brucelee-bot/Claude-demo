@@ -123,7 +123,8 @@ class RequiredMaterialTemplateTests(unittest.TestCase):
                 f"onchange=\"uploadSalesContracts('{year}', this.files)\"",
                 self.upload_template,
             )
-        self.assertIn("const MAX_SALES_CONTRACTS_PER_YEAR = 4;", self.upload_template)
+        self.assertNotIn("MAX_SALES_CONTRACTS_PER_YEAR", self.upload_template)
+        self.assertIn("按年度保存，可上传多份 PDF", self.upload_template)
         self.assertIn("fd.append('year', year);", self.upload_template)
 
 
@@ -247,6 +248,23 @@ class RequiredMaterialSalesContractTests(unittest.TestCase):
             patch.dict(_required_material_store, {}, clear=True),
         ):
             client = app.test_client()
+            store_key = "direct-upload-more-than-four"
+            with client.session_transaction() as client_session:
+                client_session["required_material_store_key"] = store_key
+            _required_material_store[store_key] = {
+                "finance": [],
+                "staff": {},
+                "sales_contracts": [
+                    {
+                        "id": f"existing-{index}",
+                        "year": "2024",
+                        "contract_sequence": index,
+                        "contract_code": f"2024合同{index:02d}",
+                        "original_filename": f"已有合同{index}.pdf",
+                    }
+                    for index in range(1, 5)
+                ],
+            }
             ticket_response = client.post(
                 "/parser/sales_contract_upload_ticket",
                 json={
@@ -276,14 +294,15 @@ class RequiredMaterialSalesContractTests(unittest.TestCase):
 
             self.assertEqual(register_response.status_code, 200)
             saved = register_response.get_json()["file"]
-            self.assertEqual(saved["contract_code"], "2024合同01")
+            self.assertEqual(saved["contract_code"], "2024合同05")
             self.assertEqual(saved["summary"], "")
             self.assertEqual(saved["keywords"], "")
             self.assertEqual(saved["size"], 6 * 1024 * 1024)
+            self.assertEqual(register_response.get_json()["count"], 5)
             extract_text.assert_not_called()
             extract_info.assert_not_called()
 
-    def test_each_contract_year_accepts_at_most_four_pdfs(self):
+    def test_each_contract_year_accepts_more_than_four_pdfs(self):
         class TestAnonymousUser(AnonymousUserMixin):
             id = 1
 
@@ -310,7 +329,7 @@ class RequiredMaterialSalesContractTests(unittest.TestCase):
             patch.dict(_required_material_store, {}, clear=True),
         ):
             client = app.test_client()
-            for index in range(1, 5):
+            for index in range(1, 7):
                 response = client.post(
                     "/parser/upload_sales_contract",
                     data={
@@ -332,17 +351,6 @@ class RequiredMaterialSalesContractTests(unittest.TestCase):
                 self.assertEqual(payload["file"]["summary"], "")
                 self.assertEqual(payload["file"]["keywords"], "")
                 self.assertEqual(payload["count"], index)
-
-            over_limit = client.post(
-                "/parser/upload_sales_contract",
-                data={
-                    "year": "2023",
-                    "file": (io.BytesIO(b"%PDF-2023-5"), "2023年销售合同5.pdf"),
-                },
-                content_type="multipart/form-data",
-            )
-            self.assertEqual(over_limit.status_code, 422)
-            self.assertIn("最多上传 4 份", over_limit.get_json()["error"])
 
             next_year = client.post(
                 "/parser/upload_sales_contract",
@@ -370,6 +378,8 @@ class RequiredMaterialSalesContractTests(unittest.TestCase):
                     "2023合同02",
                     "2023合同03",
                     "2023合同04",
+                    "2023合同05",
+                    "2023合同06",
                     "2024合同01",
                 ],
             )
@@ -568,15 +578,21 @@ class RequiredMaterialDeletionTests(unittest.TestCase):
 
         ensure_sales_contract_codes(contracts, relation_rows)
         options = selectable_sales_contracts(contracts, relation_rows)
+        relation_options = _relation_sales_contract_options(contracts)
         remap_sales_contract_rows(relation_rows, contracts)
 
-        self.assertEqual(
-            [item["contract_code"] for item in options],
-            ["2023合同01", "2023合同02", "2023合同03", "2023合同04"],
-        )
+        expected_codes = [
+            "2023合同01",
+            "2023合同02",
+            "2023合同03",
+            "2023合同04",
+            "2023合同05",
+        ]
+        self.assertEqual([item["contract_code"] for item in options], expected_codes)
+        self.assertEqual([item["code"] for item in relation_options], expected_codes)
         self.assertEqual(contracts[2]["duplicate_of"], "b")
         self.assertEqual(contracts[2]["contract_code"], "2023合同02")
-        self.assertNotIn("contract_code", contracts[5])
+        self.assertEqual(contracts[5]["contract_code"], "2023合同05")
         self.assertEqual(relation_rows[1]["sales_contract_file_id"], "b")
         self.assertEqual(relation_rows[1]["sales_contract_code"], "2023合同02")
 

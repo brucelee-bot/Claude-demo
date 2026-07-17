@@ -4,7 +4,6 @@ import re
 
 
 SALES_CONTRACT_YEARS = ("2023", "2024", "2025")
-MAX_SALES_CONTRACTS_PER_YEAR = 4
 
 
 def format_sales_contract_code(year, sequence):
@@ -19,13 +18,20 @@ def format_sales_contract_code(year, sequence):
 
 
 def parse_sales_contract_sequence(code, year=""):
-    match = re.fullmatch(r"(2023|2024|2025)合同(\d{2})", str(code or "").strip())
+    match = re.fullmatch(r"(2023|2024|2025)合同(\d+)", str(code or "").strip())
     if not match:
         return 0
     if year and match.group(1) != str(year).strip():
         return 0
     sequence = int(match.group(2))
-    return sequence if 1 <= sequence <= MAX_SALES_CONTRACTS_PER_YEAR else 0
+    return sequence if sequence >= 1 else 0
+
+
+def _next_available_sequence(used_sequences):
+    sequence = 1
+    while sequence in used_sequences:
+        sequence += 1
+    return sequence
 
 
 def sales_contract_file_sha256(path):
@@ -129,7 +135,7 @@ def ensure_sales_contract_codes(contracts, relation_rows=None):
                 candidate = int(item.get("contract_sequence") or 0)
             except (TypeError, ValueError):
                 candidate = 0
-            sequence = candidate if 1 <= candidate <= MAX_SALES_CONTRACTS_PER_YEAR else 0
+            sequence = candidate if candidate >= 1 else 0
         if year in used_by_year and sequence and sequence not in used_by_year[year]:
             item["contract_sequence"] = sequence
             item["contract_code"] = format_sales_contract_code(year, sequence)
@@ -142,16 +148,7 @@ def ensure_sales_contract_codes(contracts, relation_rows=None):
         year = str(item.get("year") or "").strip()
         if year not in used_by_year or item.get("contract_code"):
             continue
-        sequence = next(
-            (
-                candidate
-                for candidate in range(1, MAX_SALES_CONTRACTS_PER_YEAR + 1)
-                if candidate not in used_by_year[year]
-            ),
-            0,
-        )
-        if not sequence:
-            continue
+        sequence = _next_available_sequence(used_by_year[year])
         item["contract_sequence"] = sequence
         item["contract_code"] = format_sales_contract_code(year, sequence)
         used_by_year[year].add(sequence)
@@ -229,12 +226,5 @@ def next_sales_contract_identity(contracts, year):
         for item in items
         if str(item.get("year") or "").strip() == year_text
     }
-    sequence = next(
-        (
-            candidate
-            for candidate in range(1, MAX_SALES_CONTRACTS_PER_YEAR + 1)
-            if candidate not in used
-        ),
-        0,
-    )
+    sequence = _next_available_sequence(used)
     return sequence, format_sales_contract_code(year_text, sequence)

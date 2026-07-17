@@ -102,14 +102,14 @@
     <div class="required-material-content">
       <div class="required-material-title">
         <strong>销售合同</strong>
-        <span>按年度保存，每年最多 4 份 PDF，此处不解析合同内容</span>
+        <span>按年度保存，可上传多份 PDF，此处不解析合同内容</span>
       </div>
 
       <div class="sales-contract-year-grid">
         <div class="sales-contract-year-group" data-contract-year="2023">
           <div class="sales-contract-year-heading">
             <strong>2023年销售合同</strong>
-            <span id="sales-contract-count-2023">0/4 份</span>
+            <span id="sales-contract-count-2023">0 份</span>
           </div>
           <div class="upload-zone material-drop-zone sales-contract-drop-zone" id="sales-contract-upload-zone-2023"
                role="button" tabindex="0"
@@ -120,7 +120,7 @@
                ondrop="event.preventDefault();this.classList.remove('drag-over');uploadSalesContracts('2023', event.dataTransfer.files)">
             <div class="icon">📁</div>
             <p class="material-drop-title">拖拽或点击上传</p>
-            <p class="hint">2023年合同，最多 4 份 PDF</p>
+            <p class="hint">2023年合同，支持多份 PDF</p>
           </div>
           <input type="file" id="sales-contract-files-2023" accept=".pdf,application/pdf" multiple
                  style="display:none" onchange="uploadSalesContracts('2023', this.files)" />
@@ -131,7 +131,7 @@
         <div class="sales-contract-year-group" data-contract-year="2024">
           <div class="sales-contract-year-heading">
             <strong>2024年销售合同</strong>
-            <span id="sales-contract-count-2024">0/4 份</span>
+            <span id="sales-contract-count-2024">0 份</span>
           </div>
           <div class="upload-zone material-drop-zone sales-contract-drop-zone" id="sales-contract-upload-zone-2024"
                role="button" tabindex="0"
@@ -142,7 +142,7 @@
                ondrop="event.preventDefault();this.classList.remove('drag-over');uploadSalesContracts('2024', event.dataTransfer.files)">
             <div class="icon">📁</div>
             <p class="material-drop-title">拖拽或点击上传</p>
-            <p class="hint">2024年合同，最多 4 份 PDF</p>
+            <p class="hint">2024年合同，支持多份 PDF</p>
           </div>
           <input type="file" id="sales-contract-files-2024" accept=".pdf,application/pdf" multiple
                  style="display:none" onchange="uploadSalesContracts('2024', this.files)" />
@@ -153,7 +153,7 @@
         <div class="sales-contract-year-group" data-contract-year="2025">
           <div class="sales-contract-year-heading">
             <strong>2025年销售合同</strong>
-            <span id="sales-contract-count-2025">0/4 份</span>
+            <span id="sales-contract-count-2025">0 份</span>
           </div>
           <div class="upload-zone material-drop-zone sales-contract-drop-zone" id="sales-contract-upload-zone-2025"
                role="button" tabindex="0"
@@ -164,7 +164,7 @@
                ondrop="event.preventDefault();this.classList.remove('drag-over');uploadSalesContracts('2025', event.dataTransfer.files)">
             <div class="icon">📁</div>
             <p class="material-drop-title">拖拽或点击上传</p>
-            <p class="hint">2025年合同，最多 4 份 PDF</p>
+            <p class="hint">2025年合同，支持多份 PDF</p>
           </div>
           <input type="file" id="sales-contract-files-2025" accept=".pdf,application/pdf" multiple
                  style="display:none" onchange="uploadSalesContracts('2025', this.files)" />
@@ -605,7 +605,6 @@ async function deleteStaffList() {
   }
 }
 
-const MAX_SALES_CONTRACTS_PER_YEAR = 4;
 let recognizedSalesContracts = [];
 
 function salesContractsForYear(year) {
@@ -616,7 +615,7 @@ function renderSalesContractPreview(year) {
   const preview = document.getElementById('sales-contract-preview-' + year);
   const counter = document.getElementById('sales-contract-count-' + year);
   const yearContracts = salesContractsForYear(year);
-  counter.textContent = `${yearContracts.length}/${MAX_SALES_CONTRACTS_PER_YEAR} 份`;
+  counter.textContent = `${yearContracts.length} 份`;
   if (!yearContracts.length) {
     preview.style.display = 'none';
     return;
@@ -647,19 +646,6 @@ async function uploadSalesContracts(year, selectedFiles) {
     alert('销售合同仅支持 PDF 文件：' + nonPdf.name);
     return;
   }
-  const existingCount = salesContractsForYear(year).length;
-  const remaining = MAX_SALES_CONTRACTS_PER_YEAR - existingCount;
-  if (remaining <= 0) {
-    alert(`${year} 年销售合同已上传 4 份，不能继续上传`);
-    input.value = '';
-    return;
-  }
-  if (files.length > remaining) {
-    alert(`${year} 年还可上传 ${remaining} 份合同，请重新选择`);
-    input.value = '';
-    return;
-  }
-
   zone.classList.add('is-uploading');
   zone.setAttribute('aria-busy', 'true');
   let completed = 0;
@@ -683,7 +669,7 @@ async function uploadSalesContracts(year, selectedFiles) {
       completed += 1;
       renderSalesContractPreview(year);
     }
-    status.textContent = `已保存并编号，${year} 年共 ${salesContractsForYear(year).length}/4 份`;
+    status.textContent = `已保存并编号，${year} 年共 ${salesContractsForYear(year).length} 份`;
     input.value = '';
   } catch (err) {
     status.textContent = `已完成 ${completed}/${files.length}`;
@@ -803,7 +789,7 @@ async function deleteSalesContract(fileId) {
     if (year) {
       renderSalesContractPreview(year);
       document.getElementById('sales-contract-status-' + year).textContent =
-        `${year} 年共 ${salesContractsForYear(year).length}/4 份`;
+        `${year} 年共 ${salesContractsForYear(year).length} 份`;
     }
   } catch (error) {
     alert('销售合同删除失败：' + error.message);

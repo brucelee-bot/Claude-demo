@@ -17,7 +17,6 @@ from modules.docgen.date_logic import (
 )
 from modules.docgen.product_terms import infer_ps_kind, normalize_ps_reference_text, ps_type_label
 from modules.docgen.sales_contracts import (
-    MAX_SALES_CONTRACTS_PER_YEAR,
     SALES_CONTRACT_YEARS,
     ensure_sales_contract_codes,
     next_sales_contract_identity,
@@ -530,13 +529,6 @@ def sales_contract_upload_ticket():
             contract_year,
         )
 
-    year_count = _sales_contract_year_count(materials, contract_year)
-    if year_count >= MAX_SALES_CONTRACTS_PER_YEAR:
-        return jsonify({
-            "success": False,
-            "error": f"{contract_year} 年销售合同最多上传 {MAX_SALES_CONTRACTS_PER_YEAR} 份",
-        }), 422
-
     if not blob_enabled():
         return jsonify({"success": True, "direct_upload": False})
 
@@ -612,13 +604,6 @@ def register_sales_contract():
         )
 
     year_count = _sales_contract_year_count(materials, contract_year)
-    if year_count >= MAX_SALES_CONTRACTS_PER_YEAR:
-        delete_file(relative_path)
-        return jsonify({
-            "success": False,
-            "error": f"{contract_year} 年销售合同最多上传 {MAX_SALES_CONTRACTS_PER_YEAR} 份",
-        }), 422
-
     contract_sequence, contract_code = next_sales_contract_identity(
         materials["sales_contracts"],
         contract_year,
@@ -689,11 +674,6 @@ def upload_sales_contract():
         )
 
     year_count = _sales_contract_year_count(materials, contract_year)
-    if year_count >= MAX_SALES_CONTRACTS_PER_YEAR:
-        return jsonify({
-            "success": False,
-            "error": f"{contract_year} 年销售合同最多上传 {MAX_SALES_CONTRACTS_PER_YEAR} 份",
-        }), 422
     contract_sequence, contract_code = next_sales_contract_identity(
         materials["sales_contracts"],
         contract_year,
