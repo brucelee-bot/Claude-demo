@@ -42,7 +42,7 @@ def _load_config():
         return {
             "base_url": env_cfg["base_url"],
             "api_key": env_cfg["api_key"],
-            "model": env_cfg["model"] or "gpt-5.4-mini",
+            "model": env_cfg["model"] or "gpt-5.6-sol",
         }
 
     try:
@@ -56,14 +56,14 @@ def _load_config():
             return {
                 "base_url": model_cfg.get("base_url", "https://api.psydo.top/v1"),
                 "api_key": model_cfg.get("api_key", ""),
-                "model": model_cfg.get("default", "gpt-5.4-mini"),
+                "model": model_cfg.get("default", "gpt-5.6-sol"),
             }
     except Exception:
         pass
     return {
         "base_url": env_cfg["base_url"],
         "api_key": env_cfg["api_key"],
-        "model": env_cfg["model"] or "gpt-5.4-mini",
+        "model": env_cfg["model"] or "gpt-5.6-sol",
     }
 
 
@@ -129,7 +129,7 @@ def _model_candidates(primary_model):
     for candidate in [primary_model, *fallbacks]:
         if candidate and candidate not in candidates:
             candidates.append(candidate)
-    return candidates or ["gpt-5.4-mini"]
+    return candidates or ["gpt-5.6-sol"]
 
 
 def _extract_content_from_chunked_response(raw: str) -> dict:
@@ -216,7 +216,7 @@ def call_llm(
     """
     base_url = _CONFIG.get("base_url", "").rstrip("/")
     api_key = _CONFIG.get("api_key", "")
-    model = model or _CONFIG.get("model", "gpt-5.4-mini")
+    model = model or _CONFIG.get("model", "gpt-5.6-sol")
 
     if not base_url or not api_key:
         return {"success": False, "error": "LLM 未配置 (base_url 或 api_key 缺失)"}

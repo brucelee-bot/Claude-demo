@@ -22,9 +22,9 @@ services:
       - key: LLM_API_KEY
         sync: false
       - key: LLM_MODEL
-        value: gpt-5.4-mini
+        value: gpt-5.6-sol
       - key: LLM_FALLBACK_MODELS
-        value: gpt-5.4
+        value: gpt-5.4-mini,gpt-5.4
       - key: MAX_CONTENT_LENGTH
         value: "52428800"
       - key: MAX_FORM_MEMORY_SIZE

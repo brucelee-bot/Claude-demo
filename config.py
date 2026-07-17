@@ -31,4 +31,4 @@ class Config:
     # AI / LLM 配置
     LLM_API_BASE = os.getenv("LLM_API_BASE", "https://api.psydo.top/v1")
     LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-    LLM_MODEL = os.getenv("LLM_MODEL", "gpt-5.4-mini")
+    LLM_MODEL = os.getenv("LLM_MODEL", "gpt-5.6-sol")
