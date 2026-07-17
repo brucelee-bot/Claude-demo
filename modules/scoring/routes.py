@@ -348,7 +348,7 @@ def zhuanjing():
         form_data = request.form.to_dict()
         score_data = _build_zhuanjing_score_data(form_data)
         result = calculate(score_data, rule_type="专精特新")
-        ai_analysis = analyze(result, score_data)
+        ai_analysis = analyze(result, score_data, use_llm=False)
 
         company_name = form_data.get("company_name", "未命名企业").strip()
         company = _get_or_create_company(company_name, "专精特新", score_data)
@@ -374,7 +374,7 @@ def xiaojuren():
         form_data = request.form.to_dict()
         score_data = _build_zhuanjing_score_data(form_data)
         result = calculate(score_data, rule_type="小巨人")
-        ai_analysis = analyze(result, score_data)
+        ai_analysis = analyze(result, score_data, use_llm=False)
 
         # 基本条件校验
         conditions = _check_xiaojuren_conditions(form_data)
@@ -436,8 +436,8 @@ def gaoxin():
         if finance_validation:
             result["finance_validation"] = finance_validation
 
-        # AI 定性分析
-        ai_analysis = analyze(result, score_data)
+        # 评分提交必须立即完成，定性分析使用本地规则引擎。
+        ai_analysis = analyze(result, score_data, use_llm=False)
 
         # 保存到数据库：同一公司+申报类型再次评分时更新原记录
         company_name = form_data.get("company_name", "未命名企业").strip()
@@ -515,7 +515,7 @@ def result():
             else:
                 # 旧记录无 AI 分析，用规则引擎生成
                 from modules.ai.analyzer import analyze
-                ai_analysis = analyze(result_json)
+                ai_analysis = analyze(result_json, use_llm=False)
 
     if not result_json:
         flash("暂无评分结果，请先进行评分", "error")

@@ -6,12 +6,12 @@ def _model_name() -> str:
     return (os.getenv("CLAUDE_MODEL") or os.getenv("ANTHROPIC_MODEL") or "mimo-v2.5").strip()
 
 
-def _client(timeout: int = 60):
+def _client(timeout: int = 60, max_retries: int = 1):
     import anthropic
 
     api_key = (os.getenv("CLAUDE_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or "").strip()
     base_url = (os.getenv("CLAUDE_API_BASE") or os.getenv("ANTHROPIC_BASE_URL") or "").strip()
-    kwargs = {"timeout": timeout, "max_retries": 2}
+    kwargs = {"timeout": timeout, "max_retries": max(0, min(2, int(max_retries)))}
     if api_key:
         kwargs["api_key"] = api_key
     if base_url:
@@ -27,11 +27,17 @@ def _response_text(response) -> str:
     return "".join(parts).strip()
 
 
-def call_claude(messages: list, system: str = None, max_tokens: int = 2048, timeout: int = 60,
-                output_config: dict = None) -> dict:
+def call_claude(
+    messages: list,
+    system: str = None,
+    max_tokens: int = 2048,
+    timeout: int = 60,
+    output_config: dict = None,
+    max_retries: int = 1,
+) -> dict:
     """Call Claude through the official Anthropic SDK."""
     try:
-        client = _client(timeout=timeout)
+        client = _client(timeout=timeout, max_retries=max_retries)
     except Exception as exc:
         return {"success": False, "error": f"Claude 客户端不可用: {str(exc)[:200]}"}
 

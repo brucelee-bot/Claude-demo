@@ -4,6 +4,7 @@ import json
 import re
 import uuid
 import hashlib
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, send_file, session
 from flask_login import login_required, current_user
@@ -45,6 +46,89 @@ def _normalize_ai_text_spacing(text):
     text = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
     text = "\n".join(line.rstrip() for line in text.split("\n"))
     return re.sub(r"\n[ \t　]*\n+", "\n", text)
+
+
+def _generate_rd_application_sections(
+    call_llm,
+    project_desc,
+    field_guide,
+    template_instruction,
+    global_time_rule,
+    target_words,
+):
+    section_groups = (
+        (
+            "立项与技术方案",
+            "立项背景与必要性、拟解决的技术问题、研发目标与考核指标、研发内容、技术路线",
+        ),
+        (
+            "实施与管理",
+            "创新点、项目组织与任务分工、经费预算、计划进度、过程记录与质量控制",
+        ),
+        (
+            "成果与验收",
+            "预期成果与阶段成果、RD-IP-PS关联、验收指标对照、验收意见、验收结论",
+        ),
+    )
+    section_target = max(300, int(target_words / 5))
+    section_max_words = int(section_target * 1.1)
+    section_max_tokens = 1000
+
+    def generate(group):
+        group_name, headings = group
+        prompt = f"""你正在分段撰写一份完整的高新技术企业科研项目书。本次只撰写“{group_name}”这一组章节。
+
+企业及项目上下文：
+{project_desc}
+
+本组必须依次使用以下标题：
+{headings}
+
+完整项目书撰写要求：
+{field_guide}{template_instruction}{global_time_rule}
+
+本组要求：
+1. 只输出本组列出的章节，不要输出其他组章节，不要重复项目书总标题。
+2. 各章节必须结合项目实际，明确研究对象、应用场景和技术路线。
+3. 本组合计约 {section_target} 字，允许上下浮动 10%，不得超过 {section_max_words} 字。
+4. 未提供的量化指标、人员、费用明细、检测数据和日期写“待补充”，不得编造。
+5. 用户提供模板时，只参考模板中与本组标题对应的内容和结构。
+6. 不要输出 Markdown 符号，段落之间只保留一个换行，直接输出正文。"""
+        return call_llm(
+            [
+                {
+                    "role": "system",
+                    "content": "你是高新技术企业科研项目书撰写专家，只输出指定章节正文。",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.5,
+            max_tokens=section_max_tokens,
+            timeout=40,
+            max_attempts=2,
+        )
+
+    with ThreadPoolExecutor(max_workers=len(section_groups)) as executor:
+        results = list(executor.map(generate, section_groups))
+
+    failed = [
+        result.get("error") or "上游模型未返回内容"
+        for result in results
+        if not result.get("success")
+    ]
+    if failed:
+        return {
+            "success": False,
+            "error": f"科研项目书分段生成失败：{failed[0]}",
+        }
+
+    sections = [
+        _normalize_ai_text_spacing(result.get("content") or "")
+        for result in results
+    ]
+    if any(not section for section in sections):
+        return {"success": False, "error": "科研项目书部分章节为空，请重试"}
+    return {"success": True, "content": "\n".join(sections)}
 
 
 def _ip_store_key() -> str:
@@ -1061,7 +1145,7 @@ def ai_polish_intro():
         target_words = int(data.get("target_words") or 500)
     except (TypeError, ValueError):
         target_words = 500
-    target_words = max(100, min(3200 if field == "rd_application" else 2000, target_words))
+    target_words = max(100, min(2000, target_words))
 
     if not draft:
         return jsonify({"success": False, "error": "请先填写企业简介草稿"}), 400
@@ -1089,7 +1173,7 @@ def ai_polish_intro():
     result = call_llm([
         {"role": "system", "content": "你是高新技术企业认定申报书撰写专家，只输出最终正文。"},
         {"role": "user", "content": prompt},
-    ], temperature=0.4, max_tokens=max_tokens)
+    ], temperature=0.4, max_tokens=max_tokens, timeout=45, max_attempts=2)
 
     if not result.get("success"):
         return jsonify({"success": False, "error": result.get("error", "AI 调用失败")}), 500
@@ -1140,7 +1224,7 @@ def ai_polish_business_scope():
     result = call_llm([
         {"role": "system", "content": "你是高新技术企业认定申报书撰写专家，只输出最终经营范围正文。"},
         {"role": "user", "content": prompt},
-    ], temperature=0.3, max_tokens=max_tokens)
+    ], temperature=0.3, max_tokens=max_tokens, timeout=35, max_attempts=2)
 
     if not result.get("success"):
         return jsonify({"success": False, "error": result.get("error", "AI 调用失败")}), 500
@@ -1165,7 +1249,10 @@ def ai_write():
         target_words = int(data.get("target_words") or 400)
     except (TypeError, ValueError):
         target_words = 400
-    target_words = max(100, min(2000, target_words))
+    target_words = max(
+        100,
+        min(3200 if field == "rd_application" else 2000, target_words),
+    )
 
     if field not in ("purpose", "innovation", "result", "rd_application", "hitech_product_summary", "ps_statement", "ps_tech", "ps_advantage", "ps_support",
                       "innovation_ip", "innovation_transform", "innovation_rd_mgmt", "innovation_staff", "cv_desc", "achievement_test_report", "achievement_user_report"):
@@ -1391,7 +1478,7 @@ RD序号：{rd_code}
 要求：
 1. 语言专业、简洁，符合高新技术企业申报书风格
 2. 结合给定信息，避免空洞套话
-3. 目标长度为 {target_words} 字，尽量贴近该字数，允许上下浮动 10%
+3. 目标长度为 {target_words} 字，尽量贴近该字数，允许上下浮动 10%，不得超过 {int(target_words * 1.1)} 字
 4. 不得编造具体数据、专利、客户、资质、荣誉或财务信息
 5. 段落之间只保留一个换行，不要输出连续空行
 6. 直接输出正文，不要加任何前缀说明{ps_term_rule}"""
@@ -1401,11 +1488,27 @@ RD序号：{rd_code}
     except Exception:
         return jsonify({"success": False, "error": "AI 客户端不可用"}), 500
 
-    max_tokens = max(800, min(4000, int(target_words * 2.2)))
-    result = call_llm([
-        {"role": "system", "content": "你是高新技术企业认定申报材料撰写专家。若用户提供模板，必须以模板为主，只扩写占位符并保留原结构；只输出最终正文。"},
-        {"role": "user", "content": prompt},
-    ], temperature=0.7, max_tokens=max_tokens)
+    if field == "rd_application":
+        result = _generate_rd_application_sections(
+            call_llm,
+            project_desc,
+            field_guides[field],
+            template_instruction,
+            global_time_rule,
+            target_words,
+        )
+    else:
+        max_tokens = max(800, min(4000, int(target_words * 2.2)))
+        result = call_llm(
+            [
+                {"role": "system", "content": "你是高新技术企业认定申报材料撰写专家。若用户提供模板，必须以模板为主，只扩写占位符并保留原结构；只输出最终正文。"},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+            max_tokens=max_tokens,
+            timeout=45,
+            max_attempts=2,
+        )
 
     if not result.get("success"):
         return jsonify({"success": False, "error": result.get("error", "AI 调用失败")}), 500

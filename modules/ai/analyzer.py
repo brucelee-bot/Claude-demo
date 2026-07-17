@@ -4,7 +4,7 @@ AI 定性分析引擎 — 基于评分结果生成评估报告
 from typing import Any
 
 
-def analyze(result: dict, data: dict = None) -> dict:
+def analyze(result: dict, data: dict = None, use_llm: bool = True) -> dict:
     """
     输入评分结果，输出结构化分析
     优先使用 LLM，失败时回退到规则引擎
@@ -19,14 +19,14 @@ def analyze(result: dict, data: dict = None) -> dict:
         "risk_level": "低/中/高",
     }
     """
-    # 尝试 LLM 分析
-    try:
-        from modules.ai.llm_client import analyze_scoring_result
-        llm_result = analyze_scoring_result(result, data)
-        if llm_result:
-            return llm_result
-    except Exception:
-        pass  # LLM 不可用，回退到规则引擎
+    if use_llm:
+        try:
+            from modules.ai.llm_client import analyze_scoring_result
+            llm_result = analyze_scoring_result(result, data)
+            if llm_result:
+                return llm_result
+        except Exception:
+            pass
 
     return _rule_based_analyze(result)
 

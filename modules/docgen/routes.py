@@ -458,7 +458,7 @@ JSON 格式：
     result = call_llm([
         {"role": "system", "content": "你是高新技术企业申报材料顾问，擅长从销售合同、采购合同和表格型 PDF 中识别主要产品/服务内容。输出必须是可解析 JSON。"},
         {"role": "user", "content": prompt},
-    ], temperature=0.1, max_tokens=900, timeout=75)
+    ], temperature=0.1, max_tokens=900, timeout=60, max_attempts=1)
     data = _extract_json_object(result.get("content")) if result.get("success") else None
     if isinstance(data, dict):
         summary = str(data.get("summary") or data.get("摘要") or "").strip()
@@ -3806,7 +3806,7 @@ JSON 格式：
     result = call_llm([
         {"role": "system", "content": "你是高新技术企业认定申报顾问，擅长把同一研发项目下的多个知识产权名称和成果名称综合归纳为一个研发活动名称。输出必须是可解析 JSON，且必须以“的研发”结尾。"},
         {"role": "user", "content": prompt},
-    ], temperature=0.2, max_tokens=300, timeout=45)
+    ], temperature=0.2, max_tokens=300, timeout=35, max_attempts=1)
     fallback = _fallback_rd_activity(source_rows)
     if not result.get("success"):
         return {"success": True, "rd_activity": fallback}
@@ -3906,7 +3906,7 @@ JSON 格式：
     result = call_llm([
         {"role": "system", "content": "你是高新技术企业认定申报顾问，擅长把多个研发活动名称归纳为一个产品或服务名称。输出必须是可解析 JSON。"},
         {"role": "user", "content": prompt},
-    ], temperature=0.2, max_tokens=300, timeout=45)
+    ], temperature=0.2, max_tokens=300, timeout=35, max_attempts=1)
     fallback = _fallback_ps_name(source_rows, business_type)
     if not result.get("success"):
         return {"success": True, "ps_name": fallback}
@@ -3954,7 +3954,7 @@ JSON 格式：
     result = call_llm([
         {"role": "system", "content": "你是高新技术企业认定申报顾问，擅长基于专利内容和销售合同内容生成科技成果名称。只能使用已提供的事实依据；两类依据同时存在时需要综合使用。输出必须是可解析 JSON。"},
         {"role": "user", "content": prompt},
-    ], temperature=0.2, max_tokens=400, timeout=45)
+    ], temperature=0.2, max_tokens=400, timeout=40, max_attempts=2)
     if not result.get("success"):
         return {"success": False, "error": result.get("error") or "AI 生成失败"}
 
@@ -4401,6 +4401,7 @@ def assistant():
                         "warnings": [],
                     },
                     json.loads(selected_company.data_json or "{}") if selected_company.data_json else None,
+                    use_llm=False,
                 )
             selected_recommendations = selected_analysis.get("recommendations", [])[:3]
             selected_warnings = [w for w in (selected_score.breakdown_json and [])]
@@ -4476,6 +4477,7 @@ def assistant_brief():
                     "warnings": [],
                 },
                 data,
+                use_llm=False,
             )
     else:
         analysis = {
@@ -6434,6 +6436,7 @@ def gaoxin_system_docs_ai_generate(company_id):
         temperature=0.65,
         max_tokens=max(1600, min(5200, int(target_words * 2.4))),
         timeout=90,
+        max_attempts=1,
     )
     if not result.get("success"):
         return jsonify({"success": False, "error": result.get("error", "AI 调用失败")}), 500
@@ -6500,7 +6503,8 @@ def gaoxin_system_docs_ai_generate_evidence(company_id):
         ],
         temperature=0.55,
         max_tokens=2600,
-        timeout=90,
+        timeout=70,
+        max_attempts=1,
     )
     if not result.get("success"):
         return jsonify({"success": False, "error": result.get("error", "AI 调用失败")}), 500

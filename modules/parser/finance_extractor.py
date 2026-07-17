@@ -245,17 +245,18 @@ def _llm_extract_financials_from_raw(filepath: str, provider: str) -> tuple:
             [{"role": "user", "content": prompt}],
             system="你是财务报表数据抽取助手，只输出可解析的 JSON。",
             max_tokens=1800,
-            timeout=80,
+            timeout=50,
+            max_retries=0,
         )
     else:
         try:
             from modules.ai.llm_client import call_llm
         except Exception as exc:
-            return {}, f"GPT-5.5 客户端不可用: {str(exc)[:120]}"
+            return {}, f"LLM 客户端不可用: {str(exc)[:120]}"
         result = call_llm([
             {"role": "system", "content": "你是财务报表数据抽取助手，只输出可解析的 JSON。"},
             {"role": "user", "content": prompt},
-        ], temperature=0.0, max_tokens=1800)
+        ], temperature=0.0, max_tokens=1800, timeout=60, max_attempts=1)
 
     if not result.get("success"):
         return {}, result.get("error") or f"{provider} 调用失败"
@@ -270,8 +271,8 @@ def _claude_extract_financials_from_raw(filepath: str) -> tuple:
     return _llm_extract_financials_from_raw(filepath, "claude")
 
 
-def _gpt55_extract_financials_from_raw(filepath: str) -> tuple:
-    return _llm_extract_financials_from_raw(filepath, "gpt-5.5")
+def _secondary_llm_extract_financials_from_raw(filepath: str) -> tuple:
+    return _llm_extract_financials_from_raw(filepath, "llm")
 
 
 def _llm_normalize_financials(raw: dict) -> dict:
@@ -304,7 +305,7 @@ def _llm_normalize_financials(raw: dict) -> dict:
     result = call_llm([
         {"role": "system", "content": "你是财务报表结构化抽取助手，只输出严格 JSON。"},
         {"role": "user", "content": prompt},
-    ], temperature=0.0, max_tokens=1200)
+    ], temperature=0.0, max_tokens=1200, timeout=35, max_attempts=1)
     if not result.get("success"):
         return {}
     try:
@@ -1099,7 +1100,7 @@ def _build_validation(primary: dict, verifier: dict, claude_error: str = "", ver
 
     return {
         "primary_source": "local_rules_then_claude",
-        "secondary_source": "gpt-5.5",
+        "secondary_source": "configured_llm",
         "claude_error": claude_error,
         "verifier_error": verifier_error,
         "matched": matched,
@@ -1124,7 +1125,7 @@ def _extract_rule_data(filepath: str) -> dict:
 
 
 def extract_with_validation(filepath: str) -> dict:
-    """Extract financial data with Claude-first recognition and GPT-5.5 validation."""
+    """Extract financial data with Claude-first recognition and LLM validation."""
     rule_data = _extract_rule_data(filepath)
     if rule_data.get("error"):
         return {"data": rule_data, "validation": {"status": "error"}, "sources": {}}
@@ -1137,18 +1138,19 @@ def extract_with_validation(filepath: str) -> dict:
         _normalize_for_gaoxin_score(claude_data, fallback_year),
     )
 
-    gpt55_data, gpt55_error = _gpt55_extract_financials_from_raw(filepath)
-    normalized_gpt55 = _normalize_for_gaoxin_score(gpt55_data, fallback_year)
-    validation = _build_validation(primary, normalized_gpt55, claude_error, gpt55_error)
+    secondary_data, secondary_error = _secondary_llm_extract_financials_from_raw(filepath)
+    normalized_secondary = _normalize_for_gaoxin_score(secondary_data, fallback_year)
+    validation = _build_validation(primary, normalized_secondary, claude_error, secondary_error)
 
-    normalized = _merge_missing_fields(primary, normalized_gpt55)
+    normalized = _merge_missing_fields(primary, normalized_secondary)
     return {
         "data": _add_fixed_growth_year_fields(normalized),
         "validation": validation,
         "sources": {
             "rule_fields": len(rule_data or {}),
             "claude_fields": len(claude_data or {}),
-            "gpt55_fields": len(gpt55_data or {}),
+            "llm_fields": len(secondary_data or {}),
+            "gpt55_fields": len(secondary_data or {}),
         },
     }
 
