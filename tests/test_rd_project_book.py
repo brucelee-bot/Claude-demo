@@ -168,6 +168,48 @@ class RdProjectBookTests(unittest.TestCase):
         self.assertNotIn('colspan="2" class="title-row"', template)
         self.assertNotIn("text_block('补充计划说明'", template)
 
+    def test_print_template_uses_separate_cover_and_required_page_breaks(self):
+        template = (
+            Path(__file__).resolve().parents[1]
+            / "templates"
+            / "application_gaoxin_rd_project_print.html"
+        ).read_text(encoding="utf-8")
+
+        cover_end = template.index("</section>", template.index('<section class="cover-page">'))
+        notice_start = template.index(
+            '<section class="doc-part project-notice" data-pymupdf-page-break-before>'
+        )
+        basic_start = template.index(
+            '<section class="doc-part" data-pymupdf-page-break-before>\n'
+            '    <h2>一、项目基本情况与立项依据</h2>'
+        )
+        acceptance_start = template.index(
+            '<section class="doc-part" data-pymupdf-page-break-before>\n'
+            '    <h2>五、{{ temporal.acceptance_title }}</h2>'
+        )
+
+        self.assertLess(cover_end, notice_start)
+        self.assertLess(notice_start, basic_start)
+        self.assertLess(basic_start, acceptance_start)
+        self.assertIn("page-break-after: always;", template)
+        self.assertIn("page-break-before: always;", template)
+
+    def test_print_template_uses_uniform_table_border_widths(self):
+        template = (
+            Path(__file__).resolve().parents[1]
+            / "templates"
+            / "application_gaoxin_rd_project_print.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("border-top-width: 0.65pt;", template)
+        self.assertIn("border-left-width: 0.65pt;", template)
+        self.assertIn("border-right-width: 0.65pt;", template)
+        self.assertIn("border-bottom-width: 0.65pt;", template)
+        self.assertIn(
+            ".rd-project-document .table-stack table + table { border-top: 0; }",
+            template,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

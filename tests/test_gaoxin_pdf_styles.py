@@ -164,9 +164,9 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertNotIn("colspan=", template)
-        self.assertIn('class="project-summary table-stack keep-together"', template)
+        self.assertIn('class="cover-meta keep-together"', template)
         self.assertIn(
-            "<tr><th>研发活动</th><td>{{ project.rd_activity or '项目名称待补充' }}</td></tr>",
+            "<div class=\"cover-project-name\">{{ project.rd_activity or '项目名称待补充' }}</div>",
             template,
         )
         self.assertIn(

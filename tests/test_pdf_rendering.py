@@ -128,6 +128,36 @@ class PdfRenderingTests(unittest.TestCase):
                 self.assertIn("审批意见", text)
                 self.assertNotIn("填写依据", text)
 
+                page_texts = [
+                    re.sub(r"\s+", "", page.get_text())
+                    for page in document
+                ]
+                cover_page_index = next(
+                    index
+                    for index, page_text in enumerate(page_texts)
+                    if "科研项目书" in page_text
+                    and "研发项目立项通知书" not in page_text
+                )
+                notice_page_index = next(
+                    index
+                    for index, page_text in enumerate(page_texts)
+                    if "研发项目立项通知书" in page_text
+                )
+                basic_page_index = next(
+                    index
+                    for index, page_text in enumerate(page_texts)
+                    if "一、项目基本情况与立项依据" in page_text
+                )
+                acceptance_page_index = next(
+                    index
+                    for index, page_text in enumerate(page_texts)
+                    if "五、研发项目验收报告" in page_text
+                )
+                self.assertEqual(cover_page_index, 0)
+                self.assertGreater(notice_page_index, cover_page_index)
+                self.assertGreater(basic_page_index, notice_page_index)
+                self.assertGreater(acceptance_page_index, basic_page_index)
+
                 acceptance_page = next(
                     page for page in document
                     if "验收人员" in page.get_text()

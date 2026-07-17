@@ -8,6 +8,41 @@
     {% include "_gaoxin_pdf_styles.html" %}
     {% include "_generated_document_header_styles.html" %}
     .rd-project-document h1 { text-align: center; margin: 0 0 10pt; font-size: 17pt; }
+    .rd-project-document .cover-page {
+      padding-top: 48mm;
+      break-after: page;
+      page-break-after: always;
+    }
+    .rd-project-document .cover-title {
+      margin: 0 0 18pt;
+      font-size: 24pt;
+      line-height: 1.45;
+    }
+    .rd-project-document .cover-project-name {
+      margin: 0 12mm 34pt;
+      font-size: 15pt;
+      font-weight: 700;
+      line-height: 1.6;
+      text-align: center;
+    }
+    .rd-project-document .cover-meta {
+      width: 78%;
+      margin: 0 auto;
+      border: 0;
+    }
+    .rd-project-document .cover-meta th,
+    .rd-project-document .cover-meta td {
+      border: 0;
+      border-bottom: 0.65pt solid #8f99a7;
+      background-color: transparent;
+      padding: 7pt 5pt;
+      vertical-align: middle;
+    }
+    .rd-project-document .cover-meta th {
+      width: 28%;
+      text-align: justify;
+      text-align-last: justify;
+    }
     .rd-project-document h2 {
       margin: 10pt 0 6pt;
       padding: 4pt 6pt;
@@ -15,16 +50,30 @@
       text-align: center;
       font-size: 11.5pt;
     }
-    .rd-project-document table { margin: 0 0 8pt; table-layout: fixed; }
+    .rd-project-document table {
+      margin: 0 0 8pt;
+      table-layout: fixed;
+      border-top-width: 0.65pt;
+      border-left-width: 0.65pt;
+    }
     .rd-project-document th,
-    .rd-project-document td { text-align: left; }
+    .rd-project-document td {
+      border-right-width: 0.65pt;
+      border-bottom-width: 0.65pt;
+      text-align: left;
+    }
     .rd-project-document th,
     .rd-project-document .label { background-color: #e9edf2; font-weight: 700; }
     .rd-project-document .keep-together {
       break-inside: avoid;
       page-break-inside: avoid;
     }
-    .rd-project-document .doc-part { break-after: page; page-break-after: always; }
+    .rd-project-document .doc-part {
+      break-before: page;
+      page-break-before: always;
+      break-after: page;
+      page-break-after: always;
+    }
     .rd-project-document .doc-part:last-child { break-after: auto; page-break-after: auto; }
     .rd-project-document .table-stack {
       margin: 0 0 8pt;
@@ -81,21 +130,20 @@
   </table>
   {%- endmacro %}
 
-  <section class="doc-part">
-    <h1>{{ project.rd_code or 'RD' }} 科研项目书</h1>
-    <div class="project-summary table-stack keep-together">
-      <table data-pymupdf-widths="18,32,18,32">
-        <tbody>
-          <tr><th>企业名称</th><td>{{ company.name }}</td><th>年度</th><td>{{ project.year or '待补充' }}</td></tr>
-          <tr><th>RD序号</th><td>{{ project.rd_code or '待补充' }}</td><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td></tr>
-        </tbody>
-      </table>
-      <table data-pymupdf-widths="18,82">
-        <tbody>
-          <tr><th>研发活动</th><td>{{ project.rd_activity or '项目名称待补充' }}</td></tr>
-        </tbody>
-      </table>
-    </div>
+  <section class="cover-page">
+    <h1 class="cover-title">科研项目书</h1>
+    <div class="cover-project-name">{{ project.rd_activity or '项目名称待补充' }}</div>
+    <table class="cover-meta keep-together" data-pymupdf-widths="28,72">
+      <tbody>
+        <tr><th>企业名称</th><td>{{ company.name }}</td></tr>
+        <tr><th>项目编号</th><td>{{ project.rd_code or '待补充' }}</td></tr>
+        <tr><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
+        <tr><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="doc-part project-notice" data-pymupdf-page-break-before>
     <h2>研发项目立项通知书</h2>
     <div class="table-stack keep-together">
       <table data-pymupdf-widths="16,34,16,34">
@@ -148,7 +196,7 @@
     </table>
   </section>
 
-  <section class="doc-part">
+  <section class="doc-part" data-pymupdf-page-break-before>
     <h2>一、项目基本情况与立项依据</h2>
     <table data-pymupdf-widths="16,34,16,34">
       <tbody>
@@ -164,7 +212,7 @@
     {{ text_block('3. 立项目的', project.purpose or '形成与项目应用场景相匹配的技术方案、研发过程资料和可验证成果，建立研发活动、知识产权及成果应用之间的对应关系。') }}
   </section>
 
-  <section class="doc-part">
+  <section class="doc-part" data-pymupdf-page-break-before>
     <h2>二、研发目标、内容与技术路线</h2>
     {{ text_block('1. 研发目标与考核指标', application_sections.objectives or '围绕核心功能、技术性能、运行稳定性、场景适用性和成果归档完整性设置考核指标。已有量化指标按立项资料执行；未提供的具体数值和检测数据待补充，不作推断。') }}
     <table data-pymupdf-widths="8,20,42,30">
@@ -182,7 +230,7 @@
     {{ text_block('4. 核心技术及创新点', application_sections.innovation or project.innovation or '围绕技术原理、实现方法、系统架构、场景适配和稳定运行方式开展创新，形成区别于常规方案的技术实现路径。具体创新内容以已有研发和知识产权材料为准。') }}
   </section>
 
-  <section class="doc-part">
+  <section class="doc-part" data-pymupdf-page-break-before>
     <h2>三、组织实施、经费预算与阶段计划</h2>
     {{ text_block('1. 项目组织与任务分工', '项目负责人：' ~ project.leader ~ '。' ~ (application_sections.team or project.organization or '项目采用企业自主组织实施方式，研发人员按照技术研发、测试验证、资料管理和费用归集等职责开展协同，具体投入以立项、工时和过程记录为准。')) }}
     <table data-pymupdf-widths="18,52,30">
@@ -210,7 +258,7 @@
     </table>
   </section>
 
-  <section class="doc-part">
+  <section class="doc-part" data-pymupdf-page-break-before>
     <h2>四、过程记录、风险控制与成果关联</h2>
     {{ text_block('1. 过程记录与质量控制', application_sections.records or '项目实施期间应保存立项审批、任务分工、技术方案、设计评审、研发记录、测试记录、问题清单、整改记录、阶段评审、变更记录、工时及费用归集资料。重要变更应说明原因、影响和审批结果，确保研发过程连续、真实、可追溯。') }}
     <table class="keep-together" data-pymupdf-widths="8,22,52,18">
@@ -236,7 +284,7 @@
     </table>
   </section>
 
-  <section class="doc-part">
+  <section class="doc-part" data-pymupdf-page-break-before>
     <h2>五、{{ temporal.acceptance_title }}</h2>
     <table data-pymupdf-widths="16,34,16,34">
       <tbody>

@@ -2146,6 +2146,14 @@ def _prepare_pymupdf_story_html(html, content_width):
         margin: 0 !important;
         padding: 0 !important;
       }
+      [data-pymupdf-page-break-before] {
+        break-before: auto !important;
+        page-break-before: auto !important;
+      }
+      .cover-page {
+        break-after: auto !important;
+        page-break-after: auto !important;
+      }
     """
     head.append(compatibility_style)
 
@@ -2203,6 +2211,56 @@ def _prepare_pymupdf_story_html(html, content_width):
                 table.append(sizer_row)
 
     return etree.tostring(root, encoding="unicode", method="html")
+
+
+def _split_pymupdf_story_documents(html):
+    """Split explicitly marked document parts into separate Story inputs."""
+    from lxml import etree
+    from lxml import html as lxml_html
+
+    root = lxml_html.document_fromstring(html)
+    body_nodes = root.xpath("//body")
+    if not body_nodes:
+        return [html]
+
+    body = body_nodes[0]
+    children = list(body)
+    groups = []
+    current_group = []
+    for child in children:
+        if child.get("data-pymupdf-page-break-before") is not None and current_group:
+            groups.append(current_group)
+            current_group = []
+        current_group.append(child)
+    if current_group:
+        groups.append(current_group)
+    if len(groups) <= 1:
+        return [html]
+
+    head_nodes = root.xpath("//head")
+    head_html = (
+        etree.tostring(head_nodes[0], encoding="unicode", method="html")
+        if head_nodes
+        else "<head></head>"
+    )
+    body_attributes = " ".join(
+        f'{name}="{html_escape(value, quote=True)}"'
+        for name, value in body.attrib.items()
+    )
+    body_open = f"<body {body_attributes}>" if body_attributes else "<body>"
+    return [
+        (
+            "<!doctype html><html lang=\"zh-CN\">"
+            + head_html
+            + body_open
+            + "".join(
+                etree.tostring(child, encoding="unicode", method="html")
+                for child in group
+            )
+            + "</body></html>"
+        )
+        for group in groups
+    ]
 
 
 def _remove_pymupdf_story_repeated_backgrounds(document):
@@ -2275,15 +2333,19 @@ def _render_pdf_with_pymupdf(html, pdf_path):
             raise RuntimeError("无 Chrome 环境生成 PDF 需要 PyMuPDF") from exc
 
     page_rect, content_rect = _story_page_layout(html)
-    story_html = _prepare_pymupdf_story_html(html, content_rect.width)
-    story = fitz.Story(html=story_html)
     writer = fitz.DocumentWriter(pdf_path)
 
     def rect_function(_rect_number, _filled):
         return page_rect, content_rect, None
 
     try:
-        story.write(writer, rect_function)
+        for story_document in _split_pymupdf_story_documents(html):
+            story_html = _prepare_pymupdf_story_html(
+                story_document,
+                content_rect.width,
+            )
+            story = fitz.Story(html=story_html)
+            story.write(writer, rect_function)
     finally:
         writer.close()
 
