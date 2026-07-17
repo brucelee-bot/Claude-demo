@@ -2212,6 +2212,11 @@ def _combine_portrait_export_documents(documents, company_name, company_english_
         if not body_nodes:
             raise ValueError(f"{document['label']}缺少可打印正文")
         body = body_nodes[0]
+        body_classes = [
+            class_name
+            for class_name in str(body.get("class") or "").split()
+            if class_name
+        ]
         for header in body.xpath(
             ".//header[contains(concat(' ', normalize-space(@class), ' '), ' document-header ')]"
         ):
@@ -2224,8 +2229,9 @@ def _combine_portrait_export_documents(documents, company_name, company_english_
             etree.tostring(child, encoding="unicode", method="html") for child in body
         )
         first_class = " batch-document-first" if index == 0 else ""
+        document_classes = "".join(f" {class_name}" for class_name in body_classes)
         document_blocks.append(
-            f'<section class="batch-document{first_class}">'
+            f'<section class="batch-document{first_class}{document_classes}">'
             f'<div class="batch-document-marker">{marker}</div>{body_html}</section>'
         )
 

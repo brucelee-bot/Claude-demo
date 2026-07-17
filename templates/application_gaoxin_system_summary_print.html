@@ -5,43 +5,21 @@
   <title>制度汇总表</title>
   <style>
     @page { size: A4 landscape; margin: 28mm 12mm 14mm; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      color: #111827;
-      font-family: "Songti SC", SimSun, serif;
-      font-size: 11px;
-      line-height: 1.5;
-    }
+    {% include "_gaoxin_pdf_styles.html" %}
+    {% include "_generated_document_header_styles.html" %}
     h1 {
-      margin: 0 0 12px;
+      margin: 0 0 9pt;
       text-align: center;
-      font-size: 21px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: auto;
-      font-family: "Microsoft YaHei", sans-serif;
-      font-size: 11px;
-    }
+    table { table-layout: auto; }
     col.module { width: 18%; }
     col.files { width: 30%; }
     col.points { width: 52%; }
-    thead { display: table-header-group; }
-    tr { break-inside: avoid; page-break-inside: avoid; }
     th, td {
-      border: 1px solid #b8c0cc;
-      padding: 7px 8px;
-      vertical-align: top;
       white-space: pre-line;
-      overflow-wrap: anywhere;
-      word-break: break-word;
     }
     th {
-      background: #f3f4f6;
       text-align: center;
-      font-weight: 700;
     }
     td:first-child {
       text-align: center;

@@ -5,42 +5,36 @@
   <title>{{ project.rd_code or 'RD' }} 科研项目书</title>
   <style>
     @page { size: A4; margin: 28mm 16mm 18mm; }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: "Songti SC", SimSun, serif; color: #111827; font-size: 12px; line-height: 1.62; }
+    {% include "_gaoxin_pdf_styles.html" %}
     {% include "_generated_document_header_styles.html" %}
-    h1 { text-align: center; font-size: 30px; margin: 0; letter-spacing: 0; }
-    h2 { text-align: center; font-size: 18px; margin: 0 0 12px; }
-    table { width: 100%; border-collapse: collapse; margin: 0 0 10px; table-layout: fixed; font-family: "Microsoft YaHei", sans-serif; font-size: 11.5px; }
-    th, td { border: 1px solid #9ca3af; padding: 7px 8px; text-align: left; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }
-    th, .label { background: #f3f4f6; font-weight: 700; }
-    thead { display: table-header-group; }
-    tr { break-inside: avoid; page-break-inside: avoid; }
-    .keep-together {
+    .rd-project-document h1 { text-align: center; margin: 0 0 9pt; }
+    .rd-project-document h2 { text-align: center; margin: 0 0 7pt; }
+    .rd-project-document table { margin: 0 0 7pt; table-layout: fixed; }
+    .rd-project-document th,
+    .rd-project-document td { text-align: left; }
+    .rd-project-document th,
+    .rd-project-document .label { background: #f1f3f5; font-weight: 700; }
+    .rd-project-document .keep-together {
       break-inside: avoid;
       page-break-inside: avoid;
     }
-    .doc-part { break-after: page; page-break-after: always; }
-    .doc-part:last-child { break-after: auto; page-break-after: auto; }
-    .cover { min-height: 245mm; padding-top: 31mm; position: relative; }
-    .cover-kicker { text-align: center; color: #4b5563; font-size: 15px; margin-bottom: 18px; }
-    .cover-project { text-align: center; font-size: 21px; font-weight: 700; line-height: 1.6; margin: 24px auto 34px; max-width: 150mm; }
-    .cover-table { width: 78%; margin: 0 auto; font-size: 13px; }
-    .cover-table th { width: 32mm; text-align: center; }
-    .cover-table td { min-height: 12mm; }
-    .cover-signature { position: absolute; left: 11%; right: 11%; bottom: 25mm; }
-    .cover-signature table { margin: 0; font-size: 13px; }
-    .title-row { text-align: center; background: #e5e7eb; font-size: 14px; }
-    .text-block th { background: #eef2f7; font-size: 13px; }
-    .section-text { white-space: pre-wrap; min-height: 34px; line-height: 1.75; }
-    .status { font-weight: 700; }
-    .muted { color: #4b5563; }
-    .center { text-align: center; }
-    .w-50 { width: 50px; }
-    .w-90 { width: 90px; }
-    .w-110 { width: 110px; }
+    .rd-project-document .doc-part { break-after: page; page-break-after: always; }
+    .rd-project-document .doc-part:last-child { break-after: auto; page-break-after: auto; }
+    .rd-project-document .project-summary { margin-bottom: 8pt; }
+    .rd-project-document .project-summary th { width: 18%; text-align: center; }
+    .rd-project-document .project-summary td { width: 32%; }
+    .rd-project-document .title-row { font-size: 9.5pt; }
+    .rd-project-document .text-block th { background: #f1f3f5; font-size: 9.5pt; }
+    .rd-project-document .section-text { white-space: pre-wrap; min-height: 22pt; line-height: 1.6; }
+    .rd-project-document .status { font-weight: 700; }
+    .rd-project-document .muted { color: #4b5563; }
+    .rd-project-document .center { text-align: center; }
+    .rd-project-document .w-50 { width: 34pt; }
+    .rd-project-document .w-90 { width: 64pt; }
+    .rd-project-document .w-110 { width: 78pt; }
   </style>
 </head>
-<body>
+<body class="rd-project-document">
   {% set temporal = project.temporal %}
   {% set staff = project.staff_assignment %}
 
@@ -53,30 +47,16 @@
   </table>
   {%- endmacro %}
 
-  <section class="doc-part cover">
-    <div class="cover-kicker">{{ company.name }}研发项目</div>
-    <h1>科研项目书</h1>
-    <div class="cover-project">{{ project.rd_activity or '项目名称待补充' }}</div>
-    <table class="cover-table">
+  <section class="doc-part">
+    <h1>{{ project.rd_code or 'RD' }} 科研项目书</h1>
+    <table class="project-summary">
       <tbody>
-        <tr><th>项目编号</th><td>{{ project.rd_code or '待补充' }}</td></tr>
-        <tr><th>项目负责人</th><td>{{ project.leader }}</td></tr>
-        <tr><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td></tr>
-        <tr><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
+        <tr><th>企业名称</th><td>{{ company.name }}</td><th>年度</th><td>{{ project.year or '待补充' }}</td></tr>
+        <tr><th>RD序号</th><td>{{ project.rd_code or '待补充' }}</td><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td></tr>
+        <tr><th>研发活动</th><td colspan="3">{{ project.rd_activity or '项目名称待补充' }}</td></tr>
       </tbody>
     </table>
-    <div class="cover-signature">
-      <table>
-        <tbody>
-          <tr><th>编制单位</th><td>{{ company.name }}</td></tr>
-          <tr><th>立项日期</th><td>{{ temporal.approval_date }}</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="doc-part">
-    <h2>研发项目立项审批表</h2>
+    <h2>研发项目立项通知书</h2>
     <table>
       <tbody>
         <tr><th class="w-90">企业名称</th><td>{{ company.name }}</td><th class="w-90">项目状态</th><td class="status">{{ temporal.status_display }}</td></tr>

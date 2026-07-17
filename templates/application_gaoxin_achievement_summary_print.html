@@ -5,45 +5,22 @@
   <title>成果转化汇总表</title>
   <style>
     @page { size: A4 landscape; margin: 28mm 12mm 14mm; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      color: #111827;
-      font-family: "Songti SC", SimSun, serif;
-      font-size: 11px;
-      line-height: 1.45;
-    }
+    {% include "_gaoxin_pdf_styles.html" %}
+    {% include "_generated_document_header_styles.html" %}
     h1 {
-      margin: 0 0 12px;
+      margin: 0 0 9pt;
       text-align: center;
-      font-size: 21px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      font-family: "Microsoft YaHei", sans-serif;
-    }
-    thead { display: table-header-group; }
-    tr { break-inside: avoid; page-break-inside: avoid; }
-    th, td {
-      border: 1px solid #b8c0cc;
-      padding: 6px 7px;
-      vertical-align: top;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
+    table { table-layout: fixed; }
     th {
-      background: #f3f4f6;
       text-align: center;
-      font-weight: 700;
     }
     .col-no { width: 9%; }
     .col-result { width: 25%; }
     .col-rd { width: 27%; }
     .col-ip { width: 23%; }
     .col-ps { width: 16%; }
-    .empty { color: #6b7280; text-align: center; padding: 24px; }
+    .empty { text-align: center; padding: 18pt; }
   </style>
 </head>
 <body>

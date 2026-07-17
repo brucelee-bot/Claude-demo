@@ -5,12 +5,7 @@
   <title>{{ doc_type.title }} - 佐证附件说明</title>
   <style>
     @page { size: A4; margin: 28mm 16mm 18mm; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      color: #111827;
-      font-family: "Songti SC", SimSun, serif;
-    }
+    {% include "_gaoxin_pdf_styles.html" %}
     .system-attachment-notice-page {
       height: 240mm;
       display: flex;
@@ -21,13 +16,13 @@
     }
     .system-attachment-notice-text {
       margin: 0;
-      font-size: 20px;
-      line-height: 1.8;
+      font-size: 15pt;
+      line-height: 1.6;
       font-weight: 700;
     }
   </style>
 </head>
-<body>
+<body class="system-attachment-notice-document">
   <main class="system-attachment-notice-page">
     <p class="system-attachment-notice-text">以下材料为《{{ doc_type.title }}》的佐证附件</p>
   </main>

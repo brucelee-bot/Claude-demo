@@ -7,6 +7,7 @@ from flask import Flask
 
 from modules.docgen.routes import (
     _chrome_executable,
+    _combine_portrait_export_documents,
     _render_export_pdf_file,
     _render_pdf_file,
     _stamp_pdf_file_headers,
@@ -174,6 +175,41 @@ class PdfRenderingTests(unittest.TestCase):
                     self.assertIn(title, document[0].get_text())
                 finally:
                     document.close()
+
+    def test_combined_portrait_documents_preserve_body_scope_classes(self):
+        documents = [
+            {
+                "label": "科研项目书",
+                "html": (
+                    '<html><head><style>.rd-project-document h1 { font-size: 15pt; }</style></head>'
+                    '<body class="rd-project-document"><h1>科研项目书</h1></body></html>'
+                ),
+            },
+            {
+                "label": "制度正文",
+                "html": (
+                    '<html><head><style>.system-document { font-size: 10.5pt; }</style></head>'
+                    '<body class="system-document"><h1>制度正文</h1></body></html>'
+                ),
+            },
+        ]
+
+        combined_html = _combine_portrait_export_documents(
+            documents,
+            "测试科技有限公司",
+            "TEST TECHNOLOGY CO., LTD.",
+        )
+
+        self.assertIn(
+            'class="batch-document batch-document-first rd-project-document"',
+            combined_html,
+        )
+        self.assertIn(
+            'class="batch-document system-document"',
+            combined_html,
+        )
+        self.assertIn(".rd-project-document h1", combined_html)
+        self.assertIn(".system-document", combined_html)
 
 
 if __name__ == "__main__":

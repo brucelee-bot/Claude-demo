@@ -5,31 +5,24 @@
   <title>高新技术企业认定附件制作_{{ company.name }}</title>
   <style>
     @page { size: A4; margin: 28mm 14mm 18mm; }
-    body { margin: 0; font-family: "SimSun", "Songti SC", "Microsoft YaHei", Arial, sans-serif; color: #111827; font-size: 12px; line-height: 1.65; }
+    {% include "_gaoxin_pdf_styles.html" %}
     {% include "_generated_document_header_styles.html" %}
-    h1 { text-align: center; font-size: 24px; margin: 3mm 0 6px; }
-    .subtitle { text-align: center; color: #4b5563; margin-bottom: 18px; }
-    .section { break-inside: auto; page-break-inside: auto; margin: 0 0 18px; }
+    h1 { text-align: center; margin: 2mm 0 4pt; }
+    .subtitle { text-align: center; color: #555; font-size: 8.5pt; margin-bottom: 12pt; }
+    .section { break-inside: auto; page-break-inside: auto; margin: 0 0 12pt; }
     .section-break { page-break-before: always; }
     .section-break > h2 { margin-top: 0; }
-    h2 { font-size: 17px; padding-bottom: 5px; margin: 22px 0 10px; break-after: avoid; page-break-after: avoid; }
-    h3 { font-size: 14px; margin: 12px 0 6px; break-after: avoid; page-break-after: avoid; }
-    .empty { color: #9ca3af; }
-    table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; break-inside: auto; page-break-inside: auto; }
-    thead { display: table-header-group; }
-    tbody { display: table-row-group; }
-    tr { break-inside: avoid; page-break-inside: avoid; }
-    th, td { border: 1px solid #d1d5db; padding: 7px 8px; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }
-    th { background: #f3f4f6; font-weight: 700; }
-    .file-row { border: 1px solid #d1d5db; border-radius: 4px; padding: 8px 10px; margin: 6px 0; }
+    h2 { margin: 14pt 0 6pt; break-after: avoid; page-break-after: avoid; }
+    h3 { margin: 8pt 0 4pt; break-after: avoid; page-break-after: avoid; }
+    table { margin: 4pt 0 8pt; break-inside: auto; page-break-inside: auto; }
+    .file-row { border: 0.6pt solid #c3c8ce; padding: 4pt 5pt; margin: 3pt 0; }
     .file-name { font-weight: 700; word-break: break-all; }
-    .file-meta { color: #6b7280; font-size: 11px; }
-    .placeholder { background: #fff7ed; border: 1px solid #fed7aa; padding: 10px; color: #9a3412; }
-    .preline { white-space: pre-line; }
-    .cover-grid { display: grid; grid-template-columns: 90px 1fr; gap: 6px 10px; margin: 18px auto 24px; max-width: 460px; }
-    .label { color: #374151; font-weight: 700; }
-    .staff-roster-table { table-layout: fixed; font-size: 10px; line-height: 1.35; }
-    .staff-roster-table th, .staff-roster-table td { padding: 5px 3px; text-align: center; vertical-align: middle; word-break: normal; overflow-wrap: break-word; }
+    .file-meta { color: #666; font-size: 7.5pt; }
+    .placeholder { background: #f7f7f7; border: 0.6pt solid #c3c8ce; padding: 5pt; color: #555; }
+    .cover-grid { display: grid; grid-template-columns: 68pt 1fr; gap: 4pt 7pt; margin: 12pt auto 18pt; max-width: 345pt; }
+    .label { color: #333; font-weight: 700; }
+    .staff-roster-table { table-layout: fixed; font-size: 8pt; line-height: 1.35; }
+    .staff-roster-table th, .staff-roster-table td { padding: 3pt 2pt; text-align: center; vertical-align: middle; word-break: normal; overflow-wrap: break-word; }
     .staff-roster-table .staff-name, .staff-roster-table .staff-id { white-space: nowrap; }
     .staff-roster-table .staff-id { font-size: 9px; }
   </style>

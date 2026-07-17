@@ -5,19 +5,14 @@
   <title>{{ summary_labels.title }}</title>
   <style>
     @page { size: A4 landscape; margin: 28mm 12mm 14mm; }
-    body { margin: 0; font-family: "Songti SC", SimSun, serif; color: #111827; font-size: 13px; line-height: 1.65; }
+    {% include "_gaoxin_pdf_styles.html" %}
     {% include "_generated_document_header_styles.html" %}
-    h1 { text-align: center; font-size: 22px; margin: 0 0 18px; }
-    h2 { font-size: 17px; margin: 18px 0 10px; padding: 6px 10px; background: #f3f4f6; border-left: 4px solid #2563eb; }
-    p { margin: 7px 0; }
-    .meta, .summary-table, .content-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-family: "Microsoft YaHei", sans-serif; font-size: 12px; }
-    .meta th, .meta td, .summary-table th, .summary-table td, .content-table th, .content-table td { border: 1.2px solid #9ca3af; padding: 8px 10px; text-align: left; vertical-align: top; }
-    thead { display: table-header-group; }
-    tr { break-inside: avoid; page-break-inside: avoid; }
-    .meta th, .summary-table th, .content-table th { background: #f3f4f6; font-weight: 700; }
-    .meta th { width: 90px; }
-    .content { white-space: pre-wrap; }
-    .empty { color: #6b7280; text-align: center; padding: 40px 0; border: 1px dashed #d1d5db; }
+    h1 { text-align: center; margin: 0 0 9pt; }
+    h2 { margin: 9pt 0 5pt; }
+    .meta, .summary-table, .content-table { margin-bottom: 8pt; }
+    .meta th { width: 64pt; }
+    .content { line-height: 1.6; }
+    .empty { text-align: center; padding: 28pt 0; border: 0.6pt dashed #c7c7c7; }
   </style>
 </head>
 <body>
