@@ -81,7 +81,7 @@
       <tbody>
         <tr><th>企业名称</th><td>{{ company.name }}</td><th>年度</th><td>{{ project.year or '待补充' }}</td></tr>
         <tr><th>RD序号</th><td>{{ project.rd_code or '待补充' }}</td><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td></tr>
-        <tr><th>研发活动</th><td colspan="3">{{ project.rd_activity or '项目名称待补充' }}</td></tr>
+        <tr><th>研发活动</th><td>{{ project.rd_activity or '项目名称待补充' }}</td><th>项目状态</th><td class="status">{{ temporal.status_display }}</td></tr>
       </tbody>
     </table>
     <h2>研发项目立项通知书</h2>
@@ -89,7 +89,7 @@
       <tbody>
         <tr><th class="w-90">企业名称</th><td>{{ company.name }}</td><th class="w-90">项目状态</th><td class="status">{{ temporal.status_display }}</td></tr>
         <tr><th>项目编号</th><td>{{ project.rd_code or '待补充' }}</td><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
-        <tr><th>项目名称</th><td colspan="3">{{ project.rd_activity or '待补充' }}</td></tr>
+        <tr><th>项目名称</th><td>{{ project.rd_activity or '待补充' }}</td><th>技术来源</th><td>{{ project.source or '自主研发' }}</td></tr>
         <tr><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td><th>技术领域</th><td>{{ project.field or '待补充' }}</td></tr>
       </tbody>
     </table>
@@ -243,7 +243,7 @@
     <table data-pymupdf-widths="16,34,16,34">
       <tbody>
         <tr><th class="w-90">验收人员</th><td style="height:45px">{{ project.staff_names|join('、') or '待补充' }}</td><th class="w-90">{{ temporal.acceptance_date_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
-        <tr><th>审批意见</th><td colspan="3" style="height:45px">{{ '项目已到计划结束时间，待根据实际验收记录填写。' if temporal.can_accept else '待项目完成并组织正式验收后填写。' }}</td></tr>
+        <tr><th>审批意见</th><td style="height:45px">{{ '项目已到计划结束时间，待根据实际验收记录填写。' if temporal.can_accept else '待项目完成并组织正式验收后填写。' }}</td><th>填写依据</th><td>以实际验收记录为准</td></tr>
         <tr><th>落款单位</th><td>{{ company.name }}</td><th>{{ temporal.acceptance_signature_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
       </tbody>
     </table>

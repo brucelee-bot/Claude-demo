@@ -124,6 +124,26 @@ class PdfRenderingTests(unittest.TestCase):
                 text = "".join(page.get_text() for page in document)
                 self.assertIn("科研项目书", text)
                 self.assertIn("电力系统安全分析及继电保护定值计算服务技术研发", text)
+                self.assertIn("填写依据", text)
+
+                acceptance_page = next(
+                    page for page in document
+                    if "填写依据" in page.get_text()
+                )
+                border_color = (143 / 255, 153 / 255, 167 / 255)
+                right_edges = [
+                    drawing["rect"]
+                    for drawing in acceptance_page.get_drawings()
+                    if drawing.get("fill")
+                    and all(
+                        abs(actual - expected) < 0.01
+                        for actual, expected in zip(drawing["fill"], border_color)
+                    )
+                    and drawing["rect"].x0 > acceptance_page.rect.width - 50
+                    and drawing["rect"].width < 1
+                    and drawing["rect"].height > 20
+                ]
+                self.assertTrue(right_edges)
             finally:
                 document.close()
 
@@ -175,6 +195,63 @@ class PdfRenderingTests(unittest.TestCase):
                 right = max(rect.x1 for rect in table_rects)
                 available_width = page.rect.width - (2 * 16 * 72 / 25.4)
                 self.assertGreater(right - left, available_width * 0.9)
+            finally:
+                document.close()
+
+    def test_pymupdf_table_grid_draws_shared_edges_only_once(self):
+        html = """
+        <html><head><style>
+        @page { size: A4; margin: 20mm; }
+        body { margin: 0; }
+        table {
+          width: 100%;
+          border: 0;
+          border-top: 0.65pt solid #8f99a7;
+          border-left: 0.65pt solid #8f99a7;
+          border-collapse: separate;
+          border-spacing: 0;
+        }
+        td {
+          border: 0;
+          border-right: 0.65pt solid #8f99a7;
+          border-bottom: 0.65pt solid #8f99a7;
+          padding: 10pt;
+        }
+        </style></head><body>
+        <table data-pymupdf-widths="50,50">
+          <tbody>
+            <tr><td>A</td><td>B</td></tr>
+            <tr><td>C</td><td>D</td></tr>
+          </tbody>
+        </table>
+        </body></html>
+        """
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            pdf_path = os.path.join(output_dir, "single-edge-grid.pdf")
+            with patch("modules.docgen.routes._chrome_executable", return_value=None):
+                _render_pdf_file(self.app, html, pdf_path, "单线网格")
+
+            document = fitz.open(pdf_path)
+            try:
+                border_color = (143 / 255, 153 / 255, 167 / 255)
+                border_rects = [
+                    drawing["rect"]
+                    for drawing in document[0].get_drawings()
+                    if drawing.get("fill")
+                    and all(
+                        abs(actual - expected) < 0.01
+                        for actual, expected in zip(drawing["fill"], border_color)
+                    )
+                ]
+
+                self.assertEqual(len(border_rects), 10)
+                self.assertTrue(
+                    all(
+                        abs(min(rect.width, rect.height) - 0.65) < 0.001
+                        for rect in border_rects
+                    )
+                )
             finally:
                 document.close()
 

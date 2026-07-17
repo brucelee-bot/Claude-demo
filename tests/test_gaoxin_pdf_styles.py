@@ -52,10 +52,31 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         self.assertIn(expected_font_stack, shared_styles)
         self.assertIn(expected_font_stack, header_styles)
         self.assertIn("color: #101820;", shared_styles)
-        self.assertIn("border: 0.65pt solid #8f99a7;", shared_styles)
+        self.assertIn("border-top: 0.65pt solid #8f99a7;", shared_styles)
+        self.assertIn("border-left: 0.65pt solid #8f99a7;", shared_styles)
+        self.assertIn("border-right: 0.65pt solid #8f99a7;", shared_styles)
+        self.assertIn("border-bottom: 0.65pt solid #8f99a7;", shared_styles)
+        self.assertNotIn("border: 0.65pt solid #8f99a7;", shared_styles)
+        self.assertIn("border-collapse: separate;", shared_styles)
         self.assertIn("border-spacing: 0;", shared_styles)
         self.assertIn("background-color: #e9edf2;", shared_styles)
         self.assertNotIn("background: #", shared_styles)
+
+    def test_shared_table_grid_draws_each_edge_once(self):
+        shared_styles = (self.template_dir / "_gaoxin_pdf_styles.html").read_text(
+            encoding="utf-8"
+        )
+
+        table_rule = shared_styles.split("table {", 1)[1].split("}", 1)[0]
+        cell_rule = shared_styles.split("th,\ntd {", 1)[1].split("}", 1)[0]
+        self.assertIn("border-top:", table_rule)
+        self.assertIn("border-left:", table_rule)
+        self.assertNotIn("border-right:", table_rule)
+        self.assertNotIn("border-bottom:", table_rule)
+        self.assertIn("border-right:", cell_rule)
+        self.assertIn("border-bottom:", cell_rule)
+        self.assertNotIn("border-top:", cell_rule)
+        self.assertNotIn("border-left:", cell_rule)
 
     def test_requested_summary_tables_define_pymupdf_column_ratios(self):
         expectations = {
@@ -136,6 +157,14 @@ class GaoxinPdfStyleTests(unittest.TestCase):
                     template,
                     rf"<th[^>]+colspan=[^>]*>{heading}</th>",
                 )
+
+    def test_rd_project_avoids_story_colspan_layouts(self):
+        template = (
+            self.template_dir / "application_gaoxin_rd_project_print.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("colspan=", template)
+        self.assertIn("<th>填写依据</th><td>以实际验收记录为准</td>", template)
 
     def test_combined_portrait_templates_scope_document_specific_rules(self):
         expected_body_classes = {
