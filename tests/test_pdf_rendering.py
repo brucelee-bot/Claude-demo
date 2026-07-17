@@ -1,13 +1,19 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from flask import Flask
+from flask import Flask, render_template
 
 from modules.docgen.routes import (
     _chrome_executable,
+    _collect_rd_project_rows,
     _combine_portrait_export_documents,
+    _export_rd_project_application_text,
+    _rd_project_application_html,
+    _rd_project_application_sections,
     _render_export_pdf_file,
     _render_pdf_file,
     _stamp_pdf_file_headers,
@@ -63,6 +69,55 @@ class PdfRenderingTests(unittest.TestCase):
                 text = "".join(page.get_text() for page in document)
                 self.assertIn("科研项目书", text)
                 self.assertIn("测试科技有限公司", text)
+            finally:
+                document.close()
+
+    def test_rd_project_fallback_ignores_unpainted_story_shapes_outside_page(self):
+        template_folder = Path(__file__).resolve().parents[1] / "templates"
+        app = Flask(__name__, template_folder=str(template_folder))
+        data = {
+            "gaoxin_relation_table": {
+                "rows": [{
+                    "year": "2025",
+                    "rd_code": "",
+                    "rd_activity": "电力系统安全分析及继电保护定值计算服务技术研发",
+                    "rd_period": "2025-01-01至2025-12-31",
+                }],
+            },
+            "attachment_rd_staff_0_name": "张三",
+            "rd_0_field": "电力系统自动化",
+            "rd_0_budget": "100",
+        }
+        project = _collect_rd_project_rows(data)[0]
+        application_text = _export_rd_project_application_text(project, "")
+
+        with app.app_context():
+            html = render_template(
+                "application_gaoxin_rd_project_print.html",
+                company=SimpleNamespace(name="测试科技有限公司"),
+                company_english_name="TEST TECHNOLOGY CO., LTD.",
+                project=project,
+                application_text=application_text,
+                application_html=_rd_project_application_html(application_text),
+                application_sections=_rd_project_application_sections(application_text),
+            )
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            with patch("modules.docgen.routes._chrome_executable", return_value=None):
+                pdf_path = _render_export_pdf_file(
+                    app,
+                    html,
+                    output_dir,
+                    "科研项目书 0",
+                )
+
+            self.assertIsNotNone(pdf_path)
+            document = fitz.open(pdf_path)
+            try:
+                self.assertGreater(document.page_count, 1)
+                text = "".join(page.get_text() for page in document)
+                self.assertIn("科研项目书", text)
+                self.assertIn("电力系统安全分析及继电保护定值计算服务技术研发", text)
             finally:
                 document.close()
 

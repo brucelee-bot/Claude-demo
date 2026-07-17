@@ -2086,13 +2086,14 @@ def _render_pdf_with_pymupdf(html, pdf_path):
     os.replace(optimized_path, pdf_path)
 
 
-def _render_pdf_file(app, html, pdf_path, label):
+def _render_pdf_file(app, html, pdf_path, label, render_info=None):
     """Render HTML with Chrome when available, otherwise use bundled PyMuPDF."""
     output_dir = os.path.dirname(pdf_path)
     os.makedirs(output_dir, exist_ok=True)
     html_path = os.path.join(output_dir, f"{Path(pdf_path).stem}.html")
     Path(html_path).write_text(html, encoding="utf-8")
     chrome = _chrome_executable(app)
+    renderer = "chrome"
 
     if chrome:
         timeout = max(15, int(app.config.get("PDF_RENDER_TIMEOUT", 90)))
@@ -2117,16 +2118,20 @@ def _render_pdf_file(app, html, pdf_path, label):
             except FileNotFoundError:
                 pass
             _render_pdf_with_pymupdf(html, pdf_path)
+            renderer = "pymupdf"
     else:
         app.logger.info("%s 未找到 Chrome/Chromium，使用 PyMuPDF 生成 PDF", label)
         _render_pdf_with_pymupdf(html, pdf_path)
+        renderer = "pymupdf"
 
     if not os.path.isfile(pdf_path) or os.path.getsize(pdf_path) == 0:
         raise RuntimeError(f"{label} PDF 生成结果为空")
+    if render_info is not None:
+        render_info["renderer"] = renderer
     return pdf_path
 
 
-def _validate_export_pdf_layout(pdf_path, label):
+def _validate_export_pdf_layout(pdf_path, label, *, check_shapes=True):
     """Reject generated PDFs whose body content enters the header/footer safety areas."""
     try:
         import fitz
@@ -2157,23 +2162,25 @@ def _validate_export_pdf_layout(pdf_path, label):
                     preview = "、".join(str(word[4]) for word in unsafe_words[:3])
                     issues.append(f"第{page_index}页正文进入页眉安全区（{preview}）")
 
-                header_shapes = [
-                    drawing["rect"] for drawing in page.get_drawings()
-                    if drawing["rect"].y0 < header_limit and drawing["rect"].y1 > 70
-                ]
-                if header_shapes:
-                    issues.append(f"第{page_index}页表格或边框进入页眉安全区")
+                if check_shapes:
+                    header_shapes = [
+                        drawing["rect"] for drawing in page.get_drawings()
+                        if drawing["rect"].y0 < header_limit and drawing["rect"].y1 > 70
+                    ]
+                    if header_shapes:
+                        issues.append(f"第{page_index}页表格或边框进入页眉安全区")
 
             overflow_words = [word for word in words if word[3] > page_height - footer_limit]
             if overflow_words:
                 preview = "、".join(str(word[4]) for word in overflow_words[:3])
                 issues.append(f"第{page_index}页内容超出页面底部安全区（{preview}）")
-            overflow_shapes = [
-                drawing["rect"] for drawing in page.get_drawings()
-                if drawing["rect"].y1 > page_height - footer_limit
-            ]
-            if overflow_shapes:
-                issues.append(f"第{page_index}页表格或边框超出页面底部安全区")
+            if check_shapes:
+                overflow_shapes = [
+                    drawing["rect"] for drawing in page.get_drawings()
+                    if drawing["rect"].y1 > page_height - footer_limit
+                ]
+                if overflow_shapes:
+                    issues.append(f"第{page_index}页表格或边框超出页面底部安全区")
     finally:
         document.close()
 
@@ -2185,13 +2192,18 @@ def _render_export_pdf_file(app, html, output_dir, label):
     """Render one static export document without an unnecessary virtual wait."""
     render_id = uuid.uuid4().hex
     pdf_path = os.path.join(output_dir, f"{render_id}.pdf")
+    render_info = {}
     try:
-        _render_pdf_file(app, html, pdf_path, label)
+        _render_pdf_file(app, html, pdf_path, label, render_info=render_info)
     except Exception:
         app.logger.exception("%s PDF 生成失败", label)
         return None
     try:
-        _validate_export_pdf_layout(pdf_path, label)
+        _validate_export_pdf_layout(
+            pdf_path,
+            label,
+            check_shapes=render_info.get("renderer") != "pymupdf",
+        )
     except Exception:
         app.logger.exception("%s PDF 排版检查未通过", label)
         return None
