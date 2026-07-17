@@ -1786,24 +1786,20 @@ def _sync_achievement_patent_cert_files(company, data, achievement_index, achiev
 def _render_html_pdf(html, download_name, redirect_endpoint, **redirect_values):
     company_name = str(redirect_values.pop("_header_company_name", "") or "").strip()
     company_english_name = str(redirect_values.pop("_header_company_english_name", "") or "").strip()
-    with tempfile.NamedTemporaryFile(suffix=".html", mode="w", encoding="utf-8", delete=False) as f:
-        f.write(html)
-        html_path = f.name
-    pdf_path = html_path.replace(".html", ".pdf")
-
     try:
-        chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-        subprocess.run([
-            chrome, "--headless", "--disable-gpu", "--no-sandbox",
-            f"--print-to-pdf={pdf_path}",
-            "--no-pdf-header-footer",
-            "--virtual-time-budget=15000",
-            html_path,
-        ], check=True, timeout=60)
-        if company_name or company_english_name:
-            _stamp_pdf_file_headers(pdf_path, company_name, company_english_name)
+        with tempfile.TemporaryDirectory(prefix="html-pdf-") as output_dir:
+            pdf_path = os.path.join(output_dir, "document.pdf")
+            _render_pdf_file(
+                current_app._get_current_object(),
+                html,
+                pdf_path,
+                download_name,
+            )
+            if company_name or company_english_name:
+                _stamp_pdf_file_headers(pdf_path, company_name, company_english_name)
+            pdf_bytes = Path(pdf_path).read_bytes()
         return send_file(
-            pdf_path,
+            BytesIO(pdf_bytes),
             mimetype="application/pdf",
             as_attachment=False,
             download_name=download_name,
@@ -1812,6 +1808,22 @@ def _render_html_pdf(html, download_name, redirect_endpoint, **redirect_values):
         current_app.logger.exception("PDF 生成失败")
         flash(f"PDF 生成失败：{exc}", "danger")
         return redirect(url_for(redirect_endpoint, **redirect_values))
+
+
+def _pdf_cjk_font_path():
+    font_candidates = [
+        os.getenv("PDF_CJK_FONT", ""),
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/System/Library/Fonts/STHeiti Medium.ttc",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
+    ]
+    return next(
+        (path for path in font_candidates if path and os.path.isfile(path)),
+        "",
+    )
 
 
 def _stamp_generated_pdf_pages(document, page_indexes, company_name, company_english_name):
@@ -1833,21 +1845,8 @@ def _stamp_generated_pdf_pages(document, page_indexes, company_name, company_eng
     text_bottom = 20 * mm
     line_y = 22 * mm
     header_text = " | ".join(part for part in [chinese_name, english_name] if part)
-    font_candidates = [
-        os.getenv("PDF_CJK_FONT", ""),
-        "/System/Library/Fonts/STHeiti Light.ttc",
-        "/System/Library/Fonts/STHeiti Medium.ttc",
-        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-        "/Library/Fonts/Arial Unicode.ttf",
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
-    ]
-    cjk_font_path = next(
-        (path for path in font_candidates if path and os.path.isfile(path)),
-        "",
-    )
-    if not cjk_font_path:
-        raise RuntimeError("未找到可用于 PDF 双语页眉的中文字体")
+    cjk_font_path = _pdf_cjk_font_path()
+    header_font_name = "company-header-cjk" if cjk_font_path else "china-s"
 
     overlays = {}
 
@@ -1860,10 +1859,11 @@ def _stamp_generated_pdf_pages(document, page_indexes, company_name, company_eng
             width=page.rect.width,
             height=page.rect.height,
         )
-        overlay_page.insert_font(
-            fontname="company-header-cjk",
-            fontfile=cjk_font_path,
-        )
+        if cjk_font_path:
+            overlay_page.insert_font(
+                fontname=header_font_name,
+                fontfile=cjk_font_path,
+            )
         landscape = page.rect.width > page.rect.height
         horizontal_margin = (12 if landscape else 14) * mm
         result = overlay_page.insert_textbox(
@@ -1874,7 +1874,7 @@ def _stamp_generated_pdf_pages(document, page_indexes, company_name, company_eng
                 text_bottom,
             ),
             header_text,
-            fontname="company-header-cjk",
+            fontname=header_font_name,
             fontsize=7.5,
             color=text_color,
             align=fitz.TEXT_ALIGN_CENTER,
@@ -1959,7 +1959,141 @@ def _chrome_executable(app):
     for candidate in candidates:
         if candidate and os.path.isfile(candidate) and os.access(candidate, os.X_OK):
             return candidate
-    raise FileNotFoundError("未找到 Chrome/Chromium，请配置 CHROME_BIN")
+    return None
+
+
+def _css_length_to_points(value):
+    match = re.fullmatch(r"\s*([0-9]+(?:\.[0-9]+)?)\s*(mm|cm|in|pt|px)\s*", value, re.IGNORECASE)
+    if not match:
+        raise ValueError(f"不支持的 PDF 页边距：{value}")
+    amount = float(match.group(1))
+    unit = match.group(2).lower()
+    factors = {
+        "mm": 72 / 25.4,
+        "cm": 72 / 2.54,
+        "in": 72,
+        "pt": 1,
+        "px": 72 / 96,
+    }
+    return amount * factors[unit]
+
+
+def _story_page_layout(html):
+    """Read the simple @page rules used by export templates."""
+    try:
+        import fitz
+    except ImportError:
+        import pymupdf as fitz
+
+    page_rule_match = re.search(r"@page\s*\{(.*?)\}", html, re.IGNORECASE | re.DOTALL)
+    page_rule = page_rule_match.group(1) if page_rule_match else ""
+    page_rect = fitz.paper_rect("a4")
+    if re.search(r"\bsize\s*:\s*(?:a4\s+)?landscape\b", page_rule, re.IGNORECASE):
+        page_rect = fitz.Rect(0, 0, page_rect.height, page_rect.width)
+
+    margins = [28 * 72 / 25.4, 16 * 72 / 25.4, 18 * 72 / 25.4, 16 * 72 / 25.4]
+    margin_match = re.search(r"\bmargin\s*:\s*([^;]+)", page_rule, re.IGNORECASE)
+    if margin_match:
+        values = [
+            _css_length_to_points(value)
+            for value in re.findall(
+                r"[0-9]+(?:\.[0-9]+)?\s*(?:mm|cm|in|pt|px)",
+                margin_match.group(1),
+                re.IGNORECASE,
+            )
+        ]
+        if len(values) == 1:
+            margins = values * 4
+        elif len(values) == 2:
+            margins = [values[0], values[1], values[0], values[1]]
+        elif len(values) == 3:
+            margins = [values[0], values[1], values[2], values[1]]
+        elif len(values) == 4:
+            margins = values
+
+    top, right, bottom, left = margins
+    content_rect = fitz.Rect(
+        left,
+        top,
+        page_rect.width - right,
+        page_rect.height - bottom,
+    )
+    if content_rect.width < 72 or content_rect.height < 72:
+        raise ValueError("PDF 页边距过大，正文区域不足")
+    return page_rect, content_rect
+
+
+def _render_pdf_with_pymupdf(html, pdf_path):
+    try:
+        import fitz
+    except ImportError:
+        try:
+            import pymupdf as fitz
+        except ImportError as exc:
+            raise RuntimeError("无 Chrome 环境生成 PDF 需要 PyMuPDF") from exc
+
+    page_rect, content_rect = _story_page_layout(html)
+    story = fitz.Story(html=html)
+    writer = fitz.DocumentWriter(pdf_path)
+
+    def rect_function(_rect_number, _filled):
+        return page_rect, content_rect, None
+
+    try:
+        story.write(writer, rect_function)
+    finally:
+        writer.close()
+
+    optimized_path = f"{pdf_path}.optimized.pdf"
+    document = fitz.open(pdf_path)
+    try:
+        if document.page_count == 0:
+            raise RuntimeError("PyMuPDF 未生成任何 PDF 页面")
+        document.subset_fonts()
+        document.save(optimized_path, garbage=4, deflate=True, clean=True)
+    finally:
+        document.close()
+    os.replace(optimized_path, pdf_path)
+
+
+def _render_pdf_file(app, html, pdf_path, label):
+    """Render HTML with Chrome when available, otherwise use bundled PyMuPDF."""
+    output_dir = os.path.dirname(pdf_path)
+    os.makedirs(output_dir, exist_ok=True)
+    html_path = os.path.join(output_dir, f"{Path(pdf_path).stem}.html")
+    Path(html_path).write_text(html, encoding="utf-8")
+    chrome = _chrome_executable(app)
+
+    if chrome:
+        timeout = max(15, int(app.config.get("PDF_RENDER_TIMEOUT", 90)))
+        command = [
+            chrome,
+            "--headless",
+            "--disable-gpu",
+            "--no-sandbox",
+            f"--print-to-pdf={pdf_path}",
+            "--no-pdf-header-footer",
+            html_path,
+        ]
+        try:
+            subprocess.run(command, timeout=timeout, check=True, capture_output=True)
+            if not os.path.isfile(pdf_path) or os.path.getsize(pdf_path) == 0:
+                raise RuntimeError("Chrome 未生成有效 PDF 文件")
+            app.logger.info("%s PDF 使用 Chrome 生成", label)
+        except Exception:
+            app.logger.warning("%s Chrome PDF 生成失败，改用 PyMuPDF", label, exc_info=True)
+            try:
+                os.remove(pdf_path)
+            except FileNotFoundError:
+                pass
+            _render_pdf_with_pymupdf(html, pdf_path)
+    else:
+        app.logger.info("%s 未找到 Chrome/Chromium，使用 PyMuPDF 生成 PDF", label)
+        _render_pdf_with_pymupdf(html, pdf_path)
+
+    if not os.path.isfile(pdf_path) or os.path.getsize(pdf_path) == 0:
+        raise RuntimeError(f"{label} PDF 生成结果为空")
+    return pdf_path
 
 
 def _validate_export_pdf_layout(pdf_path, label):
@@ -2020,27 +2154,11 @@ def _validate_export_pdf_layout(pdf_path, label):
 def _render_export_pdf_file(app, html, output_dir, label):
     """Render one static export document without an unnecessary virtual wait."""
     render_id = uuid.uuid4().hex
-    html_path = os.path.join(output_dir, f"{render_id}.html")
     pdf_path = os.path.join(output_dir, f"{render_id}.pdf")
-    Path(html_path).write_text(html, encoding="utf-8")
-    chrome = _chrome_executable(app)
-    timeout = max(15, int(app.config.get("PDF_RENDER_TIMEOUT", 90)))
-    command = [
-        chrome,
-        "--headless",
-        "--disable-gpu",
-        "--no-sandbox",
-        f"--print-to-pdf={pdf_path}",
-        "--no-pdf-header-footer",
-        html_path,
-    ]
     try:
-        subprocess.run(command, timeout=timeout, check=True, capture_output=True)
+        _render_pdf_file(app, html, pdf_path, label)
     except Exception:
         app.logger.exception("%s PDF 生成失败", label)
-        return None
-    if not os.path.isfile(pdf_path) or os.path.getsize(pdf_path) == 0:
-        app.logger.error("%s PDF 生成结果为空", label)
         return None
     try:
         _validate_export_pdf_layout(pdf_path, label)
@@ -5874,13 +5992,22 @@ def gaoxin_attachments_pdf(company_id):
                     if str(item.get("attachment_year") or "") == year
                 ], f"{year}年汇算清缴")
 
-            portrait_html = _combine_portrait_export_documents(
-                portrait_documents,
-                company.name,
-                company_english_name,
-            ) if portrait_documents else ""
-            render_task_count = 1 + bool(portrait_html) + len(standalone_documents)
-            render_workers = min(max(1, int(app.config.get("PDF_RENDER_WORKERS", 3))), render_task_count)
+            chrome_available = bool(_chrome_executable(app))
+            portrait_html = (
+                _combine_portrait_export_documents(
+                    portrait_documents,
+                    company.name,
+                    company_english_name,
+                )
+                if chrome_available and portrait_documents
+                else ""
+            )
+            individually_rendered_documents = list(standalone_documents)
+            if not chrome_available:
+                individually_rendered_documents.extend(portrait_documents)
+            render_task_count = 1 + bool(portrait_html) + len(individually_rendered_documents)
+            configured_workers = max(1, int(app.config.get("PDF_RENDER_WORKERS", 3)))
+            render_workers = min(configured_workers, render_task_count) if chrome_available else 1
             with ThreadPoolExecutor(max_workers=render_workers, thread_name_prefix="gaoxin-pdf") as executor:
                 attachments_future = executor.submit(
                     _render_export_pdf_file, app, html, export_dir, "附件目录"
@@ -5901,7 +6028,7 @@ def gaoxin_attachments_pdf(company_id):
                             document["label"],
                         ),
                     )
-                    for document in standalone_documents
+                    for document in individually_rendered_documents
                 ]
 
                 attachments_pdf_path = attachments_future.result()
@@ -5911,11 +6038,11 @@ def gaoxin_attachments_pdf(company_id):
 
             if not attachments_pdf_path:
                 raise RuntimeError("附件目录 PDF 生成失败")
-            if portrait_documents:
+            if portrait_html:
                 if not portrait_pdf_path:
                     raise RuntimeError("附件内部材料 PDF 生成失败")
                 _assign_portrait_document_page_ranges(portrait_pdf_path, portrait_documents)
-            for document in standalone_documents:
+            for document in individually_rendered_documents:
                 if not document.get("pdf_path"):
                     raise RuntimeError(f"{document['label']} PDF 生成失败")
 
@@ -6046,9 +6173,10 @@ def gaoxin_attachments_pdf(company_id):
             pdf_bytes = Path(merged_pdf_path).read_bytes()
             duration = time.perf_counter() - export_started
             app.logger.info(
-                "高新附件 PDF 导出完成 company_id=%s duration=%.2fs chrome_renders=%s generated_documents=%s bytes=%s",
+                "高新附件 PDF 导出完成 company_id=%s duration=%.2fs renderer=%s pdf_renders=%s generated_documents=%s bytes=%s",
                 company.id,
                 duration,
+                "chrome" if chrome_available else "pymupdf",
                 render_task_count,
                 len(portrait_documents) + len(standalone_documents),
                 len(pdf_bytes),
@@ -6732,41 +6860,30 @@ def gaoxin_book_pdf(company_id):
         data=data,
     )
     
-    import tempfile, subprocess, os
-    with tempfile.NamedTemporaryFile(suffix=".html", mode="w", encoding="utf-8", delete=False) as f:
-        f.write(html)
-        html_path = f.name
-    
-    pdf_path = html_path.replace(".html", ".pdf")
-    
     try:
-        chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-        subprocess.run([
-            chrome, "--headless", "--disable-gpu", "--no-sandbox",
-            "--print-to-pdf=" + pdf_path,
-            "--no-pdf-header-footer",
-            "--virtual-time-budget=15000",
-            html_path
-        ], timeout=30, check=True, capture_output=True)
-        _stamp_pdf_file_headers(
-            pdf_path,
-            company.name,
-            _company_english_name(company, data),
+        with tempfile.TemporaryDirectory(prefix="gaoxin-book-pdf-") as output_dir:
+            pdf_path = os.path.join(output_dir, "gaoxin-book.pdf")
+            _render_pdf_file(
+                current_app._get_current_object(),
+                html,
+                pdf_path,
+                "高新技术企业认定申请书",
+            )
+            _stamp_pdf_file_headers(
+                pdf_path,
+                company.name,
+                _company_english_name(company, data),
+            )
+            pdf_bytes = Path(pdf_path).read_bytes()
+        return send_file(
+            BytesIO(pdf_bytes),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"高新技术企业认定申请书_{company.name}.pdf",
         )
-        
-        from flask import send_file
-        return send_file(pdf_path, mimetype="application/pdf",
-                        as_attachment=True,
-                        download_name=f"高新技术企业认定申请书_{company.name}.pdf")
     except Exception as e:
+        current_app.logger.exception("高新技术企业认定申请书 PDF 生成失败")
         return f"PDF生成失败: {str(e)}", 500
-    finally:
-        for p in [html_path, pdf_path]:
-            try:
-                if os.path.exists(p):
-                    os.remove(p)
-            except OSError:
-                pass
 
 
 @docgen_bp.route("/gaoxin_book/<int:company_id>/word", methods=["GET", "POST"])
