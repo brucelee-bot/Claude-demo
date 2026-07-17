@@ -156,13 +156,16 @@ class RdProjectBookTests(unittest.TestCase):
             / "application_gaoxin_rd_project_print.html"
         ).read_text(encoding="utf-8")
 
-        self.assertIn('<table class="text-block keep-together">', template)
         self.assertIn(
-            '<table class="keep-together">\n'
-            '      <thead><tr><th colspan="2" class="title-row">'
-            "3. RD-IP-PS 关联明细",
+            '<table class="text-block keep-together" data-pymupdf-widths="100">',
             template,
         )
+        self.assertIn(
+            '<div class="table-heading">3. RD-IP-PS 关联明细</div>\n'
+            '    <table class="keep-together" data-pymupdf-widths="20,80">',
+            template,
+        )
+        self.assertNotIn('colspan="2" class="title-row"', template)
         self.assertNotIn("text_block('补充计划说明'", template)
 
 

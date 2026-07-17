@@ -1,4 +1,7 @@
+import base64
 import os
+import re
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,9 +17,12 @@ from modules.docgen.routes import (
     _export_rd_project_application_text,
     _rd_project_application_html,
     _rd_project_application_sections,
+    _prepare_pymupdf_story_html,
+    _remove_pymupdf_story_repeated_backgrounds,
     _render_export_pdf_file,
     _render_pdf_file,
     _stamp_pdf_file_headers,
+    _system_evidence_table_widths,
 )
 
 try:
@@ -66,7 +72,7 @@ class PdfRenderingTests(unittest.TestCase):
             document = fitz.open(pdf_path)
             try:
                 self.assertGreater(document.page_count, 0)
-                text = "".join(page.get_text() for page in document)
+                text = re.sub(r"\s+", "", "".join(page.get_text() for page in document))
                 self.assertIn("科研项目书", text)
                 self.assertIn("测试科技有限公司", text)
             finally:
@@ -138,6 +144,219 @@ class PdfRenderingTests(unittest.TestCase):
                 self.assertIn("成果转化汇总表", document[0].get_text())
             finally:
                 document.close()
+
+    def test_pymupdf_fallback_expands_tables_across_available_page_width(self):
+        html = """
+        <html><head><style>
+        @page { size: A4; margin: 28mm 16mm 18mm; }
+        body { margin: 0; font-family: sans-serif; font-size: 10pt; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1pt solid #64748b; padding: 5pt; }
+        th { background-color: #e9edf2; }
+        </style></head><body>
+        <table><tbody><tr><th>企业名称</th><td>测试科技有限公司</td></tr></tbody></table>
+        </body></html>
+        """
+        with tempfile.TemporaryDirectory() as output_dir:
+            pdf_path = os.path.join(output_dir, "full-width-table.pdf")
+            with patch("modules.docgen.routes._chrome_executable", return_value=None):
+                _render_pdf_file(self.app, html, pdf_path, "全宽表格")
+
+            document = fitz.open(pdf_path)
+            try:
+                page = document[0]
+                table_rects = [
+                    drawing["rect"]
+                    for drawing in page.get_drawings()
+                    if drawing["rect"].y0 > 75
+                ]
+                self.assertTrue(table_rects)
+                left = min(rect.x0 for rect in table_rects)
+                right = max(rect.x1 for rect in table_rects)
+                available_width = page.rect.width - (2 * 16 * 72 / 25.4)
+                self.assertGreater(right - left, available_width * 0.9)
+            finally:
+                document.close()
+
+    def test_pymupdf_fallback_removes_repeated_background_fragments(self):
+        rows = "".join(
+            (
+                f"<tr><td>{index}</td><td>第{index}行分页测试内容。"
+                + "重复文字。" * 16
+                + "</td></tr>"
+            )
+            for index in range(1, 55)
+        )
+        html = f"""
+        <html><head><style>
+        @page {{ size: A4; margin: 28mm 16mm 18mm; }}
+        body {{ font-family: sans-serif; font-size: 9pt; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        th, td {{ border: 0.65pt solid #8f99a7; padding: 4pt 5pt; }}
+        th {{ background-color: #e9edf2; }}
+        </style></head><body>
+        <table data-pymupdf-widths="20,80">
+          <thead><tr><th>序号</th><th>内容</th></tr></thead>
+          <tbody>{rows}</tbody>
+        </table>
+        </body></html>
+        """
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            pdf_path = os.path.join(output_dir, "multipage-table.pdf")
+            with patch("modules.docgen.routes._chrome_executable", return_value=None):
+                _render_pdf_file(self.app, html, pdf_path, "分页表格")
+
+            document = fitz.open(pdf_path)
+            try:
+                self.assertGreater(document.page_count, 1)
+                target = (233 / 255, 237 / 255, 242 / 255)
+
+                def matching_backgrounds(page):
+                    return [
+                        drawing["rect"]
+                        for drawing in page.get_drawings()
+                        if drawing.get("fill")
+                        and all(
+                            abs(actual - expected) < 0.01
+                            for actual, expected in zip(drawing["fill"], target)
+                        )
+                    ]
+
+                first_page_backgrounds = matching_backgrounds(document[0])
+                self.assertTrue(first_page_backgrounds)
+                self.assertTrue(any(rect.height > 10 for rect in first_page_backgrounds))
+                for page in document.pages(1):
+                    black_fills = [
+                        drawing["rect"]
+                        for drawing in page.get_drawings()
+                        if drawing.get("fill")
+                        and all(channel < 0.01 for channel in drawing["fill"])
+                        and drawing["rect"].width > 100
+                        and drawing["rect"].height > 10
+                    ]
+                    self.assertFalse(black_fills)
+                    self.assertFalse(
+                        [
+                            rect
+                            for rect in matching_backgrounds(page)
+                            if rect.height <= 8.1
+                        ]
+                    )
+            finally:
+                document.close()
+
+    def test_story_background_cleanup_leaves_first_page_untouched(self):
+        source = fitz.open()
+        try:
+            for _ in range(2):
+                page = source.new_page()
+                page.draw_rect(
+                    fitz.Rect(50, 100, 200, 108),
+                    color=None,
+                    fill=(233 / 255, 237 / 255, 242 / 255),
+                )
+            with tempfile.TemporaryDirectory() as output_dir:
+                pdf_path = os.path.join(output_dir, "manual-backgrounds.pdf")
+                source.save(pdf_path)
+                document = fitz.open(pdf_path)
+                try:
+                    self.assertEqual(
+                        _remove_pymupdf_story_repeated_backgrounds(document),
+                        0,
+                    )
+                    self.assertTrue(document[0].get_drawings())
+                    self.assertTrue(document[1].get_drawings())
+                finally:
+                    document.close()
+        finally:
+            source.close()
+
+    def test_pymupdf_html_preparation_adds_one_invisible_sizer_per_table(self):
+        prepared = _prepare_pymupdf_story_html(
+            "<html><head></head><body>"
+            "<table><tbody><tr><td>A</td><td colspan='2'>B</td></tr></tbody></table>"
+            "<table><tr><td>C</td></tr></table>"
+            "</body></html>",
+            504,
+        )
+        from lxml import html as lxml_html
+
+        root = lxml_html.document_fromstring(prepared)
+        sizer_rows = root.xpath(
+            "//tr[contains(concat(' ', normalize-space(@class), ' '), "
+            "' pymupdf-table-sizer ')]"
+        )
+        self.assertEqual(len(sizer_rows), 2)
+        self.assertEqual(len(sizer_rows[0].xpath("./td")), 3)
+        self.assertEqual(len(sizer_rows[1].xpath("./td")), 1)
+        self.assertIn("background-color: #ffffff", prepared)
+        self.assertNotIn("\u00a0", prepared)
+        self.assertEqual(len(root.xpath("//tr[contains(@class, 'pymupdf-table-sizer')]//img")), 4)
+
+    def test_pymupdf_html_preparation_honors_explicit_table_width_ratios(self):
+        prepared = _prepare_pymupdf_story_html(
+            "<html><head></head><body>"
+            "<table data-pymupdf-widths='18,30,52'>"
+            "<tr><td>A</td><td>B</td><td>C</td></tr>"
+            "</table>"
+            "</body></html>",
+            504,
+        )
+        from lxml import html as lxml_html
+
+        root = lxml_html.document_fromstring(prepared)
+        images = root.xpath("//tr[contains(@class, 'pymupdf-table-sizer')]/td/img")
+        spacer_widths = [
+            int(image.get("data-pymupdf-spacer-width"))
+            for image in images
+        ]
+        self.assertEqual(len(spacer_widths), 3)
+        self.assertAlmostEqual(spacer_widths[0] / sum(spacer_widths), 0.18, delta=0.02)
+        self.assertAlmostEqual(spacer_widths[1] / sum(spacer_widths), 0.30, delta=0.02)
+        self.assertAlmostEqual(spacer_widths[2] / sum(spacer_widths), 0.52, delta=0.02)
+
+        png = base64.b64decode(images[0].get("src").split(",", 1)[1])
+        width, height, bit_depth, color_type = struct.unpack(
+            ">IIBB",
+            png[16:26],
+        )
+        self.assertEqual(width, spacer_widths[0])
+        self.assertEqual(height, 1)
+        self.assertEqual(bit_depth, 8)
+        self.assertEqual(color_type, 6)
+
+    def test_pymupdf_html_preparation_ignores_invalid_table_width_ratios(self):
+        prepared = _prepare_pymupdf_story_html(
+            "<html><head></head><body>"
+            "<table data-pymupdf-widths='10,0'>"
+            "<tr><td>A</td><td>B</td></tr>"
+            "</table>"
+            "</body></html>",
+            504,
+        )
+        from lxml import html as lxml_html
+
+        root = lxml_html.document_fromstring(prepared)
+        images = root.xpath("//tr[contains(@class, 'pymupdf-table-sizer')]/td/img")
+        spacer_widths = [
+            int(image.get("data-pymupdf-spacer-width"))
+            for image in images
+        ]
+        self.assertEqual(len(spacer_widths), 2)
+        self.assertAlmostEqual(spacer_widths[0] / sum(spacer_widths), 0.20, delta=0.02)
+        self.assertAlmostEqual(spacer_widths[1] / sum(spacer_widths), 0.80, delta=0.02)
+
+    def test_system_evidence_widths_prioritize_narrative_columns(self):
+        raw_weights = _system_evidence_table_widths(
+            ["审核环节", "审核人", "日期", "意见"]
+        )
+        weights = [float(value) for value in raw_weights.split(",")]
+        self.assertEqual(len(weights), 4)
+        self.assertGreater(weights[3], weights[0])
+        self.assertGreater(weights[3], weights[1])
+        self.assertGreater(weights[3], weights[2])
+        self.assertAlmostEqual(sum(weights), 100, delta=0.05)
 
     def test_header_stamping_uses_builtin_chinese_font_without_system_fonts(self):
         html = """

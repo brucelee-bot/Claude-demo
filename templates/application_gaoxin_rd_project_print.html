@@ -7,25 +7,53 @@
     @page { size: A4; margin: 28mm 16mm 18mm; }
     {% include "_gaoxin_pdf_styles.html" %}
     {% include "_generated_document_header_styles.html" %}
-    .rd-project-document h1 { text-align: center; margin: 0 0 9pt; }
-    .rd-project-document h2 { text-align: center; margin: 0 0 7pt; }
-    .rd-project-document table { margin: 0 0 7pt; table-layout: fixed; }
+    .rd-project-document h1 { text-align: center; margin: 0 0 10pt; font-size: 17pt; }
+    .rd-project-document h2 {
+      margin: 10pt 0 6pt;
+      padding: 4pt 6pt;
+      background-color: #e9edf2;
+      text-align: center;
+      font-size: 11.5pt;
+    }
+    .rd-project-document table { margin: 0 0 8pt; table-layout: fixed; }
     .rd-project-document th,
     .rd-project-document td { text-align: left; }
     .rd-project-document th,
-    .rd-project-document .label { background: #f1f3f5; font-weight: 700; }
+    .rd-project-document .label { background-color: #e9edf2; font-weight: 700; }
     .rd-project-document .keep-together {
       break-inside: avoid;
       page-break-inside: avoid;
     }
     .rd-project-document .doc-part { break-after: page; page-break-after: always; }
     .rd-project-document .doc-part:last-child { break-after: auto; page-break-after: auto; }
-    .rd-project-document .project-summary { margin-bottom: 8pt; }
+    .rd-project-document .project-summary { margin-bottom: 11pt; }
     .rd-project-document .project-summary th { width: 18%; text-align: center; }
     .rd-project-document .project-summary td { width: 32%; }
-    .rd-project-document .title-row { font-size: 9.5pt; }
-    .rd-project-document .text-block th { background: #f1f3f5; font-size: 9.5pt; }
-    .rd-project-document .section-text { white-space: pre-wrap; min-height: 22pt; line-height: 1.6; }
+    .rd-project-document .title-row { background-color: #e3e8ee; font-size: 10pt; }
+    .rd-project-document .table-heading {
+      margin: 0;
+      padding: 4pt 5pt;
+      border: 0.65pt solid #8f99a7;
+      border-bottom: 0;
+      background-color: #e3e8ee;
+      font-size: 10pt;
+      font-weight: 700;
+      line-height: 1.5;
+      text-align: left;
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+    .rd-project-document .text-block th {
+      background-color: #e9edf2;
+      border-bottom-color: #7f8a99;
+      font-size: 9.8pt;
+    }
+    .rd-project-document .section-text {
+      min-height: 22pt;
+      line-height: 1.68;
+      text-align: justify;
+      white-space: pre-wrap;
+    }
     .rd-project-document .status { font-weight: 700; }
     .rd-project-document .muted { color: #4b5563; }
     .rd-project-document .center { text-align: center; }
@@ -39,7 +67,7 @@
   {% set staff = project.staff_assignment %}
 
   {% macro text_block(title, content, extra_class='') -%}
-  <table class="text-block keep-together">
+  <table class="text-block keep-together" data-pymupdf-widths="100">
     <tbody>
       <tr><th>{{ title }}</th></tr>
       <tr><td class="section-text {{ extra_class }}">{{ content }}</td></tr>
@@ -49,7 +77,7 @@
 
   <section class="doc-part">
     <h1>{{ project.rd_code or 'RD' }} 科研项目书</h1>
-    <table class="project-summary">
+    <table class="project-summary" data-pymupdf-widths="18,32,18,32">
       <tbody>
         <tr><th>企业名称</th><td>{{ company.name }}</td><th>年度</th><td>{{ project.year or '待补充' }}</td></tr>
         <tr><th>RD序号</th><td>{{ project.rd_code or '待补充' }}</td><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td></tr>
@@ -57,7 +85,7 @@
       </tbody>
     </table>
     <h2>研发项目立项通知书</h2>
-    <table>
+    <table data-pymupdf-widths="16,34,16,34">
       <tbody>
         <tr><th class="w-90">企业名称</th><td>{{ company.name }}</td><th class="w-90">项目状态</th><td class="status">{{ temporal.status_display }}</td></tr>
         <tr><th>项目编号</th><td>{{ project.rd_code or '待补充' }}</td><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
@@ -66,7 +94,7 @@
       </tbody>
     </table>
 
-    <table class="text-block">
+    <table class="text-block" data-pymupdf-widths="100">
       <tbody>
         <tr><th>立项说明</th></tr>
         <tr>
@@ -84,7 +112,7 @@
       </tbody>
     </table>
 
-    <table>
+    <table data-pymupdf-widths="18,82">
       <tbody>
         <tr><th class="w-110">通知对象</th><td>相关研发部门及项目组</td></tr>
         <tr><th>项目来源</th><td>{{ project.source or '自主研发' }}</td></tr>
@@ -100,7 +128,7 @@
 
   <section class="doc-part">
     <h2>一、项目基本情况与立项依据</h2>
-    <table>
+    <table data-pymupdf-widths="16,34,16,34">
       <tbody>
         <tr><th class="w-90">项目名称</th><td>{{ project.rd_activity or '待补充' }}</td><th class="w-90">项目编号</th><td>{{ project.rd_code or '待补充' }}</td></tr>
         <tr><th>起止时间</th><td>{{ project.rd_period or '待补充' }}</td><th>当前状态</th><td>{{ temporal.status_display }}</td></tr>
@@ -117,7 +145,7 @@
   <section class="doc-part">
     <h2>二、研发目标、内容与技术路线</h2>
     {{ text_block('1. 研发目标与考核指标', application_sections.objectives or '围绕核心功能、技术性能、运行稳定性、场景适用性和成果归档完整性设置考核指标。已有量化指标按立项资料执行；未提供的具体数值和检测数据待补充，不作推断。') }}
-    <table>
+    <table data-pymupdf-widths="8,20,42,30">
       <thead><tr><th class="w-50">序号</th><th>指标类别</th><th>目标要求</th><th>核验依据</th></tr></thead>
       <tbody>
         <tr><td class="center">1</td><td>核心功能</td><td>实现项目确定的关键功能和技术方案。</td><td>设计资料、功能测试记录</td></tr>
@@ -135,7 +163,7 @@
   <section class="doc-part">
     <h2>三、组织实施、经费预算与阶段计划</h2>
     {{ text_block('1. 项目组织与任务分工', '项目负责人：' ~ project.leader ~ '。' ~ (application_sections.team or project.organization or '项目采用企业自主组织实施方式，研发人员按照技术研发、测试验证、资料管理和费用归集等职责开展协同，具体投入以立项、工时和过程记录为准。')) }}
-    <table>
+    <table data-pymupdf-widths="18,52,30">
       <thead><tr><th class="w-110">角色</th><th>主要职责</th><th class="w-110">人员</th></tr></thead>
       <tbody>
         <tr><td>项目负责人</td><td>统筹目标、计划、资源、评审和验收。</td><td>{{ staff.leader }}</td></tr>
@@ -147,8 +175,9 @@
 
     {{ text_block('2. 经费预算', application_sections.budget or ('项目预算总额为' ~ project.budget_display ~ '。具体人员人工、直接投入、折旧摊销、设计试验及其他研发费用应依据实际预算和研发辅助账据实填写，不进行无依据分摊。')) }}
 
-    <table>
-      <thead><tr><th colspan="5" class="title-row">3. 阶段计划与里程碑</th></tr><tr><th class="w-50">序号</th><th class="w-110">阶段</th><th class="w-110">时间安排</th><th>主要工作与里程碑</th><th style="width:65px">状态</th></tr></thead>
+    <div class="table-heading">3. 阶段计划与里程碑</div>
+    <table data-pymupdf-widths="8,16,18,46,12">
+      <thead><tr><th class="w-50">序号</th><th class="w-110">阶段</th><th class="w-110">时间安排</th><th>主要工作与里程碑</th><th style="width:65px">状态</th></tr></thead>
       <tbody>
         {% for stage in project.stages %}
         <tr><td class="center">{{ stage.index }}</td><td>{{ stage.name }}</td><td>{{ stage.time_range }}</td><td>{{ stage.content }}</td><td>{{ stage.status }}</td></tr>
@@ -162,7 +191,7 @@
   <section class="doc-part">
     <h2>四、过程记录、风险控制与成果关联</h2>
     {{ text_block('1. 过程记录与质量控制', application_sections.records or '项目实施期间应保存立项审批、任务分工、技术方案、设计评审、研发记录、测试记录、问题清单、整改记录、阶段评审、变更记录、工时及费用归集资料。重要变更应说明原因、影响和审批结果，确保研发过程连续、真实、可追溯。') }}
-    <table class="keep-together">
+    <table class="keep-together" data-pymupdf-widths="8,22,52,18">
       <thead><tr><th class="w-50">序号</th><th>记录事项</th><th>归档要求</th><th style="width:85px">当前情况</th></tr></thead>
       <tbody>
         <tr><td class="center">1</td><td>立项审批与任务分工</td><td>保存通知书、立项书、审批及人员分工记录。</td><td>按实际补充</td></tr>
@@ -174,8 +203,8 @@
 
     {{ text_block('2. 预期成果与阶段成果', application_sections.outputs or project.result or ('项目最终成果以实际研发、测试和归档资料为准。当前项目状态为“' ~ temporal.status_display ~ '”，不得在缺少依据时推断已完成或已形成具体成果。')) }}
     {% if application_sections.relations %}{{ text_block('3. RD-IP-PS 关联说明', application_sections.relations) }}{% endif %}
-    <table class="keep-together">
-      <thead><tr><th colspan="2" class="title-row">3. RD-IP-PS 关联明细</th></tr></thead>
+    <div class="table-heading">3. RD-IP-PS 关联明细</div>
+    <table class="keep-together" data-pymupdf-widths="20,80">
       <tbody>
         <tr><th class="w-110">RD项目</th><td>{{ project.rd_code or '待补充' }} {{ project.rd_activity or '' }}</td></tr>
         <tr><th>成果名称</th><td>{{ project.result_names|join('；') or '待补充' }}</td></tr>
@@ -187,7 +216,7 @@
 
   <section class="doc-part">
     <h2>五、{{ temporal.acceptance_title }}</h2>
-    <table>
+    <table data-pymupdf-widths="16,34,16,34">
       <tbody>
         <tr><th class="w-90">项目名称</th><td>{{ project.rd_activity or '待补充' }}</td><th class="w-90">项目编号</th><td>{{ project.rd_code or '待补充' }}</td></tr>
         <tr><th>项目周期</th><td>{{ project.rd_period or '待补充' }}</td><th>项目状态</th><td class="status">{{ temporal.acceptance_status }}</td></tr>
@@ -197,8 +226,9 @@
     </table>
 
     {% if application_sections.acceptance_comparison %}{{ text_block('1. 验收指标补充说明', application_sections.acceptance_comparison) }}{% endif %}
-    <table>
-      <thead><tr><th colspan="4" class="title-row">1. 验收指标对照</th></tr><tr><th class="w-50">序号</th><th>对照项目</th><th>计划要求</th><th>完成情况与证明材料</th></tr></thead>
+    <div class="table-heading">1. 验收指标对照</div>
+    <table data-pymupdf-widths="8,18,30,44">
+      <thead><tr><th class="w-50">序号</th><th>对照项目</th><th>计划要求</th><th>完成情况与证明材料</th></tr></thead>
       <tbody>
         <tr><td class="center">1</td><td>研发内容</td><td>完成立项书确定的研发任务。</td><td>{{ '已到计划结束时间，按实际研发记录核对。' if temporal.can_accept else '项目尚未到计划结束时间，按阶段进展记录。' }}</td></tr>
         <tr><td class="center">2</td><td>技术指标</td><td>达到已批准的功能、性能和适用性指标。</td><td>具体量化结果和测试记录待据实补充。</td></tr>
@@ -210,7 +240,7 @@
     {{ text_block('2. 验收意见', application_sections.acceptance_opinion if temporal.acceptance_record_supported and application_sections.acceptance_opinion else temporal.acceptance_opinion) }}
     {{ text_block('3. 验收结论', application_sections.acceptance_result if temporal.acceptance_record_supported and application_sections.acceptance_result else temporal.acceptance_result, 'status') }}
 
-    <table>
+    <table data-pymupdf-widths="16,34,16,34">
       <tbody>
         <tr><th class="w-90">验收人员</th><td style="height:45px">{{ project.staff_names|join('、') or '待补充' }}</td><th class="w-90">{{ temporal.acceptance_date_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
         <tr><th>审批意见</th><td colspan="3" style="height:45px">{{ '项目已到计划结束时间，待根据实际验收记录填写。' if temporal.can_accept else '待项目完成并组织正式验收后填写。' }}</td></tr>

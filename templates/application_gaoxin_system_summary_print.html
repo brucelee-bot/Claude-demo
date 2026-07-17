@@ -8,9 +8,11 @@
     {% include "_gaoxin_pdf_styles.html" %}
     {% include "_generated_document_header_styles.html" %}
     h1 {
-      margin: 0 0 9pt;
+      margin: 0 0 4pt;
       text-align: center;
+      font-size: 17pt;
     }
+    .summary-subtitle { margin: 0 0 10pt; }
     table { table-layout: auto; }
     col.module { width: 18%; }
     col.files { width: 30%; }
@@ -30,7 +32,8 @@
 </head>
 <body>
   <h1>11. 制度汇总表</h1>
-  <table>
+  <div class="document-subtitle summary-subtitle">企业研究开发组织管理、成果转化及科技人员管理制度体系</div>
+  <table data-pymupdf-widths="18,30,52">
     <colgroup>
       <col class="module">
       <col class="files">

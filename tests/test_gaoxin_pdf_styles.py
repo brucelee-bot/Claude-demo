@@ -51,9 +51,91 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         )
         self.assertIn(expected_font_stack, shared_styles)
         self.assertIn(expected_font_stack, header_styles)
-        self.assertIn("color: #111111;", shared_styles)
-        self.assertIn("border: 0.6pt solid #969da5;", shared_styles)
-        self.assertIn("background: #eef0f2;", shared_styles)
+        self.assertIn("color: #101820;", shared_styles)
+        self.assertIn("border: 0.65pt solid #8f99a7;", shared_styles)
+        self.assertIn("border-spacing: 0;", shared_styles)
+        self.assertIn("background-color: #e9edf2;", shared_styles)
+        self.assertNotIn("background: #", shared_styles)
+
+    def test_requested_summary_tables_define_pymupdf_column_ratios(self):
+        expectations = {
+            "application_gaoxin_achievement_summary_print.html": (
+                'data-pymupdf-widths="9,25,27,23,16"',
+            ),
+            "application_gaoxin_system_summary_print.html": (
+                'data-pymupdf-widths="18,30,52"',
+            ),
+            "application_gaoxin_achievement_evidence_print.html": (
+                'data-pymupdf-widths="16,34,16,34"',
+                'data-pymupdf-widths="16,84"',
+                'data-pymupdf-widths="20,80"',
+                'data-pymupdf-widths="20,30,20,30"',
+            ),
+            "application_gaoxin_rd_project_print.html": (
+                'data-pymupdf-widths="8,16,18,46,12"',
+                'data-pymupdf-widths="8,18,30,44"',
+            ),
+        }
+        for template_name, fragments in expectations.items():
+            template = (self.template_dir / template_name).read_text(encoding="utf-8")
+            for fragment in fragments:
+                with self.subTest(template=template_name, fragment=fragment):
+                    self.assertIn(fragment, template)
+
+    def test_requested_document_groups_use_stronger_reference_hierarchy(self):
+        expectations = {
+            "application_gaoxin_rd_project_print.html": (
+                "background-color: #e9edf2;",
+                "text-align: justify;",
+                'class="table-heading">3. 阶段计划与里程碑',
+                'class="table-heading">3. RD-IP-PS 关联明细',
+                'class="table-heading">1. 验收指标对照',
+            ),
+            "application_gaoxin_achievement_evidence_print.html": (
+                "科技成果转化证明材料",
+                "成果转化情况说明",
+            ),
+            "application_gaoxin_system_doc_print.html": (
+                'class="chapter"',
+                'class="article"',
+            ),
+            "application_gaoxin_system_evidence_print.html": (
+                'class="section-band"',
+                'class="{{ \'key-cell\' if loop.index is odd else \'value-cell\' }}"',
+                'data-pymupdf-widths="{{ table.pymupdf_widths }}"',
+            ),
+        }
+        for template_name, fragments in expectations.items():
+            template = (self.template_dir / template_name).read_text(encoding="utf-8")
+            for fragment in fragments:
+                with self.subTest(template=template_name, fragment=fragment):
+                    self.assertIn(fragment, template)
+
+    def test_achievement_evidence_avoids_story_colspan_layouts(self):
+        template = (
+            self.template_dir / "application_gaoxin_achievement_evidence_print.html"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("colspan=", template)
+        self.assertIn('class="table-heading">{{ achievement.type_label }}使用情况', template)
+        self.assertIn(
+            'class="table-heading">客户对{{ achievement.type_label }}的评价',
+            template,
+        )
+
+    def test_rd_project_table_headings_do_not_use_story_colspan_rows(self):
+        template = (
+            self.template_dir / "application_gaoxin_rd_project_print.html"
+        ).read_text(encoding="utf-8")
+        for heading in (
+            "3. 阶段计划与里程碑",
+            "3. RD-IP-PS 关联明细",
+            "1. 验收指标对照",
+        ):
+            with self.subTest(heading=heading):
+                self.assertNotRegex(
+                    template,
+                    rf"<th[^>]+colspan=[^>]*>{heading}</th>",
+                )
 
     def test_combined_portrait_templates_scope_document_specific_rules(self):
         expected_body_classes = {

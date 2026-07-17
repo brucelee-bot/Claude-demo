@@ -7,15 +7,42 @@
     @page { size: A4; margin: 28mm 16mm 18mm; }
     {% include "_gaoxin_pdf_styles.html" %}
     {% include "_generated_document_header_styles.html" %}
-    .achievement-evidence-document h1 { text-align: center; margin: 0 0 9pt; }
+    .achievement-evidence-document h1 { text-align: center; margin: 0 0 4pt; font-size: 17pt; }
     .achievement-evidence-document h2 { margin: 10pt 0 5pt; }
-    .achievement-evidence-document .meta { margin-bottom: 9pt; }
+    .achievement-evidence-document .evidence-subtitle { margin: 0 0 10pt; }
+    .achievement-evidence-document .meta { margin-bottom: 5pt; table-layout: fixed; }
+    .achievement-evidence-document .meta-relations { margin-bottom: 10pt; table-layout: fixed; }
     .achievement-evidence-document table { break-inside: auto; page-break-inside: auto; }
-    .achievement-evidence-document .meta th { width: 64pt; }
-    .achievement-evidence-document .content { line-height: 1.62; }
+    .achievement-evidence-document .meta th,
+    .achievement-evidence-document .meta-relations th {
+      width: 68pt;
+      background-color: #e9edf2;
+    }
+    .achievement-evidence-document .content {
+      line-height: 1.72;
+      text-align: justify;
+    }
+    .achievement-evidence-document .narrative-title { margin-top: 11pt; }
+    .achievement-evidence-document .narrative {
+      padding: 2pt 1pt 0;
+      font-size: 9.5pt;
+    }
     .achievement-evidence-document .evaluation { margin-top: 8pt; }
-    .achievement-evidence-document .evaluation th { width: 76pt; }
-    .achievement-evidence-document .evaluation .section-title { width: auto; background: #e7eaed; text-align: center; font-size: 9.5pt; }
+    .achievement-evidence-document .evaluation th { width: 76pt; background-color: #e9edf2; }
+    .achievement-evidence-document .table-heading {
+      margin: 8pt 0 0;
+      padding: 4pt 6pt;
+      border: 0.65pt solid #8f99a7;
+      border-bottom: 0;
+      background-color: #e1e6ec;
+      font-size: 10pt;
+      font-weight: 700;
+      line-height: 1.5;
+      text-align: left;
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+    .achievement-evidence-document .table-heading + .evaluation { margin-top: 0; }
     .achievement-evidence-document .evaluation .blank { min-height: 16pt; }
     .achievement-evidence-document .signature { height: 50pt; vertical-align: bottom !important; }
     .achievement-evidence-document .empty { text-align: center; padding: 28pt 0; border: 0.6pt dashed #c7c7c7; }
@@ -23,63 +50,72 @@
 </head>
 <body class="achievement-evidence-document">
   <h1>{{ evidence_type.title }}</h1>
-  <table class="meta">
+  <div class="document-subtitle evidence-subtitle">科技成果转化证明材料</div>
+  <table class="meta" data-pymupdf-widths="16,34,16,34">
     <tbody>
       <tr><th>企业名称</th><td>{{ company.name }}</td><th>成果序号</th><td>{{ achievement.result_no or '—' }}</td></tr>
       <tr><th>成果名称</th><td>{{ achievement.result_name or '—' }}</td><th>起止时间</th><td>{{ achievement.period or '—' }}</td></tr>
-      <tr><th>对应RD</th><td colspan="3">{{ achievement.rd_code or '—' }} {{ achievement.rd_name or '' }}</td></tr>
-      <tr><th>对应PS</th><td colspan="3">{{ achievement.ps or '—' }}</td></tr>
-      <tr><th>对应IP</th><td colspan="3">{{ achievement.ip or '—' }}{% if achievement.ip_auth_no %}（{{ achievement.ip_auth_no }}）{% endif %}</td></tr>
+    </tbody>
+  </table>
+  <table class="meta-relations" data-pymupdf-widths="16,84">
+    <tbody>
+      <tr><th>对应RD</th><td>{{ achievement.rd_code or '—' }} {{ achievement.rd_name or '' }}</td></tr>
+      <tr><th>对应PS</th><td>{{ achievement.ps or '—' }}</td></tr>
+      <tr><th>对应IP</th><td>{{ achievement.ip or '—' }}{% if achievement.ip_auth_no %}（{{ achievement.ip_auth_no }}）{% endif %}</td></tr>
     </tbody>
   </table>
 
   {% if evidence_type.key == 'test_report' %}
-  <table class="evaluation">
-    <thead><tr><th class="section-title" colspan="4">本公司内部检测信息</th></tr></thead>
+  <div class="table-heading">本公司内部检测信息</div>
+  <table class="evaluation" data-pymupdf-widths="20,80">
     <tbody>
-      <tr><th>检测单位</th><td>{{ test_report_fields.company_name }}</td><th>检测对象</th><td>{{ test_report_fields.product_name }}</td></tr>
-      <tr><th>被检测技术</th><td colspan="3">{{ test_report_fields.technology_name }}</td></tr>
-      <tr><th>检测目的</th><td colspan="3">{{ test_report_fields.test_purpose }}</td></tr>
-      <tr><th>检测依据</th><td colspan="3">{{ test_report_fields.test_basis }}</td></tr>
-      <tr><th>检测方法</th><td colspan="3">{{ test_report_fields.test_method }}</td></tr>
+      <tr><th>检测单位</th><td>{{ test_report_fields.company_name }}</td></tr>
+      <tr><th>检测对象</th><td>{{ test_report_fields.product_name }}</td></tr>
+      <tr><th>被检测技术</th><td>{{ test_report_fields.technology_name }}</td></tr>
+      <tr><th>检测目的</th><td>{{ test_report_fields.test_purpose }}</td></tr>
+      <tr><th>检测依据</th><td>{{ test_report_fields.test_basis }}</td></tr>
+      <tr><th>检测方法</th><td>{{ test_report_fields.test_method }}</td></tr>
     </tbody>
   </table>
-  <table class="evaluation">
-    <thead>
-      <tr><th class="section-title" colspan="4">内部检测项目及结果</th></tr>
-      <tr><th>检测项目</th><th colspan="3">检测结果</th></tr>
-    </thead>
+  <div class="table-heading">内部检测项目及结果</div>
+  <table class="evaluation" data-pymupdf-widths="20,80">
+    <thead><tr><th>检测项目</th><th>检测结果</th></tr></thead>
     <tbody>
-      <tr><td>{{ test_report_fields.item_1 }}</td><td colspan="3">{{ test_report_fields.result_1 }}</td></tr>
-      <tr><td>{{ test_report_fields.item_2 }}</td><td colspan="3">{{ test_report_fields.result_2 }}</td></tr>
-      <tr><td>{{ test_report_fields.item_3 }}</td><td colspan="3">{{ test_report_fields.result_3 }}</td></tr>
-      <tr><th>检测结论</th><td colspan="3">{{ test_report_fields.test_conclusion }}</td></tr>
-      <tr><th>检测单位（盖章）</th><td class="signature" colspan="2">{{ test_report_fields.company_seal }}</td><th>日期<br>{{ test_report_fields.report_date }}</th></tr>
+      <tr><td>{{ test_report_fields.item_1 }}</td><td>{{ test_report_fields.result_1 }}</td></tr>
+      <tr><td>{{ test_report_fields.item_2 }}</td><td>{{ test_report_fields.result_2 }}</td></tr>
+      <tr><td>{{ test_report_fields.item_3 }}</td><td>{{ test_report_fields.result_3 }}</td></tr>
+      <tr><th>检测结论</th><td>{{ test_report_fields.test_conclusion }}</td></tr>
     </tbody>
+  </table>
+  <table class="evaluation" data-pymupdf-widths="20,30,20,30">
+    <tbody><tr><th>检测单位（盖章）</th><td class="signature">{{ test_report_fields.company_seal }}</td><th>日期</th><td>{{ test_report_fields.report_date }}</td></tr></tbody>
   </table>
   {% elif evidence_type.key == 'user_report' %}
-  <table class="evaluation">
-    <thead><tr><th class="section-title" colspan="4">{{ achievement.type_label }}使用情况</th></tr></thead>
+  <div class="table-heading">{{ achievement.type_label }}使用情况</div>
+  <table class="evaluation" data-pymupdf-widths="16,34,16,34">
     <tbody>
       <tr><th>使用单位</th><td>{{ user_report_fields.customer_name }}</td><th>被评价单位</th><td>{{ user_report_fields.company_name }}</td></tr>
-      <tr><th>{{ achievement.type_label }}名称</th><td colspan="3">{{ user_report_fields.product_name }}</td></tr>
-      <tr><th>使用时间</th><td>{{ user_report_fields.use_period }}</td><th>应用场景</th><td>{{ user_report_fields.use_scene }}</td></tr>
+      <tr><th>{{ achievement.type_label }}名称</th><td>{{ user_report_fields.product_name }}</td><th>使用时间</th><td>{{ user_report_fields.use_period }}</td></tr>
+      <tr><th>应用场景</th><td>{{ user_report_fields.use_scene }}</td><th>成果序号</th><td>{{ achievement.result_no or '—' }}</td></tr>
     </tbody>
   </table>
-  <table class="evaluation">
-    <thead><tr><th class="section-title" colspan="4">客户对{{ achievement.type_label }}的评价</th></tr></thead>
+  <div class="table-heading">客户对{{ achievement.type_label }}的评价</div>
+  <table class="evaluation" data-pymupdf-widths="20,80">
     <tbody>
-      <tr><th>功能适用性</th><td colspan="3">{{ user_report_fields.function_fit }}</td></tr>
-      <tr><th>运行稳定性</th><td colspan="3">{{ user_report_fields.stability }}</td></tr>
-      <tr><th>操作便利性</th><td colspan="3">{{ user_report_fields.usability }}</td></tr>
-      <tr><th>服务响应</th><td colspan="3">{{ user_report_fields.service_response }}</td></tr>
-      <tr><th>综合评价</th><td colspan="3">{{ user_report_fields.overall_evaluation }}</td></tr>
-      <tr><th>客户意见及建议</th><td colspan="3">{{ user_report_fields.suggestion }}</td></tr>
-      <tr><th>使用单位（盖章）</th><td class="signature" colspan="2">{{ user_report_fields.customer_seal }}</td><th>日期<br>{{ user_report_fields.report_date }}</th></tr>
+      <tr><th>功能适用性</th><td>{{ user_report_fields.function_fit }}</td></tr>
+      <tr><th>运行稳定性</th><td>{{ user_report_fields.stability }}</td></tr>
+      <tr><th>操作便利性</th><td>{{ user_report_fields.usability }}</td></tr>
+      <tr><th>服务响应</th><td>{{ user_report_fields.service_response }}</td></tr>
+      <tr><th>综合评价</th><td>{{ user_report_fields.overall_evaluation }}</td></tr>
+      <tr><th>客户意见及建议</th><td>{{ user_report_fields.suggestion }}</td></tr>
     </tbody>
+  </table>
+  <table class="evaluation" data-pymupdf-widths="20,30,20,30">
+    <tbody><tr><th>使用单位（盖章）</th><td class="signature">{{ user_report_fields.customer_seal }}</td><th>日期</th><td>{{ user_report_fields.report_date }}</td></tr></tbody>
   </table>
   {% elif content_text %}
-  <div class="content">{{ content_text }}</div>
+  <div class="section-band narrative-title">成果转化情况说明</div>
+  <div class="content narrative">{{ content_text }}</div>
   {% else %}
   <div class="empty">暂未撰写{{ evidence_type.title }}，请返回附件制作页生成或填写内容后保存。</div>
   {% endif %}

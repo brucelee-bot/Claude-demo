@@ -1,12 +1,15 @@
+import base64
 import json
 import mimetypes
 import os
 import re
+import struct
 import uuid
 import shutil
 import subprocess
 import tempfile
 import time
+import zlib
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from html import escape as html_escape
@@ -2053,6 +2056,197 @@ def _story_page_layout(html):
     return page_rect, content_rect
 
 
+def _prepare_pymupdf_story_html(html, content_width):
+    """Add Story-compatible table sizing without changing Chrome output."""
+    from lxml import etree
+    from lxml import html as lxml_html
+
+    def transparent_png_data_uri(width):
+        width = max(1, int(width))
+        signature = b"\x89PNG\r\n\x1a\n"
+
+        def chunk(chunk_type, payload):
+            checksum = zlib.crc32(chunk_type + payload) & 0xFFFFFFFF
+            return (
+                struct.pack(">I", len(payload))
+                + chunk_type
+                + payload
+                + struct.pack(">I", checksum)
+            )
+
+        header = struct.pack(">IIBBBBB", width, 1, 8, 6, 0, 0, 0)
+        transparent_row = b"\x00" + (b"\x00\x00\x00\x00" * width)
+        png = (
+            signature
+            + chunk(b"IHDR", header)
+            + chunk(b"IDAT", zlib.compress(transparent_row, 9))
+            + chunk(b"IEND", b"")
+        )
+        return f"data:image/png;base64,{base64.b64encode(png).decode('ascii')}"
+
+    def table_column_weights(table, column_count):
+        raw_weights = table.get("data-pymupdf-widths", "")
+        if raw_weights:
+            try:
+                parsed_weights = [
+                    float(value.strip())
+                    for value in raw_weights.split(",")
+                ]
+            except (TypeError, ValueError):
+                parsed_weights = []
+            if (
+                len(parsed_weights) == column_count
+                and all(weight > 0 for weight in parsed_weights)
+            ):
+                total_weight = sum(parsed_weights)
+                return tuple(weight / total_weight for weight in parsed_weights)
+
+        if column_count == 2:
+            return (0.2, 0.8)
+        if column_count == 3:
+            return (0.2, 0.6, 0.2)
+        if column_count == 4:
+            return (0.16, 0.34, 0.16, 0.34)
+        return (1 / column_count,) * column_count
+
+    root = lxml_html.document_fromstring(html)
+    head_nodes = root.xpath("//head")
+    head = head_nodes[0] if head_nodes else etree.SubElement(root, "head")
+    compatibility_style = etree.Element("style")
+    compatibility_style.text = """
+      .pymupdf-table-sizer,
+      .pymupdf-table-sizer td {
+        border: 0 !important;
+        padding: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        line-height: 0 !important;
+        background-color: #ffffff !important;
+      }
+      .pymupdf-table-sizer img {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+    """
+    head.append(compatibility_style)
+
+    # Story ignores percentage, fixed CSS and HTML width attributes on tables.
+    # Story honors intrinsic image dimensions even though it ignores percentage
+    # and fixed CSS widths. Transparent 1px-high PNGs therefore provide stable
+    # column sizing without leaving text or visible marks in the PDF.
+    spacer_count = max(1, int(round(float(content_width) / 0.75)))
+    for table in root.xpath("//table"):
+        rows = table.xpath(".//tr[not(ancestor::table[2])]")
+        column_count = 1
+        for row in rows:
+            logical_columns = 0
+            for cell in row.xpath("./th|./td"):
+                try:
+                    logical_columns += max(1, int(cell.get("colspan") or 1))
+                except (TypeError, ValueError):
+                    logical_columns += 1
+            column_count = max(column_count, logical_columns)
+
+        sizer_row = etree.Element("tr", {"class": "pymupdf-table-sizer"})
+        weights = table_column_weights(table, column_count)
+        allocated = 0
+        for column_index, weight in enumerate(weights):
+            remaining_columns = column_count - column_index
+            if remaining_columns == 1:
+                column_spacers = max(1, spacer_count - allocated)
+            else:
+                column_spacers = max(1, int(round(spacer_count * weight)))
+                allocated += column_spacers
+            sizer_cell = etree.SubElement(
+                sizer_row,
+                "td",
+                {"aria-hidden": "true"},
+            )
+            etree.SubElement(
+                sizer_cell,
+                "img",
+                {
+                    "aria-hidden": "true",
+                    "alt": "",
+                    "data-pymupdf-spacer-width": str(column_spacers),
+                    "src": transparent_png_data_uri(column_spacers),
+                },
+            )
+
+        body_nodes = table.xpath("./tbody")
+        if body_nodes:
+            body_nodes[0].insert(0, sizer_row)
+        else:
+            first_row = table.xpath("./tr")
+            if first_row:
+                table.insert(table.index(first_row[0]), sizer_row)
+            else:
+                table.append(sizer_row)
+
+    return etree.tostring(root, encoding="unicode", method="html")
+
+
+def _remove_pymupdf_story_repeated_backgrounds(document):
+    """Remove Story's stale 8pt background fills from continuation pages."""
+    number = rb"-?(?:\d+(?:\.\d*)?|\.\d+)"
+    color_group = re.compile(
+        rb"(?P<color>"
+        + number
+        + rb"\s+"
+        + number
+        + rb"\s+"
+        + number
+        + rb"\s+rg\s+)"
+        rb"(?P<rects>(?:(?:"
+        + number
+        + rb"\s+){3}8(?:\.0+)?\s+re\s+f\s+)+)"
+    )
+    known_backgrounds = (
+        (233 / 255, 237 / 255, 242 / 255),  # #e9edf2
+        (227 / 255, 232 / 255, 238 / 255),  # #e3e8ee
+        (225 / 255, 230 / 255, 236 / 255),  # #e1e6ec
+        (237 / 255, 240 / 255, 244 / 255),  # #edf0f4
+    )
+
+    removed_groups = 0
+    for page_index in range(1, document.page_count):
+        page = document[page_index]
+        for xref in page.get_contents():
+            stream = document.xref_stream(xref)
+            clip_match = re.search(rb"\bre\s+W\s+n\s+", stream)
+            if not clip_match:
+                continue
+
+            artifact_start = clip_match.end()
+            cursor = artifact_start
+            retained_color = b""
+            while True:
+                match = color_group.match(stream, cursor)
+                if not match:
+                    break
+                color_values = tuple(
+                    float(value)
+                    for value in re.findall(number, match.group("color"))[:3]
+                )
+                if not any(
+                    all(abs(actual - expected) < 0.002 for actual, expected in zip(color_values, target))
+                    for target in known_backgrounds
+                ):
+                    break
+                retained_color = match.group("color")
+                cursor = match.end()
+                removed_groups += 1
+
+            if cursor > artifact_start:
+                document.update_stream(
+                    xref,
+                    stream[:artifact_start] + retained_color + stream[cursor:],
+                )
+
+    return removed_groups
+
+
 def _render_pdf_with_pymupdf(html, pdf_path):
     try:
         import fitz
@@ -2063,7 +2257,8 @@ def _render_pdf_with_pymupdf(html, pdf_path):
             raise RuntimeError("无 Chrome 环境生成 PDF 需要 PyMuPDF") from exc
 
     page_rect, content_rect = _story_page_layout(html)
-    story = fitz.Story(html=html)
+    story_html = _prepare_pymupdf_story_html(html, content_rect.width)
+    story = fitz.Story(html=story_html)
     writer = fitz.DocumentWriter(pdf_path)
 
     def rect_function(_rect_number, _filled):
@@ -2079,6 +2274,7 @@ def _render_pdf_with_pymupdf(html, pdf_path):
     try:
         if document.page_count == 0:
             raise RuntimeError("PyMuPDF 未生成任何 PDF 页面")
+        _remove_pymupdf_story_repeated_backgrounds(document)
         document.subset_fonts()
         document.save(optimized_path, garbage=4, deflate=True, clean=True)
     finally:
@@ -2541,6 +2737,59 @@ def _evidence_file_templates(doc_key, evidence_text=""):
     return generated or [("制度佐证材料登记表", "用于记录该制度执行过程中形成的佐证材料、责任人和归档情况。")]
 
 
+def _system_evidence_table_widths(headers):
+    """Return readable Story column ratios based on evidence table semantics."""
+    narrow_keywords = ("序号", "日期", "签到", "签字", "确认")
+    compact_keywords = (
+        "审核人",
+        "责任人",
+        "复核人",
+        "移交人",
+        "接收人",
+        "部门",
+        "岗位",
+        "科目",
+        "金额",
+        "编号",
+    )
+    wide_keywords = (
+        "内容",
+        "事项",
+        "意见",
+        "记录",
+        "依据",
+        "原因",
+        "要点",
+        "结论",
+        "成果",
+        "附件",
+        "用途",
+        "名称",
+        "项目",
+        "评价",
+        "贡献",
+        "资料",
+    )
+
+    weights = []
+    for header in headers or []:
+        label = str(header or "").strip()
+        if any(keyword in label for keyword in narrow_keywords):
+            weight = 0.65
+        elif any(keyword in label for keyword in compact_keywords):
+            weight = 0.9
+        elif any(keyword in label for keyword in wide_keywords):
+            weight = 1.55
+        else:
+            weight = 1.1
+        weights.append(weight)
+
+    if not weights:
+        return ""
+    total = sum(weights)
+    return ",".join(f"{weight / total * 100:.2f}" for weight in weights)
+
+
 def _system_evidence_pdf_context(base, doc_type, file_title, purpose, evidence_text=""):
     """Build concise, table-first content for one system evidence attachment."""
     base = base or {}
@@ -2804,6 +3053,12 @@ def _system_evidence_pdf_context(base, doc_type, file_title, purpose, evidence_t
                 ["归档日期", archive_date, "归档位置", archive_location],
             ],
         })
+
+    for table in tables:
+        if table.get("kind") != "key-value":
+            table["pymupdf_widths"] = _system_evidence_table_widths(
+                table.get("headers") or []
+            )
 
     return {
         "purpose": safe_purpose,

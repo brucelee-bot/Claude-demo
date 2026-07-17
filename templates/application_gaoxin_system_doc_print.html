@@ -7,11 +7,28 @@
     @page { size: A4; margin: 28mm 16mm 18mm; }
     {% include "_gaoxin_pdf_styles.html" %}
     {% include "_generated_document_header_styles.html" %}
-    .system-document { font-size: 10.5pt; line-height: 1.75; }
-    .system-document h1 { text-align: center; margin: 0 0 5pt; }
-    .system-document .subtitle { text-align: center; color: #555; font-size: 9pt; margin-bottom: 12pt; }
+    .system-document { font-size: 10.5pt; line-height: 1.78; }
+    .system-document h1 { text-align: center; margin: 0 0 5pt; font-size: 17pt; }
+    .system-document .subtitle {
+      margin-bottom: 16pt;
+      color: #586474;
+      font-size: 9pt;
+      text-align: center;
+    }
+    .system-document .document-body p {
+      margin: 0 0 8pt;
+      line-height: 1.78;
+      text-align: justify;
+    }
+    .system-document .document-body .chapter {
+      margin: 13pt 0 8pt;
+      font-weight: 700;
+      text-align: left;
+    }
+    .system-document .document-body .article { margin-bottom: 9pt; }
+    .system-document .paragraph-gap { height: 3pt; }
     .system-document .signature {
-      margin-top: 15pt;
+      margin-top: 18pt;
       text-align: right;
       white-space: nowrap;
       break-inside: avoid;
@@ -23,7 +40,20 @@
 <body class="system-document">
   <h1>{{ title }}</h1>
   <div class="subtitle">{{ subtitle }}</div>
-  <div class="content">{{ content_text }}</div>
+  <div class="document-body">
+    {% for raw_line in content_text.splitlines() %}
+      {% set line = raw_line.strip() %}
+      {% if not line %}
+        <div class="paragraph-gap"></div>
+      {% elif line.startswith('第') and '章' in line and line|length <= 20 %}
+        <p class="chapter">{{ line }}</p>
+      {% elif line.startswith('第') and '条' in line %}
+        <p class="article">{{ line }}</p>
+      {% else %}
+        <p>{{ line }}</p>
+      {% endif %}
+    {% endfor %}
+  </div>
   {% if signature_unit or signature_date %}
   <div class="signature">
     {% if signature_unit %}<div>{{ signature_unit }}</div>{% endif %}
