@@ -15,6 +15,7 @@ from modules.docgen.routes import (
     _collect_rd_project_rows,
     _combine_portrait_export_documents,
     _export_rd_project_application_text,
+    _pdf_cjk_font_path,
     _rd_project_application_html,
     _rd_project_application_sections,
     _prepare_pymupdf_story_html,
@@ -124,11 +125,13 @@ class PdfRenderingTests(unittest.TestCase):
                 text = "".join(page.get_text() for page in document)
                 self.assertIn("科研项目书", text)
                 self.assertIn("电力系统安全分析及继电保护定值计算服务技术研发", text)
-                self.assertIn("填写依据", text)
+                self.assertIn("审批意见", text)
+                self.assertNotIn("填写依据", text)
 
                 acceptance_page = next(
                     page for page in document
-                    if "填写依据" in page.get_text()
+                    if "验收人员" in page.get_text()
+                    and "审批意见" in page.get_text()
                 )
                 border_color = (143 / 255, 153 / 255, 167 / 255)
                 right_edges = [
@@ -456,6 +459,18 @@ class PdfRenderingTests(unittest.TestCase):
                 self.assertIn("正文内容", text)
             finally:
                 document.close()
+
+    def test_header_font_uses_custom_file_only_when_explicitly_configured(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(_pdf_cjk_font_path(), "")
+
+        with tempfile.NamedTemporaryFile(suffix=".ttf") as font_file:
+            with patch.dict(
+                os.environ,
+                {"PDF_CJK_FONT": font_file.name},
+                clear=True,
+            ):
+                self.assertEqual(_pdf_cjk_font_path(), font_file.name)
 
     def test_long_bilingual_headers_fit_portrait_and_landscape_pages(self):
         chinese_name = (

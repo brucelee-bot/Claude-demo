@@ -164,7 +164,20 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertNotIn("colspan=", template)
-        self.assertIn("<th>填写依据</th><td>以实际验收记录为准</td>", template)
+        self.assertIn('class="project-summary table-stack keep-together"', template)
+        self.assertIn(
+            "<tr><th>研发活动</th><td>{{ project.rd_activity or '项目名称待补充' }}</td></tr>",
+            template,
+        )
+        self.assertIn(
+            "<tr><th>项目名称</th><td>{{ project.rd_activity or '待补充' }}</td></tr>",
+            template,
+        )
+        self.assertIn(
+            "<tr><th>审批意见</th><td style=\"height:45px\">",
+            template,
+        )
+        self.assertNotIn("<th>填写依据</th>", template)
 
     def test_combined_portrait_templates_scope_document_specific_rules(self):
         expected_body_classes = {

@@ -1787,6 +1787,7 @@ def _sync_achievement_patent_cert_files(company, data, achievement_index, achiev
 
 
 def _render_html_pdf(html, download_name, redirect_endpoint, **redirect_values):
+    render_started = time.perf_counter()
     company_name = str(redirect_values.pop("_header_company_name", "") or "").strip()
     company_english_name = str(redirect_values.pop("_header_company_english_name", "") or "").strip()
     try:
@@ -1801,32 +1802,34 @@ def _render_html_pdf(html, download_name, redirect_endpoint, **redirect_values):
             if company_name or company_english_name:
                 _stamp_pdf_file_headers(pdf_path, company_name, company_english_name)
             pdf_bytes = Path(pdf_path).read_bytes()
-        return send_file(
+        duration = time.perf_counter() - render_started
+        current_app.logger.info(
+            "%s PDF 生成完成 duration=%.3fs bytes=%s",
+            download_name,
+            duration,
+            len(pdf_bytes),
+        )
+        response = send_file(
             BytesIO(pdf_bytes),
             mimetype="application/pdf",
             as_attachment=False,
             download_name=download_name,
         )
+        response.headers["X-PDF-Render-Duration"] = f"{duration:.3f}"
+        return response
     except Exception as exc:
-        current_app.logger.exception("PDF 生成失败")
+        current_app.logger.exception(
+            "%s PDF 生成失败 duration=%.3fs",
+            download_name,
+            time.perf_counter() - render_started,
+        )
         flash(f"PDF 生成失败：{exc}", "danger")
         return redirect(url_for(redirect_endpoint, **redirect_values))
 
 
 def _pdf_cjk_font_path():
-    font_candidates = [
-        os.getenv("PDF_CJK_FONT", ""),
-        "/System/Library/Fonts/STHeiti Medium.ttc",
-        "/System/Library/Fonts/STHeiti Light.ttc",
-        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-        "/Library/Fonts/Arial Unicode.ttf",
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
-    ]
-    return next(
-        (path for path in font_candidates if path and os.path.isfile(path)),
-        "",
-    )
+    configured = str(os.getenv("PDF_CJK_FONT") or "").strip()
+    return configured if configured and os.path.isfile(configured) else ""
 
 
 def _stamp_generated_pdf_pages(document, page_indexes, company_name, company_english_name):
@@ -1854,6 +1857,7 @@ def _stamp_generated_pdf_pages(document, page_indexes, company_name, company_eng
         if cjk_font_path
         else fitz.Font("china-s")
     )
+    latin_font = fitz.Font("helv")
 
     overlays = {}
 
@@ -1866,62 +1870,76 @@ def _stamp_generated_pdf_pages(document, page_indexes, company_name, company_eng
             width=page.rect.width,
             height=page.rect.height,
         )
+        header_font_name = "generated-header-cjk" if cjk_font_path else "china-s"
+        if cjk_font_path:
+            overlay_page.insert_font(
+                fontname=header_font_name,
+                fontfile=cjk_font_path,
+            )
         landscape = page.rect.width > page.rect.height
         horizontal_margin = (12 if landscape else 14) * mm
         available_width = page.rect.width - (2 * horizontal_margin)
         preferred_font_size = 7.5
-        single_line_width = header_font.text_length(
-            header_text,
-            fontsize=preferred_font_size,
-        )
-        if single_line_width <= available_width:
-            header_lines = [(header_text, preferred_font_size)]
+        header_lines = []
+        if chinese_name and english_name:
+            line_specs = (
+                (chinese_name, header_font, header_font_name),
+                (english_name, latin_font, "helv"),
+            )
+        elif chinese_name:
+            line_specs = ((chinese_name, header_font, header_font_name),)
         else:
-            header_lines = []
-            for text in (chinese_name, english_name):
-                if not text:
-                    continue
-                text_width = header_font.text_length(
-                    text,
-                    fontsize=preferred_font_size,
-                )
-                font_size = preferred_font_size
-                if text_width > available_width:
-                    font_size *= available_width / text_width
-                header_lines.append((text, max(font_size * 0.995, 1.0)))
+            line_specs = ((header_text, latin_font, "helv"),)
+        for text, line_font, line_font_name in line_specs:
+            text_width = line_font.text_length(
+                text,
+                fontsize=preferred_font_size,
+            )
+            font_size = preferred_font_size
+            if text_width > available_width:
+                font_size *= available_width / text_width
+            header_lines.append(
+                (text, max(font_size * 0.995, 1.0), line_font, line_font_name)
+            )
 
         line_heights = [
-            (header_font.ascender - header_font.descender) * font_size
-            for _, font_size in header_lines
+            (line_font.ascender - line_font.descender) * font_size
+            for _, font_size, line_font, _ in header_lines
         ]
         total_text_height = sum(line_heights)
         current_y = text_top + max(
             0,
             ((text_bottom - text_top) - total_text_height) / 2,
         )
-        text_writer = fitz.TextWriter(overlay_page.rect)
-        for (text, font_size), line_height in zip(header_lines, line_heights):
-            text_width = header_font.text_length(text, fontsize=font_size)
+        for (
+            text,
+            font_size,
+            line_font,
+            line_font_name,
+        ), line_height in zip(header_lines, line_heights):
+            text_width = line_font.text_length(text, fontsize=font_size)
             text_x = horizontal_margin + max(
                 0,
                 (available_width - text_width) / 2,
             )
-            baseline_y = current_y + (header_font.ascender * font_size)
-            text_writer.append(
+            baseline_y = current_y + (line_font.ascender * font_size)
+            overlay_page.insert_text(
                 fitz.Point(text_x, baseline_y),
                 text,
-                font=header_font,
+                fontname=line_font_name,
                 fontsize=font_size,
+                color=text_color,
+                overlay=True,
             )
             current_y += line_height
-        text_writer.write_text(overlay_page, color=text_color)
         overlay_page.draw_line(
             fitz.Point(horizontal_margin, line_y),
             fitz.Point(page.rect.width - horizontal_margin, line_y),
             color=line_color,
             width=0.5,
         )
-        overlay_document.subset_fonts()
+        if cjk_font_path:
+            overlay_document.subset_fonts()
         overlays[page_key] = overlay_document
         return overlay_document
 
@@ -2286,12 +2304,12 @@ def _render_pdf_file(app, html, pdf_path, label, render_info=None):
     """Render HTML with Chrome when available, otherwise use bundled PyMuPDF."""
     output_dir = os.path.dirname(pdf_path)
     os.makedirs(output_dir, exist_ok=True)
-    html_path = os.path.join(output_dir, f"{Path(pdf_path).stem}.html")
-    Path(html_path).write_text(html, encoding="utf-8")
     chrome = _chrome_executable(app)
     renderer = "chrome"
 
     if chrome:
+        html_path = os.path.join(output_dir, f"{Path(pdf_path).stem}.html")
+        Path(html_path).write_text(html, encoding="utf-8")
         timeout = max(15, int(app.config.get("PDF_RENDER_TIMEOUT", 90)))
         command = [
             chrome,

@@ -26,9 +26,15 @@
     }
     .rd-project-document .doc-part { break-after: page; page-break-after: always; }
     .rd-project-document .doc-part:last-child { break-after: auto; page-break-after: auto; }
+    .rd-project-document .table-stack {
+      margin: 0 0 8pt;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .rd-project-document .table-stack table { margin: 0; }
+    .rd-project-document .table-stack table + table { border-top: 0; }
     .rd-project-document .project-summary { margin-bottom: 11pt; }
-    .rd-project-document .project-summary th { width: 18%; text-align: center; }
-    .rd-project-document .project-summary td { width: 32%; }
+    .rd-project-document .project-summary th { text-align: center; }
     .rd-project-document .title-row { background-color: #e3e8ee; font-size: 10pt; }
     .rd-project-document .table-heading {
       margin: 0;
@@ -77,22 +83,38 @@
 
   <section class="doc-part">
     <h1>{{ project.rd_code or 'RD' }} 科研项目书</h1>
-    <table class="project-summary" data-pymupdf-widths="18,32,18,32">
-      <tbody>
-        <tr><th>企业名称</th><td>{{ company.name }}</td><th>年度</th><td>{{ project.year or '待补充' }}</td></tr>
-        <tr><th>RD序号</th><td>{{ project.rd_code or '待补充' }}</td><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td></tr>
-        <tr><th>研发活动</th><td>{{ project.rd_activity or '项目名称待补充' }}</td><th>项目状态</th><td class="status">{{ temporal.status_display }}</td></tr>
-      </tbody>
-    </table>
+    <div class="project-summary table-stack keep-together">
+      <table data-pymupdf-widths="18,32,18,32">
+        <tbody>
+          <tr><th>企业名称</th><td>{{ company.name }}</td><th>年度</th><td>{{ project.year or '待补充' }}</td></tr>
+          <tr><th>RD序号</th><td>{{ project.rd_code or '待补充' }}</td><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td></tr>
+        </tbody>
+      </table>
+      <table data-pymupdf-widths="18,82">
+        <tbody>
+          <tr><th>研发活动</th><td>{{ project.rd_activity or '项目名称待补充' }}</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h2>研发项目立项通知书</h2>
-    <table data-pymupdf-widths="16,34,16,34">
-      <tbody>
-        <tr><th class="w-90">企业名称</th><td>{{ company.name }}</td><th class="w-90">项目状态</th><td class="status">{{ temporal.status_display }}</td></tr>
-        <tr><th>项目编号</th><td>{{ project.rd_code or '待补充' }}</td><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
-        <tr><th>项目名称</th><td>{{ project.rd_activity or '待补充' }}</td><th>技术来源</th><td>{{ project.source or '自主研发' }}</td></tr>
-        <tr><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td><th>技术领域</th><td>{{ project.field or '待补充' }}</td></tr>
-      </tbody>
-    </table>
+    <div class="table-stack keep-together">
+      <table data-pymupdf-widths="16,34,16,34">
+        <tbody>
+          <tr><th class="w-90">企业名称</th><td>{{ company.name }}</td><th class="w-90">项目状态</th><td class="status">{{ temporal.status_display }}</td></tr>
+          <tr><th>项目编号</th><td>{{ project.rd_code or '待补充' }}</td><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
+        </tbody>
+      </table>
+      <table data-pymupdf-widths="16,84">
+        <tbody>
+          <tr><th>项目名称</th><td>{{ project.rd_activity or '待补充' }}</td></tr>
+        </tbody>
+      </table>
+      <table data-pymupdf-widths="16,34,16,34">
+        <tbody>
+          <tr><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td><th>技术领域</th><td>{{ project.field or '待补充' }}</td></tr>
+        </tbody>
+      </table>
+    </div>
 
     <table class="text-block" data-pymupdf-widths="100">
       <tbody>
@@ -240,13 +262,23 @@
     {{ text_block('2. 验收意见', application_sections.acceptance_opinion if temporal.acceptance_record_supported and application_sections.acceptance_opinion else temporal.acceptance_opinion) }}
     {{ text_block('3. 验收结论', application_sections.acceptance_result if temporal.acceptance_record_supported and application_sections.acceptance_result else temporal.acceptance_result, 'status') }}
 
-    <table data-pymupdf-widths="16,34,16,34">
-      <tbody>
-        <tr><th class="w-90">验收人员</th><td style="height:45px">{{ project.staff_names|join('、') or '待补充' }}</td><th class="w-90">{{ temporal.acceptance_date_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
-        <tr><th>审批意见</th><td style="height:45px">{{ '项目已到计划结束时间，待根据实际验收记录填写。' if temporal.can_accept else '待项目完成并组织正式验收后填写。' }}</td><th>填写依据</th><td>以实际验收记录为准</td></tr>
-        <tr><th>落款单位</th><td>{{ company.name }}</td><th>{{ temporal.acceptance_signature_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
-      </tbody>
-    </table>
+    <div class="table-stack keep-together">
+      <table data-pymupdf-widths="16,34,16,34">
+        <tbody>
+          <tr><th class="w-90">验收人员</th><td style="height:45px">{{ project.staff_names|join('、') or '待补充' }}</td><th class="w-90">{{ temporal.acceptance_date_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
+        </tbody>
+      </table>
+      <table data-pymupdf-widths="16,84">
+        <tbody>
+          <tr><th>审批意见</th><td style="height:45px">{{ '项目已到计划结束时间，待根据实际验收记录填写。' if temporal.can_accept else '待项目完成并组织正式验收后填写。' }}</td></tr>
+        </tbody>
+      </table>
+      <table data-pymupdf-widths="16,34,16,34">
+        <tbody>
+          <tr><th>落款单位</th><td>{{ company.name }}</td><th>{{ temporal.acceptance_signature_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 </body>
 </html>
