@@ -58,11 +58,9 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         self.assertIn("border-left: 1.5pt solid #b2bac4;", shared_styles)
         self.assertIn("border-right: 1.5pt solid #b2bac4;", shared_styles)
         self.assertIn("border-bottom: 1.5pt solid #b2bac4;", shared_styles)
-        self.assertIn("border: 1.5pt solid #b2bac4;", shared_styles)
         self.assertIn("border-collapse: separate;", shared_styles)
         self.assertIn("border-spacing: 0;", shared_styles)
-        self.assertIn("@media print {", shared_styles)
-        self.assertIn("border-collapse: collapse;", shared_styles)
+        self.assertNotIn("border-collapse: collapse;", shared_styles)
         self.assertIn("background-color: #dfe7ef;", shared_styles)
         self.assertIn("background-color: #e9edf2;", shared_styles)
         self.assertNotIn("background: #", shared_styles)
@@ -71,19 +69,17 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         self.assertNotIn("border-bottom-width: 1.5pt;", shared_styles)
         self.assertNotIn("#b4bbc4", shared_styles)
 
-    def test_chrome_and_pymupdf_receive_compatible_table_grid_models(self):
+    def test_chrome_and_pymupdf_share_the_single_edge_table_grid(self):
         shared_styles = (self.template_dir / "_gaoxin_pdf_styles.html").read_text(
             encoding="utf-8"
         )
 
-        base_styles, print_styles = shared_styles.split("@media print {", 1)
-        self.assertIn("border-collapse: separate;", base_styles)
-        self.assertIn("border-top: 1.5pt solid #b2bac4;", base_styles)
-        self.assertIn("border-right: 1.5pt solid #b2bac4;", base_styles)
-        self.assertIn("border-left: 1.5pt solid #b2bac4;", base_styles)
-        self.assertIn("border-bottom: 1.5pt solid #b2bac4;", base_styles)
-        self.assertIn("border-collapse: collapse;", print_styles)
-        self.assertIn("border: 1.5pt solid #b2bac4;", print_styles)
+        self.assertIn("border-collapse: separate;", shared_styles)
+        self.assertIn("border-top: 1.5pt solid #b2bac4;", shared_styles)
+        self.assertIn("border-right: 1.5pt solid #b2bac4;", shared_styles)
+        self.assertIn("border-left: 1.5pt solid #b2bac4;", shared_styles)
+        self.assertIn("border-bottom: 1.5pt solid #b2bac4;", shared_styles)
+        self.assertNotIn("border-collapse: collapse;", shared_styles)
 
     def test_shared_table_grid_draws_each_edge_once(self):
         shared_styles = (self.template_dir / "_gaoxin_pdf_styles.html").read_text(
