@@ -538,6 +538,22 @@ class PdfRenderingTests(unittest.TestCase):
         self.assertNotIn("\u00a0", prepared)
         self.assertEqual(len(root.xpath("//tr[contains(@class, 'pymupdf-table-sizer')]//img")), 4)
 
+    def test_pymupdf_html_preparation_centers_rd_project_cover_content(self):
+        prepared = _prepare_pymupdf_story_html(
+            "<html><head></head><body class='rd-project-document'>"
+            "<section class='cover-page'>"
+            "<table class='cover-code-row'><tr><td>RD01</td></tr></table>"
+            "</section></body></html>",
+            504,
+        )
+
+        self.assertIn(
+            ".rd-project-document table.cover-code-row {\n"
+            "        margin-bottom: 40mm !important;\n"
+            "      }",
+            prepared,
+        )
+
     def test_pymupdf_html_preparation_honors_explicit_table_width_ratios(self):
         prepared = _prepare_pymupdf_story_html(
             "<html><head></head><body>"

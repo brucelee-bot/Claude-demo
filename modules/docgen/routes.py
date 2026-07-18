@@ -2293,6 +2293,9 @@ def _prepare_pymupdf_story_html(html, content_width):
         break-after: auto !important;
         page-break-after: auto !important;
       }
+      .rd-project-document table.cover-code-row {
+        margin-bottom: 40mm !important;
+      }
       tr {
         break-inside: auto !important;
         page-break-inside: auto !important;
