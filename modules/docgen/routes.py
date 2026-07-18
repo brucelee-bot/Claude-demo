@@ -1857,6 +1857,7 @@ def _render_html_pdf(html, download_name, redirect_endpoint, **redirect_values):
     render_started = time.perf_counter()
     company_name = str(redirect_values.pop("_header_company_name", "") or "").strip()
     company_english_name = str(redirect_values.pop("_header_company_english_name", "") or "").strip()
+    header_skip_first_page = bool(redirect_values.pop("_header_skip_first_page", False))
     try:
         with tempfile.TemporaryDirectory(prefix="html-pdf-") as output_dir:
             pdf_path = os.path.join(output_dir, "document.pdf")
@@ -1867,7 +1868,12 @@ def _render_html_pdf(html, download_name, redirect_endpoint, **redirect_values):
                 download_name,
             )
             if company_name or company_english_name:
-                _stamp_pdf_file_headers(pdf_path, company_name, company_english_name)
+                _stamp_pdf_file_headers(
+                    pdf_path,
+                    company_name,
+                    company_english_name,
+                    skip_first_page=header_skip_first_page,
+                )
             pdf_bytes = Path(pdf_path).read_bytes()
         duration = time.perf_counter() - render_started
         current_app.logger.info(
@@ -2043,7 +2049,13 @@ def _stamp_generated_pdf_pages(document, page_indexes, company_name, company_eng
             overlay_document.close()
 
 
-def _stamp_pdf_file_headers(pdf_path, company_name, company_english_name):
+def _stamp_pdf_file_headers(
+    pdf_path,
+    company_name,
+    company_english_name,
+    *,
+    skip_first_page=False,
+):
     try:
         import fitz
     except ImportError:
@@ -2054,7 +2066,7 @@ def _stamp_pdf_file_headers(pdf_path, company_name, company_english_name):
     try:
         _stamp_generated_pdf_pages(
             source,
-            range(source.page_count),
+            range(1 if skip_first_page else 0, source.page_count),
             company_name,
             company_english_name,
         )
@@ -2877,6 +2889,11 @@ def _assign_portrait_document_page_ranges(pdf_path, documents):
             )
     finally:
         source_pdf.close()
+
+
+def _generated_insert_header_page_indexes(insert_start, insert_end, *, skip_first_page=False):
+    first_header_page = int(insert_start) + (1 if skip_first_page else 0)
+    return range(min(first_header_page, int(insert_end)), int(insert_end))
 
 
 def _portrait_export_document_style_signature(document):
@@ -6557,6 +6574,7 @@ def gaoxin_rd_project_application_pdf(company_id, project_index):
         "docgen.gaoxin_rd_project_application",
         _header_company_name=company.name,
         _header_company_english_name=_company_english_name(company, data),
+        _header_skip_first_page=True,
         company_id=company.id,
         project_index=project_index,
     )
@@ -6618,7 +6636,13 @@ def gaoxin_attachments_pdf(company_id):
                 standalone_documents.append(document)
                 section_paths[str(section_no)].append((document, label))
 
-            def add_portrait_document(section_no, document_html, label):
+            def add_portrait_document(
+                section_no,
+                document_html,
+                label,
+                *,
+                skip_header_first_page=False,
+            ):
                 if _generated_document_needs_landscape(document_html):
                     add_standalone_document(
                         section_no,
@@ -6626,7 +6650,11 @@ def gaoxin_attachments_pdf(company_id):
                         label,
                     )
                     return
-                document = {"html": document_html, "label": label}
+                document = {
+                    "html": document_html,
+                    "label": label,
+                    "skip_header_first_page": skip_header_first_page,
+                }
                 portrait_documents.append(document)
                 section_paths[str(section_no)].append((document, label))
 
@@ -6676,6 +6704,7 @@ def gaoxin_attachments_pdf(company_id):
                     "6",
                     project_html,
                     f"科研项目书 {project.get('project_no') or project_index}",
+                    skip_header_first_page=True,
                 )
 
             for year in GAOXIN_FINANCE_YEARS:
@@ -7011,7 +7040,15 @@ def gaoxin_attachments_pdf(company_id):
                                     isinstance(source, dict)
                                     and not source.get("uploaded_attachment")
                                 ):
-                                    generated_page_indexes.extend(range(insert_start, merged_pdf.page_count))
+                                    generated_page_indexes.extend(
+                                        _generated_insert_header_page_indexes(
+                                            insert_start,
+                                            merged_pdf.page_count,
+                                            skip_first_page=bool(
+                                                source.get("skip_header_first_page")
+                                            ),
+                                        )
+                                    )
                         finally:
                             if converted_image_pdf is not None:
                                 converted_image_pdf.close()

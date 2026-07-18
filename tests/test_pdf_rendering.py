@@ -20,6 +20,7 @@ from modules.docgen.routes import (
     _ensure_landscape_page_rule,
     _export_rd_project_application_text,
     _generated_document_needs_landscape,
+    _generated_insert_header_page_indexes,
     _html_max_table_columns,
     _ordered_attachment_section_ranges,
     _pdf_cjk_font_path,
@@ -622,6 +623,54 @@ class PdfRenderingTests(unittest.TestCase):
                 self.assertIn("正文内容", text)
             finally:
                 document.close()
+
+    def test_header_stamping_can_skip_a_document_cover(self):
+        with tempfile.TemporaryDirectory() as output_dir:
+            pdf_path = os.path.join(output_dir, "cover-and-body.pdf")
+            source = fitz.open()
+            try:
+                for page_text in ("科研项目书", "研发项目立项通知书"):
+                    page = source.new_page(width=595, height=842)
+                    page.insert_text(
+                        fitz.Point(72, 120),
+                        page_text,
+                        fontname="china-s",
+                        fontsize=12,
+                    )
+                source.save(pdf_path)
+            finally:
+                source.close()
+
+            with patch("modules.docgen.routes._pdf_cjk_font_path", return_value=""):
+                _stamp_pdf_file_headers(
+                    pdf_path,
+                    "测试科技有限公司",
+                    "TEST TECHNOLOGY CO., LTD.",
+                    skip_first_page=True,
+                )
+
+            document = fitz.open(pdf_path)
+            try:
+                self.assertNotIn("测试科技有限公司", document[0].get_text())
+                self.assertIn("测试科技有限公司", document[1].get_text())
+            finally:
+                document.close()
+
+    def test_generated_header_indexes_skip_each_marked_document_cover(self):
+        self.assertEqual(
+            list(_generated_insert_header_page_indexes(10, 17)),
+            list(range(10, 17)),
+        )
+        self.assertEqual(
+            list(
+                _generated_insert_header_page_indexes(
+                    10,
+                    17,
+                    skip_first_page=True,
+                )
+            ),
+            list(range(11, 17)),
+        )
 
     def test_header_font_uses_custom_file_only_when_explicitly_configured(self):
         with patch.dict(os.environ, {}, clear=True):

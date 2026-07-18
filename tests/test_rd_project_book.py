@@ -291,13 +291,16 @@ class RdProjectBookTests(unittest.TestCase):
         self.assertGreaterEqual(template.count("project.project_no"), 5)
         self.assertIn("企业研究开发项目管理文件", template)
         self.assertIn("min-height: 224mm;", template)
-        self.assertIn("padding: 0 4mm;", template)
-        self.assertIn("margin: 15mm auto 18mm;", template)
+        self.assertIn("padding: 31mm 7mm 0;", template)
+        self.assertIn("width: 34%;", template)
+        self.assertIn("margin: 0 0 20mm auto;", template)
+        self.assertIn('class="cover-title-rule"', template)
         self.assertIn('class="cover-project-block"', template)
         self.assertIn(
-            '<span class="cover-issuer-label">编制单位</span>{{ company.name }}',
+            "<tr><th>编制单位</th><td>{{ company.name }}</td></tr>",
             template,
         )
+        self.assertNotIn('class="cover-issuer', template)
         self.assertNotIn("<th>技术领域</th>", template[template.index('<section class="cover-page">'):cover_end])
         self.assertIn('class="doc-part acceptance-part"', template)
         self.assertIn('class="table-stack keep-together acceptance-signoff"', template)
