@@ -306,13 +306,13 @@ class PdfRenderingTests(unittest.TestCase):
           width: 100%;
           border: 0;
           border-top: 0.65pt solid #8f99a7;
-          border-left: 0.65pt solid #8f99a7;
+          border-right: 0.65pt solid #8f99a7;
           border-collapse: separate;
           border-spacing: 0;
         }
         td {
           border: 0;
-          border-right: 0.65pt solid #8f99a7;
+          border-left: 0.65pt solid #8f99a7;
           border-bottom: 0.65pt solid #8f99a7;
           padding: 10pt;
         }
@@ -351,6 +351,13 @@ class PdfRenderingTests(unittest.TestCase):
                         for rect in border_rects
                     )
                 )
+                right_edges = [
+                    rect
+                    for rect in border_rects
+                    if rect.height > rect.width
+                    and abs(rect.x1 - document[0].rect.width + (20 * 72 / 25.4)) < 1
+                ]
+                self.assertEqual(len(right_edges), 1)
             finally:
                 document.close()
 

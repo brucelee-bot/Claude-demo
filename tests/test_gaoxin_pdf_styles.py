@@ -75,13 +75,13 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         table_rule = shared_styles.split("table {", 1)[1].split("}", 1)[0]
         cell_rule = shared_styles.split("th,\ntd {", 1)[1].split("}", 1)[0]
         self.assertIn("border-top:", table_rule)
-        self.assertIn("border-left:", table_rule)
-        self.assertNotIn("border-right:", table_rule)
+        self.assertIn("border-right:", table_rule)
+        self.assertNotIn("border-left:", table_rule)
         self.assertNotIn("border-bottom:", table_rule)
-        self.assertIn("border-right:", cell_rule)
+        self.assertIn("border-left:", cell_rule)
         self.assertIn("border-bottom:", cell_rule)
         self.assertNotIn("border-top:", cell_rule)
-        self.assertNotIn("border-left:", cell_rule)
+        self.assertNotIn("border-right:", cell_rule)
 
     def test_requested_summary_tables_define_pymupdf_column_ratios(self):
         expectations = {

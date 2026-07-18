@@ -310,9 +310,17 @@ class RdProjectBookTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("border-top-width: 0.65pt;", template)
-        self.assertIn("border-left-width: 0.65pt;", template)
         self.assertIn("border-right-width: 0.65pt;", template)
+        self.assertIn("border-left-width: 0.65pt;", template)
         self.assertIn("border-bottom-width: 0.65pt;", template)
+        table_rule = template.split(".rd-project-document table {", 1)[1].split("}", 1)[0]
+        cell_rule = template.split(
+            ".rd-project-document th,\n    .rd-project-document td {", 1
+        )[1].split("}", 1)[0]
+        self.assertIn("border-right-width:", table_rule)
+        self.assertNotIn("border-left-width:", table_rule)
+        self.assertIn("border-left-width:", cell_rule)
+        self.assertNotIn("border-right-width:", cell_rule)
         self.assertIn(
             ".rd-project-document .table-stack table + table { border-top: 0; }",
             template,
