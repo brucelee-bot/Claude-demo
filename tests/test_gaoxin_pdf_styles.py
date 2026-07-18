@@ -121,7 +121,7 @@ class GaoxinPdfStyleTests(unittest.TestCase):
             "application_gaoxin_rd_project_print.html": (
                 "background-color: #dfe7ef;",
                 "企业研究开发项目管理文件",
-                "cover-project-panel",
+                "cover-project-block",
                 'class="table-heading">3. 阶段计划与里程碑',
                 'class="table-heading">3. RD-IP-PS 关联明细',
                 'class="table-heading">1. 验收指标对照',
@@ -178,9 +178,9 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertNotIn("colspan=", template)
-        self.assertIn('class="cover-meta keep-together"', template)
+        self.assertIn('class="cover-facts keep-together" data-pymupdf-widths="28,72"', template)
         self.assertIn(
-            "<div class=\"cover-project-name\">{{ project.rd_activity or '项目名称待补充' }}</div>",
+            '<span class="cover-project-name-line">{{ line }}</span>',
             template,
         )
         self.assertIn(

@@ -9,100 +9,129 @@
     {% include "_generated_document_header_styles.html" %}
     .rd-project-document h1 { text-align: center; margin: 0 0 10pt; font-size: 17pt; }
     .rd-project-document .cover-page {
-      padding-top: 16mm;
+      padding: 8mm 4mm 0;
       break-after: page;
       page-break-after: always;
     }
-    .rd-project-document .cover-top-rule {
-      width: 88%;
-      height: 3pt;
-      margin: 0 auto 10pt;
-      background-color: #254b6b;
+    .rd-project-document table.cover-code-row {
+      width: 92%;
+      margin: 0 auto 18mm;
+      border: 0;
+      border-left: 2.5pt solid #315b7d;
+      background-color: #e3e8ee;
+    }
+    .rd-project-document table.cover-code-row td {
+      padding: 3mm 5mm;
+      border: 0;
+      background-color: #e3e8ee;
+      color: #526171;
+      font-size: 9pt;
+      line-height: 1.4;
+      vertical-align: middle;
+    }
+    .rd-project-document table.cover-code-row .cover-code-value {
+      color: #17324d;
+      font-size: 11pt;
+      font-weight: 700;
     }
     .rd-project-document .cover-document-type {
-      margin: 0 0 8pt;
+      margin: 0 0 5mm;
       color: #526171;
-      font-size: 10pt;
-      font-weight: 700;
-      line-height: 1.4;
-      text-align: center;
-    }
-    .rd-project-document .cover-number {
-      width: 48%;
-      margin: 0 auto 18pt;
-      padding: 4pt 8pt;
-      border-top: 0.65pt solid #8f99a7;
-      border-bottom: 0.65pt solid #8f99a7;
-      color: #254b6b;
       font-size: 10.5pt;
       font-weight: 700;
-      line-height: 1.4;
+      line-height: 1.45;
       text-align: center;
     }
     .rd-project-document .cover-title {
-      margin: 0 0 20pt;
+      margin: 0 0 15mm;
       color: #17324d;
-      font-size: 28pt;
-      line-height: 1.35;
+      font-size: 31pt;
+      line-height: 1.3;
     }
-    .rd-project-document .cover-project-panel {
-      width: 88%;
-      margin: 0 auto 22pt;
-      padding: 13pt 13mm 15pt;
-      border-top: 1.2pt solid #315b7d;
-      border-bottom: 1.2pt solid #315b7d;
-      background-color: #edf0f4;
+    .rd-project-document .cover-project-block {
+      width: 92%;
+      margin: 0 auto 18mm;
+      padding: 9mm 8mm 8mm;
+      border-top: 1.4pt solid #315b7d;
+      border-bottom: 1.4pt solid #315b7d;
+      background-color: #f4f6f8;
     }
     .rd-project-document .cover-project-label {
-      margin: 0 0 6pt;
+      margin: 0 0 4.5mm;
       color: #526171;
-      font-size: 9pt;
+      font-size: 8.75pt;
       font-weight: 700;
+      line-height: 1.4;
       text-align: center;
     }
     .rd-project-document .cover-project-name {
       margin: 0;
       color: #17212b;
-      font-size: 16pt;
       font-weight: 700;
-      line-height: 1.55;
+      line-height: 1.65;
       text-align: center;
     }
-    .rd-project-document .cover-meta {
-      width: 82%;
-      margin: 0 auto 24pt;
-      table-layout: fixed;
+    .rd-project-document .cover-project-name-1 { font-size: 17pt; }
+    .rd-project-document .cover-project-name-2 { font-size: 16pt; }
+    .rd-project-document .cover-project-name-3 { font-size: 14.5pt; }
+    .rd-project-document .cover-project-name-line {
+      display: block;
+      white-space: nowrap;
     }
-    .rd-project-document .cover-meta th,
-    .rd-project-document .cover-meta td {
-      padding: 7pt 6pt;
-      vertical-align: middle;
+    .rd-project-document table.cover-facts {
+      width: 76%;
+      margin: 0 auto 24mm;
+      border: 0;
+      color: #17212b;
     }
-    .rd-project-document .cover-meta th {
-      width: 26%;
-      background-color: #dfe7ef;
-      color: #17324d;
-    }
-    .rd-project-document .cover-meta td {
+    .rd-project-document table.cover-facts th,
+    .rd-project-document table.cover-facts td {
+      padding: 3.2mm 0 2.5mm;
+      border: 0;
+      border-bottom: 0.55pt solid #a5b0bc;
       background-color: #ffffff;
       font-size: 10pt;
+      line-height: 1.45;
+      vertical-align: middle;
+    }
+    .rd-project-document table.cover-facts th {
+      color: #17324d;
       font-weight: 700;
+      text-align: left;
+    }
+    .rd-project-document table.cover-facts td {
+      font-weight: 700;
+      text-align: center;
     }
     .rd-project-document .cover-issuer {
-      width: 82%;
+      width: 76%;
       margin: 0 auto;
-      table-layout: fixed;
+      color: #17212b;
+      text-align: center;
     }
-    .rd-project-document .cover-issuer th {
-      width: 26%;
-      background-color: #e9edf2;
+    .rd-project-document .cover-company {
+      margin: 0 0 4mm;
+      font-size: 12pt;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+    .rd-project-document .cover-issuer-label {
+      display: block;
+      margin: 0 0 1mm;
+      color: #526171;
+      font-size: 8.5pt;
+      font-weight: 400;
+    }
+    .rd-project-document .cover-date {
       color: #17324d;
+      font-size: 10pt;
+      line-height: 1.45;
     }
     .rd-project-document .cover-bottom-rule {
-      width: 88%;
+      width: 76%;
       height: 1pt;
-      margin: 15pt auto 0;
-      background-color: #8f99a7;
+      margin: 7mm auto 0;
+      background-color: #315b7d;
     }
     .rd-project-document h2 {
       margin: 0 0 9pt;
@@ -219,28 +248,38 @@
   {%- endmacro %}
 
   <section class="cover-page">
-    <div class="cover-top-rule"></div>
-    <div class="cover-document-type">企业研究开发项目管理文件</div>
-    <div class="cover-number">项目编号　{{ project.project_no or '待补充' }}</div>
-    <h1 class="cover-title">科研项目书</h1>
-    <div class="cover-project-panel">
-      <div class="cover-project-label">项目名称</div>
-      <div class="cover-project-name">{{ project.rd_activity or '项目名称待补充' }}</div>
-    </div>
-    <table class="cover-meta keep-together" data-pymupdf-widths="26,74">
+    <table class="cover-code-row" data-pymupdf-widths="100">
       <tbody>
-        <tr><th>项目编号</th><td>{{ project.project_no or '待补充' }}</td></tr>
+        <tr>
+          <td>项目编号&emsp;&emsp;<span class="cover-code-value">{{ project.project_no or '待补充' }}</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="cover-document-type">企业研究开发项目管理文件</div>
+    <h1 class="cover-title">科研项目书</h1>
+    {% set cover_title_lines = project.cover_title_lines or [project.rd_activity or '项目名称待补充'] %}
+    <div class="cover-project-block">
+      <div class="cover-project-label">项目名称</div>
+      <div class="cover-project-name cover-project-name-{{ cover_title_lines|length }}">
+        {% for line in cover_title_lines %}
+        <span class="cover-project-name-line">{{ line }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    <table class="cover-facts keep-together" data-pymupdf-widths="28,72">
+      <tbody>
         <tr><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
         <tr><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td></tr>
-        <tr><th>技术领域</th><td>{{ project.field or '待补充' }}</td></tr>
       </tbody>
     </table>
-    <table class="cover-issuer keep-together" data-pymupdf-widths="26,74">
-      <tbody>
-        <tr><th>编制单位</th><td>{{ company.name }}</td></tr>
-        <tr><th>编制日期</th><td>{{ temporal.issue_date }}</td></tr>
-      </tbody>
-    </table>
+    <div class="cover-issuer keep-together">
+      <div class="cover-company">
+        <span class="cover-issuer-label">编制单位</span>{{ company.name }}
+      </div>
+      <div class="cover-date">
+        <span class="cover-issuer-label">编制日期</span>{{ temporal.issue_date }}
+      </div>
+    </div>
     <div class="cover-bottom-rule"></div>
   </section>
 

@@ -1053,6 +1053,60 @@ def _format_rd_project_no(rd_code, project_index):
     return f"RD{int(project_index or 0) + 1:02d}"
 
 
+def _balanced_cover_title_lines(value, max_line_units=15):
+    """Split a project title into visually balanced cover lines."""
+    text = re.sub(r"\s+", " ", str(value or "").strip())
+    if not text:
+        return ["项目名称待补充"]
+
+    def character_units(character):
+        if character.isspace():
+            return 0.35
+        return 0.55 if ord(character) < 128 else 1.0
+
+    total_units = sum(character_units(character) for character in text)
+    line_count = max(1, min(3, int((total_units + max_line_units - 0.01) // max_line_units)))
+    if line_count == 1:
+        return [text]
+
+    closing_punctuation = set("，。；：、）》】〕〉!?！？")
+    opening_punctuation = set("《（【〔〈")
+    lines = []
+    start = 0
+    remaining_units = total_units
+    for line_index in range(line_count - 1):
+        remaining_lines = line_count - line_index
+        target_units = remaining_units / remaining_lines
+        current_units = 0.0
+        split_at = start
+        while split_at < len(text):
+            next_units = current_units + character_units(text[split_at])
+            if current_units and next_units > target_units:
+                break
+            current_units = next_units
+            split_at += 1
+
+        if split_at <= start:
+            split_at = start + 1
+        while split_at < len(text) and text[split_at] in closing_punctuation:
+            current_units += character_units(text[split_at])
+            split_at += 1
+        while split_at > start + 1 and text[split_at - 1] in opening_punctuation:
+            split_at -= 1
+            current_units -= character_units(text[split_at])
+
+        line = text[start:split_at].strip()
+        if line:
+            lines.append(line)
+        start = split_at
+        remaining_units -= current_units
+
+    final_line = text[start:].strip()
+    if final_line:
+        lines.append(final_line)
+    return lines or [text]
+
+
 def _collect_rd_project_rows(data):
     rows = ((data.get("gaoxin_relation_table") or {}).get("rows") or []) if isinstance(data, dict) else []
     projects = []
@@ -1117,6 +1171,7 @@ def _collect_rd_project_rows(data):
             "project_no": _format_rd_project_no(rd_code, len(projects)),
             "rd_code": rd_code,
             "rd_activity": rd_activity,
+            "cover_title_lines": _balanced_cover_title_lines(rd_activity),
             "rd_period": rd_period,
             "purpose": str(data.get(f"{prefix}purpose") or "").strip(),
             "innovation": str(data.get(f"{prefix}innovation") or "").strip(),

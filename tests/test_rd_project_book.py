@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 
 from modules.docgen.routes import (
+    _balanced_cover_title_lines,
     _build_staff_statement_from_rd_list,
     _collect_december_2025_rd_staff_rows,
     _collect_rd_project_rows,
@@ -12,6 +13,25 @@ from modules.docgen.routes import (
 
 
 class RdProjectBookTests(unittest.TestCase):
+    def test_cover_title_lines_are_balanced_without_orphan_characters(self):
+        title = "电网继电保护定值在线校核与运行状态预警技术的研发"
+
+        lines = _balanced_cover_title_lines(title)
+
+        self.assertEqual("".join(lines), title)
+        self.assertEqual(len(lines), 2)
+        self.assertGreaterEqual(min(len(line) for line in lines), 10)
+        self.assertLessEqual(abs(len(lines[0]) - len(lines[1])), 1)
+
+    def test_long_cover_title_uses_at_most_three_balanced_lines(self):
+        title = "面向复杂工业生产场景的电力系统故障诊断与智能预警及协同控制关键技术研究"
+
+        lines = _balanced_cover_title_lines(title)
+
+        self.assertEqual("".join(lines), title)
+        self.assertEqual(len(lines), 3)
+        self.assertGreaterEqual(min(len(line) for line in lines), 8)
+
     def test_project_number_comes_only_from_relation_table_rd_sequence(self):
         data = {
             "gaoxin_relation_table": {
@@ -268,13 +288,14 @@ class RdProjectBookTests(unittest.TestCase):
         self.assertIn("page-break-after: always;", template)
         self.assertIn("page-break-before: always;", template)
         self.assertNotIn("project.rd_code", template)
-        self.assertGreaterEqual(template.count("project.project_no"), 6)
+        self.assertGreaterEqual(template.count("project.project_no"), 5)
         self.assertIn("企业研究开发项目管理文件", template)
-        self.assertIn('class="cover-project-panel"', template)
+        self.assertIn('class="cover-project-block"', template)
         self.assertIn(
-            "<tr><th>编制单位</th><td>{{ company.name }}</td></tr>",
+            '<span class="cover-issuer-label">编制单位</span>{{ company.name }}',
             template,
         )
+        self.assertNotIn("<th>技术领域</th>", template[template.index('<section class="cover-page">'):cover_end])
         self.assertIn('class="doc-part acceptance-part"', template)
         self.assertIn('class="table-stack keep-together acceptance-signoff"', template)
 
