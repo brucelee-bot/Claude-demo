@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <title>{{ project.rd_code or 'RD' }} 科研项目书</title>
+  <title>{{ project.project_no or 'RD' }} 科研项目书</title>
   <style>
     @page { size: A4; margin: 28mm 16mm 18mm; }
     {% include "_gaoxin_pdf_styles.html" %}
@@ -136,7 +136,7 @@
     <table class="cover-meta keep-together" data-pymupdf-widths="28,72">
       <tbody>
         <tr><th>企业名称</th><td>{{ company.name }}</td></tr>
-        <tr><th>项目编号</th><td>{{ project.rd_code or '待补充' }}</td></tr>
+        <tr><th>项目编号</th><td>{{ project.project_no or '待补充' }}</td></tr>
         <tr><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
         <tr><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td></tr>
       </tbody>
@@ -149,7 +149,7 @@
       <table data-pymupdf-widths="16,34,16,34">
         <tbody>
           <tr><th class="w-90">企业名称</th><td>{{ company.name }}</td><th class="w-90">项目状态</th><td class="status">{{ temporal.status_display }}</td></tr>
-          <tr><th>项目编号</th><td>{{ project.rd_code or '待补充' }}</td><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
+          <tr><th>项目编号</th><td>{{ project.project_no or '待补充' }}</td><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
         </tbody>
       </table>
       <table data-pymupdf-widths="16,84">
@@ -200,7 +200,7 @@
     <h2>一、项目基本情况与立项依据</h2>
     <table data-pymupdf-widths="16,34,16,34">
       <tbody>
-        <tr><th class="w-90">项目名称</th><td>{{ project.rd_activity or '待补充' }}</td><th class="w-90">项目编号</th><td>{{ project.rd_code or '待补充' }}</td></tr>
+        <tr><th class="w-90">项目名称</th><td>{{ project.rd_activity or '待补充' }}</td><th class="w-90">项目编号</th><td>{{ project.project_no or '待补充' }}</td></tr>
         <tr><th>起止时间</th><td>{{ project.rd_period or '待补充' }}</td><th>当前状态</th><td>{{ temporal.status_display }}</td></tr>
         <tr><th>技术来源</th><td>{{ project.source or '自主研发' }}</td><th>预算总额</th><td>{{ project.budget_display }}</td></tr>
         <tr><th>项目负责人</th><td>{{ project.leader }}</td><th>承担部门</th><td>相关研发部门</td></tr>
@@ -276,7 +276,7 @@
     <div class="table-heading">3. RD-IP-PS 关联明细</div>
     <table class="keep-together" data-pymupdf-widths="20,80">
       <tbody>
-        <tr><th class="w-110">RD项目</th><td>{{ project.rd_code or '待补充' }} {{ project.rd_activity or '' }}</td></tr>
+        <tr><th class="w-110">RD项目</th><td>{{ project.project_no or '待补充' }} {{ project.rd_activity or '' }}</td></tr>
         <tr><th>成果名称</th><td>{{ project.result_names|join('；') or '待补充' }}</td></tr>
         <tr><th>关联知识产权</th><td>{{ project.ip_labels|join('；') or '待补充' }}</td></tr>
         <tr><th>关联PS</th><td>{{ project.ps_labels|join('；') or '待补充' }}</td></tr>
@@ -288,7 +288,7 @@
     <h2>五、{{ temporal.acceptance_title }}</h2>
     <table data-pymupdf-widths="16,34,16,34">
       <tbody>
-        <tr><th class="w-90">项目名称</th><td>{{ project.rd_activity or '待补充' }}</td><th class="w-90">项目编号</th><td>{{ project.rd_code or '待补充' }}</td></tr>
+        <tr><th class="w-90">项目名称</th><td>{{ project.rd_activity or '待补充' }}</td><th class="w-90">项目编号</th><td>{{ project.project_no or '待补充' }}</td></tr>
         <tr><th>项目周期</th><td>{{ project.rd_period or '待补充' }}</td><th>项目状态</th><td class="status">{{ temporal.acceptance_status }}</td></tr>
         <tr><th>项目负责人</th><td>{{ project.leader }}</td><th>{{ temporal.acceptance_date_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
         <tr><th>预算金额</th><td>{{ project.budget_display }}</td><th>验收人员</th><td>{{ project.staff_names|join('、') or '待补充' }}</td></tr>

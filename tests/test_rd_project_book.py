@@ -4,6 +4,7 @@ from pathlib import Path
 from modules.docgen.routes import (
     _build_staff_statement_from_rd_list,
     _collect_december_2025_rd_staff_rows,
+    _collect_rd_project_rows,
     _collect_rd_staff_names,
     _rd_project_staff_assignment,
     _sync_staff_month_counts,
@@ -11,6 +12,25 @@ from modules.docgen.routes import (
 
 
 class RdProjectBookTests(unittest.TestCase):
+    def test_project_number_comes_only_from_relation_table_rd_sequence(self):
+        data = {
+            "gaoxin_relation_table": {
+                "rows": [{
+                    "year": "2025",
+                    "rd_code": "RD07",
+                    "rd_activity": "测试研发项目",
+                    "rd_period": "2025-01-01至2025-12-31",
+                }],
+            },
+            "rd_0_no": "INTERNAL-OVERRIDE",
+            "attachment_rd_project_0_rd_code": "SAVED-OVERRIDE",
+        }
+
+        project = _collect_rd_project_rows(data)[0]
+
+        self.assertEqual(project["project_no"], "RD07")
+        self.assertEqual(project["rd_code"], "RD07")
+
     def test_collect_rd_staff_prefers_maintained_order_and_deduplicates(self):
         data = {
             "attachment_rd_staff_0_name": "张三",
@@ -193,6 +213,8 @@ class RdProjectBookTests(unittest.TestCase):
         self.assertLess(basic_start, acceptance_start)
         self.assertIn("page-break-after: always;", template)
         self.assertIn("page-break-before: always;", template)
+        self.assertNotIn("project.rd_code", template)
+        self.assertGreaterEqual(template.count("project.project_no"), 6)
 
     def test_print_template_uses_uniform_table_border_widths(self):
         template = (

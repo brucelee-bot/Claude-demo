@@ -676,6 +676,87 @@ class PdfRenderingTests(unittest.TestCase):
             1,
         )
 
+    def test_combined_rd_project_keeps_required_internal_page_breaks(self):
+        template_folder = Path(__file__).resolve().parents[1] / "templates"
+        app = Flask(__name__, template_folder=str(template_folder))
+        data = {
+            "gaoxin_relation_table": {
+                "rows": [{
+                    "year": "2025",
+                    "rd_code": "RD03",
+                    "rd_activity": "批量导出分页测试项目",
+                    "rd_period": "2025-01-01至2025-12-31",
+                }],
+            },
+        }
+        project = _collect_rd_project_rows(data)[0]
+        application_text = _export_rd_project_application_text(project, "")
+        with app.app_context():
+            project_html = render_template(
+                "application_gaoxin_rd_project_print.html",
+                company=SimpleNamespace(name="测试科技有限公司"),
+                company_english_name="TEST TECHNOLOGY CO., LTD.",
+                project=project,
+                application_text=application_text,
+                application_html=_rd_project_application_html(application_text),
+                application_sections=_rd_project_application_sections(application_text),
+            )
+
+        combined_html = _combine_portrait_export_documents(
+            [{"label": "科研项目书 RD03", "html": project_html}],
+            "测试科技有限公司",
+            "TEST TECHNOLOGY CO., LTD.",
+        )
+
+        self.assertEqual(combined_html.count('<section class="batch-document'), 7)
+        self.assertEqual(
+            combined_html.count('data-pymupdf-page-break-before="true"'),
+            6,
+        )
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            with patch("modules.docgen.routes._chrome_executable", return_value=None):
+                pdf_path = _render_export_pdf_file(
+                    app,
+                    combined_html,
+                    output_dir,
+                    "批量科研项目书",
+                )
+
+            self.assertIsNotNone(pdf_path)
+            document = fitz.open(pdf_path)
+            try:
+                page_texts = [
+                    re.sub(r"\s+", "", page.get_text())
+                    for page in document
+                ]
+                headings = (
+                    "研发项目立项通知书",
+                    "一、项目基本情况与立项依据",
+                    "五、研发项目验收报告",
+                )
+                heading_pages = [
+                    next(
+                        index
+                        for index, page_text in enumerate(page_texts)
+                        if heading in page_text
+                    )
+                    for heading in headings
+                ]
+                self.assertEqual(len(set(heading_pages)), len(headings))
+                for page_index, heading in zip(heading_pages, headings):
+                    first_body_text = next(
+                        word[4]
+                        for word in document[page_index].get_text(
+                            "words",
+                            sort=True,
+                        )
+                        if word[1] > 70
+                    )
+                    self.assertIn(first_body_text, heading)
+            finally:
+                document.close()
+
     def test_combined_portrait_documents_deduplicate_identical_styles(self):
         shared_style = ".shared-document h1 { font-size: 15pt; }"
         documents = [

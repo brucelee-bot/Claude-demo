@@ -1104,6 +1104,9 @@ def _collect_rd_project_rows(data):
             "index": len(projects),
             "data_index": data_index,
             "year": year,
+            # The printed project number is always the RD sequence maintained
+            # in the RD-IP-PS achievement relation table.
+            "project_no": rd_code,
             "rd_code": rd_code,
             "rd_activity": rd_activity,
             "rd_period": rd_period,
@@ -2665,18 +2668,39 @@ def _combine_export_documents(
                 parent.remove(header)
         marker = f"GAOXINPDFDOC{index:04d}X{uuid.uuid4().hex[:12].upper()}"
         document["marker"] = marker
-        body_html = "".join(
-            etree.tostring(child, encoding="unicode", method="html") for child in body
-        )
-        first_class = " batch-document-first" if index == 0 else ""
         document_classes = "".join(f" {class_name}" for class_name in body_classes)
-        pymupdf_break = (
-            "" if index == 0 else ' data-pymupdf-page-break-before="true"'
-        )
-        document_blocks.append(
-            f'<section class="batch-document{first_class}{document_classes}"{pymupdf_break}>'
-            f'<div class="batch-document-marker">{marker}</div>{body_html}</section>'
-        )
+        body_groups = []
+        current_group = []
+        for child in body:
+            if (
+                child.get("data-pymupdf-page-break-before") is not None
+                and current_group
+            ):
+                body_groups.append(current_group)
+                current_group = []
+            current_group.append(child)
+        if current_group:
+            body_groups.append(current_group)
+
+        for group_index, group in enumerate(body_groups):
+            is_first_block = index == 0 and group_index == 0
+            first_class = " batch-document-first" if is_first_block else ""
+            pymupdf_break = (
+                "" if is_first_block else ' data-pymupdf-page-break-before="true"'
+            )
+            marker_html = (
+                f'<div class="batch-document-marker">{marker}</div>'
+                if group_index == 0
+                else ""
+            )
+            group_html = "".join(
+                etree.tostring(child, encoding="unicode", method="html")
+                for child in group
+            )
+            document_blocks.append(
+                f'<section class="batch-document{first_class}{document_classes}"{pymupdf_break}>'
+                f"{marker_html}{group_html}</section>"
+            )
 
     combined_styles = "\n".join(style_blocks)
     return f"""<!doctype html>
@@ -6402,7 +6426,7 @@ def gaoxin_rd_project_application_pdf(company_id, project_index):
 
     return _render_html_pdf(
         html,
-        f"{company.name}_{project.get('rd_code') or 'RD'}_科研项目书.pdf",
+        f"{company.name}_{project.get('project_no') or 'RD'}_科研项目书.pdf",
         "docgen.gaoxin_rd_project_application",
         _header_company_name=company.name,
         _header_company_english_name=_company_english_name(company, data),
@@ -6521,7 +6545,11 @@ def gaoxin_attachments_pdf(company_id):
                     application_html=_rd_project_application_html(application_text),
                     application_sections=_rd_project_application_sections(application_text),
                 )
-                add_portrait_document("6", project_html, f"科研项目书 {project.get('rd_code') or project_index}")
+                add_portrait_document(
+                    "6",
+                    project_html,
+                    f"科研项目书 {project.get('project_no') or project_index}",
+                )
 
             for year in GAOXIN_FINANCE_YEARS:
                 add_attachment_files("7", [
@@ -6622,7 +6650,11 @@ def gaoxin_attachments_pdf(company_id):
                 company_english_name=company_english_name,
                 auto_data=system_summary_data,
             )
-            add_standalone_document("11", system_summary_html, "制度汇总表")
+            add_standalone_document(
+                "11",
+                _ensure_landscape_page_rule(system_summary_html),
+                "制度汇总表",
+            )
 
             system_base = system_docs.get("base") or {}
             system_company_name = system_base.get("company_name") or company.name

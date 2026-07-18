@@ -107,6 +107,14 @@ class GaoxinPdfStyleTests(unittest.TestCase):
                 with self.subTest(template=template_name, fragment=fragment):
                     self.assertIn(fragment, template)
 
+    def test_system_summary_is_a_fixed_landscape_table(self):
+        template = (
+            self.template_dir / "application_gaoxin_system_summary_print.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("@page { size: A4 landscape;", template)
+        self.assertIn("table { table-layout: fixed; }", template)
+
     def test_requested_document_groups_use_stronger_reference_hierarchy(self):
         expectations = {
             "application_gaoxin_rd_project_print.html": (
