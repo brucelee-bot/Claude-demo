@@ -66,6 +66,8 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         self.assertNotIn("background: #", shared_styles)
         self.assertIn("text-align: center !important;", shared_styles)
         self.assertIn("vertical-align: middle !important;", shared_styles)
+        self.assertNotIn("border-bottom-width: 1.5pt;", shared_styles)
+        self.assertNotIn("#b4bbc4", shared_styles)
 
     def test_shared_table_grid_draws_each_edge_once(self):
         shared_styles = (self.template_dir / "_gaoxin_pdf_styles.html").read_text(
@@ -82,6 +84,16 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         self.assertIn("border-bottom:", cell_rule)
         self.assertNotIn("border-top:", cell_rule)
         self.assertNotIn("border-right:", cell_rule)
+
+    def test_rd_project_does_not_override_shared_header_rule_color(self):
+        template = (
+            self.template_dir / "application_gaoxin_rd_project_print.html"
+        ).read_text(encoding="utf-8")
+        text_block_header_rule = template.split(
+            ".rd-project-document .text-block th {", 1
+        )[1].split("}", 1)[0]
+
+        self.assertNotIn("border-bottom", text_block_header_rule)
 
     def test_requested_summary_tables_define_pymupdf_column_ratios(self):
         expectations = {

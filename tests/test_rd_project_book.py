@@ -347,10 +347,18 @@ class RdProjectBookTests(unittest.TestCase):
         )
 
         self.assertNotIn('class="action-dock"', attachment_template)
+        self.assertNotIn('class="attach-actions"', attachment_template)
         self.assertIn(
             '<div class="floating-action-bar" aria-label="附件制作快捷操作">',
             attachment_template,
         )
+        floating_actions = attachment_template.split(
+            '<div class="floating-action-bar" aria-label="附件制作快捷操作">',
+            1,
+        )[1].split("</div>", 1)[0]
+        self.assertIn("返回申请书", floating_actions)
+        self.assertIn("保存附件", floating_actions)
+        self.assertIn("导出 PDF", floating_actions)
         self.assertNotIn("btn-lg", attachment_template)
         self.assertGreaterEqual(attachment_template.count("btn-sm"), 4)
 

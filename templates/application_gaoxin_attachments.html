@@ -6,9 +6,6 @@
 .attach-hero { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #38bdf8 100%); color: #fff; border-radius: 24px; padding: 28px 32px; box-shadow: 0 24px 60px rgba(37, 99, 235, .22); margin-bottom: 20px; }
 .attach-hero h1 { margin: 0 0 10px; font-size: 30px; }
 .attach-hero p { margin: 0; max-width: 880px; opacity: .92; line-height: 1.7; }
-.attach-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
-.attach-actions .btn { background: rgba(255,255,255,.14); color: #fff; border-color: rgba(255,255,255,.35); }
-.attach-actions .btn-primary { background: #fff; color: #1e40af; border-color: #fff; }
 .attach-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 18px; align-items: start; }
 .attach-nav { position: sticky; top: 88px; background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 12px; box-shadow: 0 10px 30px rgba(15, 23, 42, .06); }
 .attach-nav a { display: block; padding: 9px 10px; border-radius: 10px; color: var(--text); text-decoration: none; font-size: 14px; }
@@ -71,11 +68,6 @@
   <section class="attach-hero">
     <h1>高新技术企业认定附件制作</h1>
     <p>{{ company.name }}：集中上传 PDF 附件，维护成果转化文件和制度材料。成果转化与制度框架继续沿用申请书导出字段，保存后会同步到高新申请书 Word。</p>
-    <div class="attach-actions">
-      <a href="{{ url_for('docgen.gaoxin_book', company_id=company.id) }}" class="btn btn-secondary">返回申请书</a>
-      <button type="submit" form="gaoxin-attachments-form" class="btn btn-primary">保存附件</button>
-      <button type="button" class="btn btn-secondary" data-export-pdf-button onclick="saveAndExportPdf()">导出 PDF</button>
-    </div>
   </section>
 
   <form id="gaoxin-attachments-form" method="POST" action="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}">
