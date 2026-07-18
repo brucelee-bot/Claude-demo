@@ -6,10 +6,7 @@ class StaffStatementSectionTests(unittest.TestCase):
     def test_staff_difference_section_is_absent_from_edit_and_print_templates(self):
         template_dir = Path(__file__).resolve().parents[1] / "templates"
 
-        for template_name in (
-            "application_gaoxin_attachments.html",
-            "application_gaoxin_attachments_print.html",
-        ):
+        for template_name in ("application_gaoxin_attachments.html",):
             with self.subTest(template=template_name):
                 template = (template_dir / template_name).read_text(encoding="utf-8")
                 self.assertNotIn("人员情况差异说明", template)
@@ -30,10 +27,7 @@ class StaffStatementSectionTests(unittest.TestCase):
     def test_annual_staff_averages_are_rendered_once_below_monthly_rows(self):
         template_dir = Path(__file__).resolve().parents[1] / "templates"
 
-        for template_name in (
-            "application_gaoxin_attachments.html",
-            "application_gaoxin_attachments_print.html",
-        ):
+        for template_name in ("application_gaoxin_attachments.html",):
             with self.subTest(template=template_name):
                 template = (template_dir / template_name).read_text(encoding="utf-8")
                 self.assertNotIn("attachment_staff_month_{{ i }}_year_avg_total", template)
@@ -42,6 +36,16 @@ class StaffStatementSectionTests(unittest.TestCase):
                 self.assertEqual(template.count("年平均科技人员数"), 1)
                 self.assertIn("attachment_staff_year_avg_total", template)
                 self.assertIn("attachment_staff_year_avg_tech", template)
+
+        print_template = (
+            template_dir / "application_gaoxin_staff_tables_print.html"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(print_template.count("年平均职工总数"), 1)
+        self.assertEqual(print_template.count("年平均科技人员数"), 1)
+        self.assertIn("attachment_staff_year_avg_total", print_template)
+        self.assertIn("attachment_staff_year_avg_tech", print_template)
+        self.assertIn('data-pymupdf-widths="25,25,25,25"', print_template)
+        self.assertNotIn('colspan="8"', print_template)
 
 
 if __name__ == "__main__":

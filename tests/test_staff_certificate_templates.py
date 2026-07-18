@@ -21,16 +21,19 @@ class StaffCertificateTemplateTests(unittest.TestCase):
         self.assertIn("_title", template)
 
     def test_print_template_lists_title_and_certificate_attachments(self):
-        template = (
+        attachment_template = (
             self.template_dir / "application_gaoxin_attachments_print.html"
         ).read_text(encoding="utf-8")
+        roster_template = (
+            self.template_dir / "application_gaoxin_staff_tables_print.html"
+        ).read_text(encoding="utf-8")
 
-        self.assertIn("<th>职称</th>", template)
-        self.assertIn("education_certificate", template)
-        self.assertIn("title_certificate", template)
-        self.assertIn('class="staff-roster-table"', template)
-        self.assertIn('class="staff-id"', template)
-        self.assertIn(".staff-roster-table .staff-id { font-size: 9px; }", template)
+        self.assertIn("<th>职称</th>", roster_template)
+        self.assertIn("education_certificate", attachment_template)
+        self.assertIn("title_certificate", attachment_template)
+        self.assertIn('class="staff-roster-table"', roster_template)
+        self.assertIn('class="staff-id"', roster_template)
+        self.assertIn(".staff-id { font-size: 8pt; }", roster_template)
 
 
 if __name__ == "__main__":

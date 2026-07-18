@@ -2552,6 +2552,79 @@ def _render_export_pdf_file(app, html, output_dir, label):
     return pdf_path
 
 
+def _html_max_table_columns(html):
+    """Return the largest logical column count used by a generated HTML table."""
+    from lxml import html as lxml_html
+
+    root = lxml_html.document_fromstring(html)
+    maximum = 0
+    for row in root.xpath("//table//tr[not(ancestor::table[2])]"):
+        columns = 0
+        for cell in row.xpath("./th|./td"):
+            try:
+                columns += max(1, int(cell.get("colspan") or 1))
+            except (TypeError, ValueError):
+                columns += 1
+        maximum = max(maximum, columns)
+    return maximum
+
+
+def _generated_document_needs_landscape(html, minimum_columns=6):
+    """Use landscape pages for generated documents whose tables are too wide."""
+    return _html_max_table_columns(html) >= max(2, int(minimum_columns))
+
+
+def _ensure_landscape_page_rule(html):
+    """Promote an A4 generated document to landscape while preserving margins."""
+    if re.search(
+        r"@page\s*\{[^}]*\bsize\s*:\s*(?:a4\s+)?landscape\b",
+        html,
+        re.IGNORECASE | re.DOTALL,
+    ):
+        return html
+    return re.sub(
+        r"(@page\s*\{[^}]*\bsize\s*:\s*)A4\b",
+        r"\1A4 landscape",
+        html,
+        count=1,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+
+def _ordered_attachment_section_ranges(section_start_pages, page_count, ordered_numbers):
+    """Validate section markers and return non-overlapping ranges in export order."""
+    missing_sections = [
+        section_no
+        for section_no in ordered_numbers
+        if section_no not in section_start_pages
+    ]
+    if missing_sections:
+        raise RuntimeError(
+            f"附件板块分页标记缺失：{', '.join(missing_sections)}"
+        )
+
+    ordered_start_pages = [
+        section_start_pages[section_no]
+        for section_no in ordered_numbers
+    ]
+    if (
+        ordered_start_pages != sorted(ordered_start_pages)
+        or len(set(ordered_start_pages)) != len(ordered_start_pages)
+    ):
+        raise RuntimeError("附件板块顺序异常，必须严格按2至13排列")
+
+    ranges = []
+    for index, section_no in enumerate(ordered_numbers):
+        start_page = section_start_pages[section_no]
+        end_page = (
+            section_start_pages[ordered_numbers[index + 1]] - 1
+            if index + 1 < len(ordered_numbers)
+            else page_count - 1
+        )
+        ranges.append((section_no, start_page, end_page))
+    return ranges
+
+
 def _combine_export_documents(
     documents,
     company_name,
@@ -6365,7 +6438,7 @@ def gaoxin_attachments_pdf(company_id):
         company=company,
         company_english_name=_company_english_name(company, data),
         auto_data=auto_data,
-        attachment_sections=[section for section in export_sections if section["kind"] != "system"],
+        attachment_sections=export_sections,
         attachments=attachments,
         ip_attachment=ip_attachment,
         exported_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -6389,19 +6462,41 @@ def gaoxin_attachments_pdf(company_id):
                     attachment_references.append(reference)
                     section_paths[str(section_no)].append((reference, label))
 
-            def add_portrait_document(section_no, document_html, label):
-                document = {"html": document_html, "label": label}
-                portrait_documents.append(document)
-                section_paths[str(section_no)].append((document, label))
-
             def add_standalone_document(section_no, document_html, label):
                 document = {"html": document_html, "label": label}
                 standalone_documents.append(document)
                 section_paths[str(section_no)].append((document, label))
 
+            def add_portrait_document(section_no, document_html, label):
+                if _generated_document_needs_landscape(document_html):
+                    add_standalone_document(
+                        section_no,
+                        _ensure_landscape_page_rule(document_html),
+                        label,
+                    )
+                    return
+                document = {"html": document_html, "label": label}
+                portrait_documents.append(document)
+                section_paths[str(section_no)].append((document, label))
+
             add_attachment_files("2", attachments.get("application_pdf", {}).get("files", []), "申请书")
             add_attachment_files("3", attachments.get("business_license", {}).get("files", []), "营业执照")
+            ip_detail_html = render_template(
+                "application_gaoxin_ip_detail_print.html",
+                company=company,
+                company_english_name=company_english_name,
+                rows=ip_attachment.get("rows", []),
+            )
+            add_portrait_document("4", ip_detail_html, "知识产权明细表")
             add_attachment_files("4", _ordered_ip_certificate_files(attachments, ip_attachment.get("rows", [])), "知识产权证书")
+            staff_tables_html = render_template(
+                "application_gaoxin_staff_tables_print.html",
+                company=company,
+                company_english_name=company_english_name,
+                auto_data=auto_data,
+                rows=auto_data.get("attachment_rd_staff_rows", []),
+            )
+            add_portrait_document("5", staff_tables_html, "研发人员及科技人员统计表")
             staff_files = attachments.get("staff_statement", {}).get("files", [])
             for file_type, label in [
                 ("social_2025_12", "2025年12月份社保单"),
@@ -6754,34 +6849,26 @@ def gaoxin_attachments_pdf(company_id):
                     page_text = page.get_text() or ""
                     for section in export_sections:
                         section_no = str(section["no"])
-                        marker = f"{section_no}. {section['title']}"
+                        marker = f"GAOXINSECTION{section_no}"
                         if marker in page_text and section_no not in section_start_pages:
                             section_start_pages[section_no] = page_index
 
                 ordered_numbers = [str(section["no"]) for section in export_sections]
-                insertion_pages = {}
-                trailing_section_numbers = []
-                for index, section_no in enumerate(ordered_numbers):
-                    next_start_page = next(
-                        (
-                            section_start_pages[later_no]
-                            for later_no in ordered_numbers[index + 1:]
-                            if later_no in section_start_pages
-                        ),
-                        None,
+                section_ranges = _ordered_attachment_section_ranges(
+                    section_start_pages,
+                    attachments_pdf.page_count,
+                    ordered_numbers,
+                )
+                for section_no, start_page, end_page in section_ranges:
+                    insert_start = merged_pdf.page_count
+                    merged_pdf.insert_pdf(
+                        attachments_pdf,
+                        from_page=start_page,
+                        to_page=end_page,
                     )
-                    if next_start_page is None:
-                        trailing_section_numbers.append(section_no)
-                    else:
-                        insertion_pages.setdefault(next_start_page, []).append(section_no)
-
-                for page_index in range(attachments_pdf.page_count):
-                    for section_no in insertion_pages.get(page_index, []):
-                        for source, label in section_paths.get(section_no, []):
-                            insert_pdf_file(source, label)
-                    generated_page_indexes.append(merged_pdf.page_count)
-                    merged_pdf.insert_pdf(attachments_pdf, from_page=page_index, to_page=page_index)
-                for section_no in trailing_section_numbers:
+                    generated_page_indexes.extend(
+                        range(insert_start, merged_pdf.page_count)
+                    )
                     for source, label in section_paths.get(section_no, []):
                         insert_pdf_file(source, label)
                 _stamp_generated_pdf_pages(

@@ -16,7 +16,11 @@ from modules.docgen.routes import (
     _chrome_executable,
     _collect_rd_project_rows,
     _combine_portrait_export_documents,
+    _ensure_landscape_page_rule,
     _export_rd_project_application_text,
+    _generated_document_needs_landscape,
+    _html_max_table_columns,
+    _ordered_attachment_section_ranges,
     _pdf_cjk_font_path,
     _prepare_export_attachment_files,
     _portrait_export_document_batches,
@@ -202,6 +206,62 @@ class PdfRenderingTests(unittest.TestCase):
                 self.assertIn("成果转化汇总表", document[0].get_text())
             finally:
                 document.close()
+
+    def test_generated_documents_with_six_or_more_columns_use_landscape(self):
+        narrow_html = (
+            "<html><body><table><tr>"
+            "<td>A</td><td>B</td><td>C</td><td>D</td>"
+            "</tr></table></body></html>"
+        )
+        wide_html = (
+            "<html><head><style>@page { size: A4; }</style></head><body>"
+            "<table><tr><td colspan='2'>A</td><td>B</td><td>C</td>"
+            "<td>D</td><td>E</td></tr></table></body></html>"
+        )
+
+        self.assertEqual(_html_max_table_columns(narrow_html), 4)
+        self.assertEqual(_html_max_table_columns(wide_html), 6)
+        self.assertFalse(_generated_document_needs_landscape(narrow_html))
+        self.assertTrue(_generated_document_needs_landscape(wide_html))
+        self.assertIn("size: A4 landscape;", _ensure_landscape_page_rule(wide_html))
+
+    def test_attachment_section_ranges_are_strictly_ordered(self):
+        ordered_numbers = [str(number) for number in range(2, 14)]
+        starts = {
+            section_no: index * 2
+            for index, section_no in enumerate(ordered_numbers)
+        }
+
+        ranges = _ordered_attachment_section_ranges(
+            starts,
+            page_count=24,
+            ordered_numbers=ordered_numbers,
+        )
+
+        self.assertEqual(
+            ranges,
+            [
+                (section_no, index * 2, index * 2 + 1)
+                for index, section_no in enumerate(ordered_numbers)
+            ],
+        )
+        with self.assertRaisesRegex(RuntimeError, "分页标记缺失"):
+            _ordered_attachment_section_ranges(
+                {key: value for key, value in starts.items() if key != "8"},
+                page_count=24,
+                ordered_numbers=ordered_numbers,
+            )
+        reversed_starts = dict(starts)
+        reversed_starts["8"], reversed_starts["9"] = (
+            reversed_starts["9"],
+            reversed_starts["8"],
+        )
+        with self.assertRaisesRegex(RuntimeError, "顺序异常"):
+            _ordered_attachment_section_ranges(
+                reversed_starts,
+                page_count=24,
+                ordered_numbers=ordered_numbers,
+            )
 
     def test_pymupdf_fallback_expands_tables_across_available_page_width(self):
         html = """

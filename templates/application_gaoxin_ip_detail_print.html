@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>知识产权明细表</title>
+  <style>
+    @page { size: A4 landscape; margin: 28mm 12mm 14mm; }
+    {% include "_gaoxin_pdf_styles.html" %}
+    {% include "_generated_document_header_styles.html" %}
+    h1 { margin: 0 0 9pt; text-align: center; }
+    table { table-layout: fixed; font-size: 8.5pt; }
+  </style>
+</head>
+<body class="ip-detail-document">
+  <h1>知识产权明细表</h1>
+  <table data-pymupdf-widths="6,19,10,10,15,12,16,12">
+    <thead>
+      <tr><th>编号</th><th>名称</th><th>专利类型</th><th>法律状态</th><th>专利号</th><th>申请日期</th><th>专利权人</th><th>授权日期</th></tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr><td>{{ row.seq }}</td><td>{{ row.name }}</td><td>{{ row.type }}</td><td>{{ row.status }}</td><td>{{ row.patent_no }}</td><td>{{ row.app_date }}</td><td>{{ row.applicant }}</td><td>{{ row.grant_date }}</td></tr>
+      {% else %}
+      <tr><td colspan="8" class="empty">暂无申请书知识产权数据。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

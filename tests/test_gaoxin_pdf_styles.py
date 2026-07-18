@@ -7,6 +7,8 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         self.template_dir = Path(__file__).resolve().parents[1] / "templates"
         self.print_templates = (
             "application_gaoxin_attachments_print.html",
+            "application_gaoxin_ip_detail_print.html",
+            "application_gaoxin_staff_tables_print.html",
             "application_gaoxin_rd_project_print.html",
             "application_gaoxin_ps_statement_print.html",
             "application_gaoxin_hitech_product_summary_print.html",
@@ -61,6 +63,8 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         self.assertIn("border-spacing: 0;", shared_styles)
         self.assertIn("background-color: #e9edf2;", shared_styles)
         self.assertNotIn("background: #", shared_styles)
+        self.assertIn("text-align: center !important;", shared_styles)
+        self.assertIn("vertical-align: middle !important;", shared_styles)
 
     def test_shared_table_grid_draws_each_edge_once(self):
         shared_styles = (self.template_dir / "_gaoxin_pdf_styles.html").read_text(
@@ -192,6 +196,58 @@ class GaoxinPdfStyleTests(unittest.TestCase):
             with self.subTest(template=template_name):
                 template = (self.template_dir / template_name).read_text(encoding="utf-8")
                 self.assertIn(f'<body class="{body_class}">', template)
+
+    def test_all_attachment_sections_start_on_a_new_page(self):
+        template = (
+            self.template_dir / "application_gaoxin_attachments_print.html"
+        ).read_text(encoding="utf-8")
+        routes = (
+            Path(__file__).resolve().parents[1] / "modules" / "docgen" / "routes.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            '<section class="section {% if not loop.first %}section-break{% endif %}"{% if not loop.first %} data-pymupdf-page-break-before{% endif %}>',
+            template,
+        )
+        self.assertIn(
+            '<span class="section-marker">GAOXINSECTION{{ section.no }}</span>',
+            template,
+        )
+        self.assertIn("break-before: page;", template)
+        self.assertIn("attachment_sections=export_sections", routes)
+
+    def test_wide_attachment_tables_are_landscape_documents(self):
+        ip_template = (
+            self.template_dir / "application_gaoxin_ip_detail_print.html"
+        ).read_text(encoding="utf-8")
+        staff_template = (
+            self.template_dir / "application_gaoxin_staff_tables_print.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("@page { size: A4 landscape;", ip_template)
+        self.assertIn(
+            'data-pymupdf-widths="6,19,10,10,15,12,16,12"',
+            ip_template,
+        )
+        self.assertIn("@page { size: A4 landscape;", staff_template)
+        self.assertIn("2025年12月份研发人员名单表", staff_template)
+        self.assertIn(
+            'data-pymupdf-widths="5,8,22,13,13,10,13,16"',
+            staff_template,
+        )
+        self.assertIn("data-pymupdf-page-break-before", staff_template)
+
+    def test_ps_technical_field_spans_three_value_columns(self):
+        template = (
+            self.template_dir / "application_gaoxin_ps_statement_print.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('data-pymupdf-widths="16,84"', template)
+        self.assertIn(
+            '<tr><th>技术领域</th><td>{{ product.field or \'—\' }}</td></tr>',
+            template,
+        )
+        self.assertNotIn("colspan=", template)
 
 
 if __name__ == "__main__":

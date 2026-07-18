@@ -10,8 +10,9 @@
     h1 { text-align: center; margin: 2mm 0 4pt; }
     .subtitle { text-align: center; color: #555; font-size: 8.5pt; margin-bottom: 12pt; }
     .section { break-inside: auto; page-break-inside: auto; margin: 0 0 12pt; }
-    .section-break { page-break-before: always; }
+    .section-break { break-before: page; page-break-before: always; }
     .section-break > h2 { margin-top: 0; }
+    .section-marker { display: block; height: 1px; overflow: hidden; color: #fff; font: 1px/1px Arial, sans-serif; }
     h2 { margin: 14pt 0 6pt; break-after: avoid; page-break-after: avoid; }
     h3 { margin: 8pt 0 4pt; break-after: avoid; page-break-after: avoid; }
     table { margin: 4pt 0 8pt; break-inside: auto; page-break-inside: auto; }
@@ -28,16 +29,9 @@
   </style>
 </head>
 <body>
-  <h1>高新技术企业认定附件制作</h1>
-  <div class="subtitle">{{ company.name }} · 附件材料汇总</div>
-  <div class="cover-grid">
-    <div class="label">企业名称</div><div>{{ company.name }}</div>
-    <div class="label">导出内容</div><div>PDF 附件清单、成果转化文件、制度框架及待完善模板板块</div>
-    <div class="label">导出时间</div><div>{{ exported_at }}</div>
-  </div>
-
   {% for section in attachment_sections %}
-  <section class="section {% if not loop.first %}section-break{% endif %}">
+  <section class="section {% if not loop.first %}section-break{% endif %}"{% if not loop.first %} data-pymupdf-page-break-before{% endif %}>
+    <span class="section-marker">GAOXINSECTION{{ section.no }}</span>
     <h2>{{ section.no }}. {{ section.title }}</h2>
 
     {% if section.kind == 'pdf' %}
@@ -54,19 +48,7 @@
           <tr><td>国家新药</td><td>{{ ip_attachment.summary.get('ip_pharma', 0) }}</td><td>国家一级中药保护品种</td><td>{{ ip_attachment.summary.get('ip_tcm', 0) }}</td></tr>
         </tbody>
       </table>
-      <h3>知识产权明细表</h3>
-      {% if ip_attachment.rows %}
-      <table>
-        <thead><tr><th>编号</th><th>名称</th><th>专利类型</th><th>法律状态</th><th>专利号</th><th>申请日期</th><th>专利权人</th><th>授权日期</th></tr></thead>
-        <tbody>
-          {% for row in ip_attachment.rows %}
-          <tr><td>{{ row.seq }}</td><td>{{ row.name }}</td><td>{{ row.type }}</td><td>{{ row.status }}</td><td>{{ row.patent_no }}</td><td>{{ row.app_date }}</td><td>{{ row.applicant }}</td><td>{{ row.grant_date }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p class="empty">暂无申请书知识产权数据。</p>
-      {% endif %}
+      <p class="document-note">知识产权明细表另起横向页面列示。</p>
       {% endif %}
       {% if section.key != 'ip' %}
       {% if section.key in ['rd_expense_audit', 'annual_audit', 'tax_settlement'] %}
@@ -92,54 +74,7 @@
       <h3>企业职工人员情况说明</h3>
       <p class="preline">{{ auto_data.get('attachment_staff_statement_generated', '') or auto_data.get('attachment_staff_statement_text', '') or '（未填写）' }}</p>
 
-      <h3>2025年12月份研发人员名单</h3>
-      <table class="staff-roster-table">
-        <colgroup>
-          <col style="width:5%" />
-          <col style="width:8%" />
-          <col style="width:22%" />
-          <col style="width:13%" />
-          <col style="width:13%" />
-          <col style="width:10%" />
-          <col style="width:13%" />
-          <col style="width:16%" />
-        </colgroup>
-        <thead><tr><th>序号</th><th>姓名</th><th>身份证号</th><th>是否签订合同</th><th>是否缴纳社保</th><th>学历</th><th>职称</th><th>是否科技人员</th></tr></thead>
-        <tbody>
-          {% set rd_rows = auto_data.get('attachment_rd_staff_rows', []) %}
-          {% for row in rd_rows %}
-          <tr><td>{{ row.seq or loop.index }}</td><td class="staff-name">{{ row.name }}</td><td class="staff-id">{{ row.id_no }}</td><td>{{ row.contract }}</td><td>{{ row.social_security }}</td><td>{{ row.education }}</td><td>{{ row.title }}</td><td>{{ row.is_tech }}</td></tr>
-          {% else %}
-          <tr><td colspan="8" class="empty">暂未填写研发人员名单。</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-
-      <h3>企业职工总数、科技人员数统计表</h3>
-      <table>
-        <thead><tr><th>月份</th><th>月初职工总数</th><th>月初科技人员数</th><th>月末职工总数</th><th>月末科技人员数</th><th>月平均职工总数</th><th>月平均科技人员数</th></tr></thead>
-        <tbody>
-          {% for i in range(12) %}
-          <tr>
-            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_month') or '2025年' ~ (i + 1) ~ '月' }}</td>
-            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_start_total', '') }}</td>
-            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_start_tech', '') }}</td>
-            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_end_total', '') }}</td>
-            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_end_tech', '') }}</td>
-            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_avg_total', '') }}</td>
-            <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_avg_tech', '') }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-        <tfoot>
-          <tr>
-            <th colspan="2">年平均职工总数</th>
-            <td>{{ auto_data.get('attachment_staff_year_avg_total', '') }}</td>
-            <th colspan="2">年平均科技人员数</th>
-            <td colspan="2">{{ auto_data.get('attachment_staff_year_avg_tech', '') }}</td>
-          </tr>
-        </tfoot>
-      </table>
+      <p class="document-note">2025年12月份研发人员名单表和企业职工总数、科技人员数统计表另起横向页面列示。</p>
 
       {% set staff_files = attachments.get('staff_statement', {}).get('files', []) %}
       {% if staff_files %}

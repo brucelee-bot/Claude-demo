@@ -13,19 +13,22 @@
     .ps-statement-document .content-table { margin-bottom: 9pt; }
     .ps-statement-document table { break-inside: auto; page-break-inside: auto; }
     .ps-statement-document .meta th { width: 64pt; }
+    .ps-statement-document .meta + .meta { margin-top: -9pt; }
     .ps-statement-document .content { line-height: 1.62; }
     .ps-statement-document .empty { text-align: center; padding: 28pt 0; border: 0.6pt dashed #c7c7c7; }
   </style>
 </head>
 <body class="ps-statement-document">
   <h1>{{ product.ps_code or 'PS' }}情况说明</h1>
-  <table class="meta">
+  <table class="meta" data-pymupdf-widths="16,34,16,34">
     <tr><th>企业名称</th><td>{{ company.name }}</td><th>{{ product.type_label }}编号</th><td>{{ product.ps_code or '—' }}</td></tr>
     <tr><th>{{ product.type_label }}名称</th><td>{{ product.ps_name or '—' }}</td><th>销售收入</th><td>{{ product.revenue or '—' }}{% if product.revenue %}万元{% endif %}</td></tr>
-    <tr><th>技术领域</th><td colspan="3">{{ product.field or '—' }}</td></tr>
+  </table>
+  <table class="meta" data-pymupdf-widths="16,84">
+    <tr><th>技术领域</th><td>{{ product.field or '—' }}</td></tr>
     <tr>
       <th>关联知识产权</th>
-      <td colspan="3">
+      <td>
         {% for ip in product.ips %}
         {{ ip.label }}{% if ip.auth_no %}，授权号/登记号：{{ ip.auth_no }}{% endif %}{% if not loop.last %}<br>{% endif %}
         {% else %}—{% endfor %}

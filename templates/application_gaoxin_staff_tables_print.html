@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>研发人员及科技人员统计表</title>
+  <style>
+    @page { size: A4 landscape; margin: 28mm 12mm 14mm; }
+    {% include "_gaoxin_pdf_styles.html" %}
+    {% include "_generated_document_header_styles.html" %}
+    h1 { margin: 0 0 9pt; text-align: center; }
+    h2 { margin: 10pt 0 5pt; text-align: center; }
+    table { table-layout: fixed; font-size: 8.5pt; }
+    .staff-roster-table { font-size: 8pt; line-height: 1.35; }
+    .staff-roster-table th,
+    .staff-roster-table td { padding: 3pt 2pt; word-break: normal; overflow-wrap: break-word; }
+    .staff-name,
+    .staff-id { white-space: nowrap; }
+    .staff-id { font-size: 8pt; }
+    .statistics-page { break-before: page; page-break-before: always; }
+  </style>
+</head>
+<body class="staff-tables-document">
+  <h1>2025年12月份研发人员名单表</h1>
+  <table class="staff-roster-table" data-pymupdf-widths="5,8,22,13,13,10,13,16">
+    <thead>
+      <tr><th>序号</th><th>姓名</th><th>身份证号</th><th>是否签订合同</th><th>是否缴纳社保</th><th>学历</th><th>职称</th><th>是否科技人员</th></tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr><td>{{ row.seq or loop.index }}</td><td class="staff-name">{{ row.name }}</td><td class="staff-id">{{ row.id_no }}</td><td>{{ row.contract }}</td><td>{{ row.social_security }}</td><td>{{ row.education }}</td><td>{{ row.title }}</td><td>{{ row.is_tech }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if not rows %}
+  <p class="empty" style="text-align:center">暂未填写研发人员名单。</p>
+  {% endif %}
+
+  <div class="statistics-page" data-pymupdf-page-break-before>
+    <h2>企业职工总数、科技人员数统计表</h2>
+    <table data-pymupdf-widths="16,14,14,14,14,14,14">
+      <thead>
+        <tr><th>月份</th><th>月初职工总数</th><th>月初科技人员数</th><th>月末职工总数</th><th>月末科技人员数</th><th>月平均职工总数</th><th>月平均科技人员数</th></tr>
+      </thead>
+      <tbody>
+        {% for i in range(12) %}
+        <tr>
+          <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_month') or '2025年' ~ (i + 1) ~ '月' }}</td>
+          <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_start_total', '') }}</td>
+          <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_start_tech', '') }}</td>
+          <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_end_total', '') }}</td>
+          <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_end_tech', '') }}</td>
+          <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_avg_total', '') }}</td>
+          <td>{{ auto_data.get('attachment_staff_month_' ~ i ~ '_avg_tech', '') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <table data-pymupdf-widths="25,25,25,25" style="margin-top:-1px">
+      <tr>
+        <th>年平均职工总数</th>
+        <td>{{ auto_data.get('attachment_staff_year_avg_total', '') }}</td>
+        <th>年平均科技人员数</th>
+        <td>{{ auto_data.get('attachment_staff_year_avg_tech', '') }}</td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>
