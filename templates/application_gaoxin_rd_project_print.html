@@ -9,13 +9,15 @@
     {% include "_generated_document_header_styles.html" %}
     .rd-project-document h1 { text-align: center; margin: 0 0 10pt; font-size: 17pt; }
     .rd-project-document .cover-page {
-      padding: 8mm 4mm 0;
+      min-height: 224mm;
+      box-sizing: border-box;
+      padding: 0 4mm;
       break-after: page;
       page-break-after: always;
     }
     .rd-project-document table.cover-code-row {
       width: 92%;
-      margin: 0 auto 18mm;
+      margin: 15mm auto 18mm;
       border: 0;
       border-left: 2.5pt solid #315b7d;
       background-color: #e3e8ee;

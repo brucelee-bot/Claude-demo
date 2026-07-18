@@ -290,6 +290,9 @@ class RdProjectBookTests(unittest.TestCase):
         self.assertNotIn("project.rd_code", template)
         self.assertGreaterEqual(template.count("project.project_no"), 5)
         self.assertIn("企业研究开发项目管理文件", template)
+        self.assertIn("min-height: 224mm;", template)
+        self.assertIn("padding: 0 4mm;", template)
+        self.assertIn("margin: 15mm auto 18mm;", template)
         self.assertIn('class="cover-project-block"', template)
         self.assertIn(
             '<span class="cover-issuer-label">编制单位</span>{{ company.name }}',
@@ -314,6 +317,34 @@ class RdProjectBookTests(unittest.TestCase):
             ".rd-project-document .table-stack table + table { border-top: 0; }",
             template,
         )
+
+    def test_application_and_attachment_pages_use_compact_floating_actions(self):
+        template_dir = Path(__file__).resolve().parents[1] / "templates"
+        application_template = (
+            template_dir / "application_gaoxin_book.html"
+        ).read_text(encoding="utf-8")
+        attachment_template = (
+            template_dir / "application_gaoxin_attachments.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn('class="gaoxin-actions"', application_template)
+        self.assertNotIn('class="action-dock"', application_template)
+        self.assertIn(
+            '<div class="floating-action-bar" aria-label="申请书快捷操作">',
+            application_template,
+        )
+        self.assertIn(
+            'class="btn btn-secondary btn-sm" onclick="history.back()">返回</button>',
+            application_template,
+        )
+
+        self.assertNotIn('class="action-dock"', attachment_template)
+        self.assertIn(
+            '<div class="floating-action-bar" aria-label="附件制作快捷操作">',
+            attachment_template,
+        )
+        self.assertNotIn("btn-lg", attachment_template)
+        self.assertGreaterEqual(attachment_template.count("btn-sm"), 4)
 
 
 if __name__ == "__main__":
