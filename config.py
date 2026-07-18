@@ -28,7 +28,7 @@ class Config:
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", 50 * 1024 * 1024))  # default 50MB
     MAX_FORM_MEMORY_SIZE = int(os.getenv("MAX_FORM_MEMORY_SIZE", MAX_CONTENT_LENGTH))
     PDF_PYMUPDF_EXPORT_BATCH_SIZE = int(
-        os.getenv("PDF_PYMUPDF_EXPORT_BATCH_SIZE", 1)
+        os.getenv("PDF_PYMUPDF_EXPORT_BATCH_SIZE", 4)
     )
 
     # AI / LLM 配置

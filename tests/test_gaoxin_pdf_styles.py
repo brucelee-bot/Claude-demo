@@ -53,7 +53,7 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         )
         self.assertIn(expected_font_stack, shared_styles)
         self.assertIn(expected_font_stack, header_styles)
-        self.assertIn("color: #101820;", shared_styles)
+        self.assertIn("color: #17212b;", shared_styles)
         self.assertIn("border-top: 0.65pt solid #8f99a7;", shared_styles)
         self.assertIn("border-left: 0.65pt solid #8f99a7;", shared_styles)
         self.assertIn("border-right: 0.65pt solid #8f99a7;", shared_styles)
@@ -61,6 +61,7 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         self.assertNotIn("border: 0.65pt solid #8f99a7;", shared_styles)
         self.assertIn("border-collapse: separate;", shared_styles)
         self.assertIn("border-spacing: 0;", shared_styles)
+        self.assertIn("background-color: #dfe7ef;", shared_styles)
         self.assertIn("background-color: #e9edf2;", shared_styles)
         self.assertNotIn("background: #", shared_styles)
         self.assertIn("text-align: center !important;", shared_styles)
@@ -118,8 +119,9 @@ class GaoxinPdfStyleTests(unittest.TestCase):
     def test_requested_document_groups_use_stronger_reference_hierarchy(self):
         expectations = {
             "application_gaoxin_rd_project_print.html": (
-                "background-color: #e9edf2;",
-                "text-align: justify;",
+                "background-color: #dfe7ef;",
+                "企业研究开发项目管理文件",
+                "cover-project-panel",
                 'class="table-heading">3. 阶段计划与里程碑',
                 'class="table-heading">3. RD-IP-PS 关联明细',
                 'class="table-heading">1. 验收指标对照',
@@ -186,7 +188,7 @@ class GaoxinPdfStyleTests(unittest.TestCase):
             template,
         )
         self.assertIn(
-            "<tr><th>审批意见</th><td style=\"height:45px\">",
+            '<tr><th>审批意见</th><td class="signature-space">',
             template,
         )
         self.assertNotIn("<th>填写依据</th>", template)

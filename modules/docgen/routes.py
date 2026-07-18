@@ -1045,6 +1045,14 @@ def _rd_project_staff_assignment(staff_names, project_index):
     }
 
 
+def _format_rd_project_no(rd_code, project_index):
+    """Normalize the relation-table RD sequence for formal project documents."""
+    match = re.search(r"\d+", str(rd_code or ""))
+    if match:
+        return f"RD{int(match.group(0)):02d}"
+    return f"RD{int(project_index or 0) + 1:02d}"
+
+
 def _collect_rd_project_rows(data):
     rows = ((data.get("gaoxin_relation_table") or {}).get("rows") or []) if isinstance(data, dict) else []
     projects = []
@@ -1106,7 +1114,7 @@ def _collect_rd_project_rows(data):
             "year": year,
             # The printed project number is always the RD sequence maintained
             # in the RD-IP-PS achievement relation table.
-            "project_no": rd_code,
+            "project_no": _format_rd_project_no(rd_code, len(projects)),
             "rd_code": rd_code,
             "rd_activity": rd_activity,
             "rd_period": rd_period,
@@ -2333,8 +2341,19 @@ def _split_pymupdf_story_documents(html):
 
 
 def _remove_pymupdf_story_repeated_backgrounds(document):
-    """Remove Story's stale 8pt background fills from continuation pages."""
+    """Remove Story's stale short background fills from continuation pages."""
     number = rb"-?(?:\d+(?:\.\d*)?|\.\d+)"
+    rect_operator = re.compile(
+        rb"(?P<x>"
+        + number
+        + rb")\s+(?P<y>"
+        + number
+        + rb")\s+(?P<width>"
+        + number
+        + rb")\s+(?P<height>"
+        + number
+        + rb")\s+re\s+f\s+"
+    )
     color_group = re.compile(
         rb"(?P<color>"
         + number
@@ -2345,18 +2364,23 @@ def _remove_pymupdf_story_repeated_backgrounds(document):
         + rb"\s+rg\s+)"
         rb"(?P<rects>(?:(?:"
         + number
-        + rb"\s+){3}8(?:\.0+)?\s+re\s+f\s+)+)"
+        + rb"\s+){4}re\s+f\s+)+)"
     )
     known_backgrounds = (
         (233 / 255, 237 / 255, 242 / 255),  # #e9edf2
         (227 / 255, 232 / 255, 238 / 255),  # #e3e8ee
         (225 / 255, 230 / 255, 236 / 255),  # #e1e6ec
         (237 / 255, 240 / 255, 244 / 255),  # #edf0f4
+        (223 / 255, 231 / 255, 239 / 255),  # #dfe7ef
     )
 
-    removed_groups = 0
+    removed_rects = 0
     for page_index in range(1, document.page_count):
         page = document[page_index]
+        word_centers = [
+            ((word[0] + word[2]) / 2, (word[1] + word[3]) / 2)
+            for word in page.get_text("words")
+        ]
         for xref in page.get_contents():
             stream = document.xref_stream(xref)
             clip_match = re.search(rb"\bre\s+W\s+n\s+", stream)
@@ -2365,7 +2389,7 @@ def _remove_pymupdf_story_repeated_backgrounds(document):
 
             artifact_start = clip_match.end()
             cursor = artifact_start
-            retained_color = b""
+            cleaned_groups = []
             while True:
                 match = color_group.match(stream, cursor)
                 if not match:
@@ -2379,17 +2403,38 @@ def _remove_pymupdf_story_repeated_backgrounds(document):
                     for target in known_backgrounds
                 ):
                     break
-                retained_color = match.group("color")
+
+                retained_rects = []
+                for rect_match in rect_operator.finditer(match.group("rects")):
+                    x = float(rect_match.group("x"))
+                    y = float(rect_match.group("y"))
+                    width = float(rect_match.group("width"))
+                    height = float(rect_match.group("height"))
+                    left, right = sorted((x, x + width))
+                    top, bottom = sorted((y, y + height))
+                    is_short_story_fragment = 7.5 <= bottom - top <= 10.5
+                    has_centered_text = any(
+                        left <= center_x <= right and top <= center_y <= bottom
+                        for center_x, center_y in word_centers
+                    )
+                    if is_short_story_fragment and not has_centered_text:
+                        removed_rects += 1
+                    else:
+                        retained_rects.append(rect_match.group(0))
+
+                if retained_rects:
+                    cleaned_groups.append(
+                        match.group("color") + b"".join(retained_rects)
+                    )
                 cursor = match.end()
-                removed_groups += 1
 
             if cursor > artifact_start:
                 document.update_stream(
                     xref,
-                    stream[:artifact_start] + retained_color + stream[cursor:],
+                    stream[:artifact_start] + b"".join(cleaned_groups) + stream[cursor:],
                 )
 
-    return removed_groups
+    return removed_rects
 
 
 def _render_pdf_with_pymupdf(html, pdf_path):
@@ -2735,6 +2780,16 @@ def _combine_portrait_export_documents(documents, company_name, company_english_
     )
 
 
+def _combine_landscape_export_documents(documents, company_name, company_english_name):
+    return _combine_export_documents(
+        documents,
+        company_name,
+        company_english_name,
+        page_rule="size: A4 landscape; margin: 28mm 12mm 14mm;",
+        title="高新技术企业认定附件横向内部材料",
+    )
+
+
 def _assign_portrait_document_page_ranges(pdf_path, documents):
     try:
         import fitz
@@ -2786,25 +2841,59 @@ def _portrait_export_document_style_signature(document):
 def _portrait_export_document_batches(documents, batch_size):
     normalized_batch_size = max(1, int(batch_size))
     batches = []
-    current_batch = []
-    current_signature = None
+    batches_by_signature = {}
     for document in documents:
         signature = _portrait_export_document_style_signature(document)
-        if (
-            current_batch
-            and (
-                signature != current_signature
-                or len(current_batch) >= normalized_batch_size
-            )
-        ):
-            batches.append(current_batch)
-            current_batch = []
-        if not current_batch:
-            current_signature = signature
-        current_batch.append(document)
-    if current_batch:
-        batches.append(current_batch)
+        signature_batches = batches_by_signature.setdefault(signature, [])
+        if not signature_batches or len(signature_batches[-1]) >= normalized_batch_size:
+            batch = []
+            signature_batches.append(batch)
+            batches.append(batch)
+        signature_batches[-1].append(document)
     return batches
+
+
+def _render_export_document_batch(
+    app,
+    batch,
+    output_dir,
+    company_name,
+    company_english_name,
+    *,
+    orientation,
+    label,
+):
+    batch_started = time.perf_counter()
+    if orientation == "landscape":
+        combined_html = _combine_landscape_export_documents(
+            batch,
+            company_name,
+            company_english_name,
+        )
+    else:
+        combined_html = _combine_portrait_export_documents(
+            batch,
+            company_name,
+            company_english_name,
+        )
+    pdf_path = _render_export_pdf_file(
+        app,
+        combined_html,
+        output_dir,
+        label,
+    )
+    if not pdf_path:
+        raise RuntimeError(f"{label} PDF 生成失败")
+    _assign_portrait_document_page_ranges(pdf_path, batch)
+    app.logger.info(
+        "%s PDF 生成完成 documents=%s duration=%.2fs first=%s last=%s",
+        label,
+        len(batch),
+        time.perf_counter() - batch_started,
+        batch[0]["label"],
+        batch[-1]["label"],
+    )
+    return pdf_path
 
 
 def _render_portrait_export_document_batches(
@@ -2818,34 +2907,17 @@ def _render_portrait_export_document_batches(
     batches = _portrait_export_document_batches(documents, batch_size)
     pdf_paths = []
     for batch_index, batch in enumerate(batches, start=1):
-        batch_started = time.perf_counter()
-        first_label = batch[0]["label"]
-        last_label = batch[-1]["label"]
-        combined_html = _combine_portrait_export_documents(
+        label = f"附件内部材料（第{batch_index}/{len(batches)}批）"
+        pdf_path = _render_export_document_batch(
+            app,
             batch,
+            output_dir,
             company_name,
             company_english_name,
+            orientation="portrait",
+            label=label,
         )
-        label = f"附件内部材料（第{batch_index}/{len(batches)}批）"
-        pdf_path = _render_export_pdf_file(
-            app,
-            combined_html,
-            output_dir,
-            label,
-        )
-        if not pdf_path:
-            raise RuntimeError(f"{label} PDF 生成失败")
-        _assign_portrait_document_page_ranges(pdf_path, batch)
         pdf_paths.append(pdf_path)
-        app.logger.info(
-            "附件内部材料批次 PDF 生成完成 batch=%s/%s documents=%s duration=%.2fs first=%s last=%s",
-            batch_index,
-            len(batches),
-            len(batch),
-            time.perf_counter() - batch_started,
-            first_label,
-            last_label,
-        )
     return pdf_paths
 
 
@@ -6743,56 +6815,72 @@ def gaoxin_attachments_pdf(company_id):
                 if chrome_available and portrait_documents
                 else max(
                     1,
-                    int(app.config.get("PDF_PYMUPDF_EXPORT_BATCH_SIZE", 1)),
+                    int(app.config.get("PDF_PYMUPDF_EXPORT_BATCH_SIZE", 4)),
                 )
             )
             portrait_batches = _portrait_export_document_batches(
                 portrait_documents,
                 portrait_batch_size,
             )
-            render_task_count = 1 + len(portrait_batches) + len(standalone_documents)
+            landscape_batch_size = (
+                len(standalone_documents)
+                if chrome_available and standalone_documents
+                else max(
+                    1,
+                    int(app.config.get("PDF_PYMUPDF_EXPORT_BATCH_SIZE", 4)),
+                )
+            )
+            landscape_batches = _portrait_export_document_batches(
+                standalone_documents,
+                landscape_batch_size,
+            )
+            render_task_count = 1 + len(portrait_batches) + len(landscape_batches)
             configured_workers = max(1, int(app.config.get("PDF_RENDER_WORKERS", 3)))
             render_workers = min(configured_workers, render_task_count) if chrome_available else 1
             with ThreadPoolExecutor(max_workers=render_workers, thread_name_prefix="gaoxin-pdf") as executor:
                 attachments_future = executor.submit(
                     _render_export_pdf_file, app, html, export_dir, "附件目录"
                 )
-                portrait_future = (
+                portrait_futures = [
                     executor.submit(
-                        _render_portrait_export_document_batches,
+                        _render_export_document_batch,
                         app,
-                        portrait_documents,
+                        batch,
                         export_dir,
                         company.name,
                         company_english_name,
-                        portrait_batch_size,
-                    ) if portrait_documents else None
-                )
-                standalone_futures = [
-                    (
-                        document,
-                        executor.submit(
-                            _render_export_pdf_file,
-                            app,
-                            document["html"],
-                            export_dir,
-                            document["label"],
-                        ),
+                        orientation="portrait",
+                        label=f"附件内部材料（第{batch_index}/{len(portrait_batches)}批）",
                     )
-                    for document in standalone_documents
+                    for batch_index, batch in enumerate(portrait_batches, start=1)
+                ]
+                landscape_futures = [
+                    executor.submit(
+                        _render_export_document_batch,
+                        app,
+                        batch,
+                        export_dir,
+                        company.name,
+                        company_english_name,
+                        orientation="landscape",
+                        label=f"附件横向材料（第{batch_index}/{len(landscape_batches)}批）",
+                    )
+                    for batch_index, batch in enumerate(landscape_batches, start=1)
                 ]
 
                 attachments_pdf_path = attachments_future.result()
-                portrait_pdf_paths = portrait_future.result() if portrait_future else []
-                for document, future in standalone_futures:
-                    document["pdf_path"] = future.result()
+                portrait_pdf_paths = [future.result() for future in portrait_futures]
+                landscape_pdf_paths = [future.result() for future in landscape_futures]
 
             if not attachments_pdf_path:
                 raise RuntimeError("附件目录 PDF 生成失败")
             if portrait_documents:
                 if len(portrait_pdf_paths) != len(portrait_batches):
                     raise RuntimeError("附件内部材料 PDF 生成失败")
-            for document in standalone_documents:
+            if standalone_documents:
+                if len(landscape_pdf_paths) != len(landscape_batches):
+                    raise RuntimeError("附件横向材料 PDF 生成失败")
+            for document in portrait_documents + standalone_documents:
                 if not document.get("pdf_path"):
                     raise RuntimeError(f"{document['label']} PDF 生成失败")
 

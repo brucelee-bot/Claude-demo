@@ -4,54 +4,118 @@
   <meta charset="utf-8">
   <title>{{ project.project_no or 'RD' }} 科研项目书</title>
   <style>
-    @page { size: A4; margin: 28mm 16mm 18mm; }
+    @page { size: A4; margin: 28mm 16mm 17mm; }
     {% include "_gaoxin_pdf_styles.html" %}
     {% include "_generated_document_header_styles.html" %}
     .rd-project-document h1 { text-align: center; margin: 0 0 10pt; font-size: 17pt; }
     .rd-project-document .cover-page {
-      padding-top: 48mm;
+      padding-top: 16mm;
       break-after: page;
       page-break-after: always;
     }
+    .rd-project-document .cover-top-rule {
+      width: 88%;
+      height: 3pt;
+      margin: 0 auto 10pt;
+      background-color: #254b6b;
+    }
+    .rd-project-document .cover-document-type {
+      margin: 0 0 8pt;
+      color: #526171;
+      font-size: 10pt;
+      font-weight: 700;
+      line-height: 1.4;
+      text-align: center;
+    }
+    .rd-project-document .cover-number {
+      width: 48%;
+      margin: 0 auto 18pt;
+      padding: 4pt 8pt;
+      border-top: 0.65pt solid #8f99a7;
+      border-bottom: 0.65pt solid #8f99a7;
+      color: #254b6b;
+      font-size: 10.5pt;
+      font-weight: 700;
+      line-height: 1.4;
+      text-align: center;
+    }
     .rd-project-document .cover-title {
-      margin: 0 0 18pt;
-      font-size: 24pt;
-      line-height: 1.45;
+      margin: 0 0 20pt;
+      color: #17324d;
+      font-size: 28pt;
+      line-height: 1.35;
+    }
+    .rd-project-document .cover-project-panel {
+      width: 88%;
+      margin: 0 auto 22pt;
+      padding: 13pt 13mm 15pt;
+      border-top: 1.2pt solid #315b7d;
+      border-bottom: 1.2pt solid #315b7d;
+      background-color: #edf0f4;
+    }
+    .rd-project-document .cover-project-label {
+      margin: 0 0 6pt;
+      color: #526171;
+      font-size: 9pt;
+      font-weight: 700;
+      text-align: center;
     }
     .rd-project-document .cover-project-name {
-      margin: 0 12mm 34pt;
-      font-size: 15pt;
+      margin: 0;
+      color: #17212b;
+      font-size: 16pt;
       font-weight: 700;
-      line-height: 1.6;
+      line-height: 1.55;
       text-align: center;
     }
     .rd-project-document .cover-meta {
-      width: 78%;
-      margin: 0 auto;
-      border: 0;
+      width: 82%;
+      margin: 0 auto 24pt;
+      table-layout: fixed;
     }
     .rd-project-document .cover-meta th,
     .rd-project-document .cover-meta td {
-      border: 0;
-      border-bottom: 0.65pt solid #8f99a7;
-      background-color: transparent;
-      padding: 7pt 5pt;
+      padding: 7pt 6pt;
       vertical-align: middle;
     }
     .rd-project-document .cover-meta th {
-      width: 28%;
-      text-align: justify;
-      text-align-last: justify;
+      width: 26%;
+      background-color: #dfe7ef;
+      color: #17324d;
+    }
+    .rd-project-document .cover-meta td {
+      background-color: #ffffff;
+      font-size: 10pt;
+      font-weight: 700;
+    }
+    .rd-project-document .cover-issuer {
+      width: 82%;
+      margin: 0 auto;
+      table-layout: fixed;
+    }
+    .rd-project-document .cover-issuer th {
+      width: 26%;
+      background-color: #e9edf2;
+      color: #17324d;
+    }
+    .rd-project-document .cover-bottom-rule {
+      width: 88%;
+      height: 1pt;
+      margin: 15pt auto 0;
+      background-color: #8f99a7;
     }
     .rd-project-document h2 {
-      margin: 10pt 0 6pt;
-      padding: 4pt 6pt;
-      background-color: #e9edf2;
+      margin: 0 0 9pt;
+      padding: 6pt 8pt;
+      border-top: 1.6pt solid #315b7d;
+      border-bottom: 0.65pt solid #8f99a7;
+      background-color: #e3e8ee;
+      color: #17324d;
       text-align: center;
-      font-size: 11.5pt;
+      font-size: 12pt;
     }
     .rd-project-document table {
-      margin: 0 0 8pt;
+      margin: 0 0 9pt;
       table-layout: fixed;
       border-top-width: 0.65pt;
       border-left-width: 0.65pt;
@@ -60,10 +124,13 @@
     .rd-project-document td {
       border-right-width: 0.65pt;
       border-bottom-width: 0.65pt;
-      text-align: left;
     }
     .rd-project-document th,
-    .rd-project-document .label { background-color: #e9edf2; font-weight: 700; }
+    .rd-project-document .label {
+      background-color: #dfe7ef;
+      color: #17324d;
+      font-weight: 700;
+    }
     .rd-project-document .keep-together {
       break-inside: avoid;
       page-break-inside: avoid;
@@ -75,6 +142,26 @@
       page-break-after: always;
     }
     .rd-project-document .doc-part:last-child { break-after: auto; page-break-after: auto; }
+    .rd-project-document .acceptance-part h2 { margin-bottom: 6pt; }
+    .rd-project-document .acceptance-part table { margin-bottom: 5pt; }
+    .rd-project-document .acceptance-part th,
+    .rd-project-document .acceptance-part td {
+      padding: 3.25pt 4.5pt;
+      font-size: 8.5pt;
+      line-height: 1.38;
+    }
+    .rd-project-document .acceptance-part .table-heading {
+      padding: 3.5pt 6pt;
+      font-size: 9.5pt;
+      line-height: 1.4;
+    }
+    .rd-project-document .acceptance-part .text-block th { font-size: 9.25pt; }
+    .rd-project-document .acceptance-part .section-text {
+      min-height: 18pt;
+      line-height: 1.45;
+    }
+    .rd-project-document .acceptance-signoff { margin-top: 1pt; }
+    .rd-project-document .acceptance-signoff .signature-space { height: 30px; }
     .rd-project-document .table-stack {
       margin: 0 0 8pt;
       break-inside: avoid;
@@ -82,34 +169,35 @@
     }
     .rd-project-document .table-stack table { margin: 0; }
     .rd-project-document .table-stack table + table { border-top: 0; }
-    .rd-project-document .project-summary { margin-bottom: 11pt; }
+    .rd-project-document .project-summary { margin-bottom: 12pt; }
     .rd-project-document .project-summary th { text-align: center; }
     .rd-project-document .title-row { background-color: #e3e8ee; font-size: 10pt; }
     .rd-project-document .table-heading {
       margin: 0;
-      padding: 4pt 5pt;
+      padding: 5pt 7pt;
       border: 0.65pt solid #8f99a7;
       border-bottom: 0;
       background-color: #e3e8ee;
-      font-size: 10pt;
+      color: #17324d;
+      font-size: 10.25pt;
       font-weight: 700;
       line-height: 1.5;
-      text-align: left;
+      text-align: center;
       break-after: avoid;
       page-break-after: avoid;
     }
     .rd-project-document .text-block th {
-      background-color: #e9edf2;
+      background-color: #e3e8ee;
       border-bottom-color: #7f8a99;
-      font-size: 9.8pt;
+      color: #17324d;
+      font-size: 10pt;
     }
     .rd-project-document .section-text {
-      min-height: 22pt;
-      line-height: 1.68;
-      text-align: justify;
+      min-height: 24pt;
+      line-height: 1.72;
       white-space: pre-wrap;
     }
-    .rd-project-document .status { font-weight: 700; }
+    .rd-project-document .status { color: #17324d; font-weight: 700; }
     .rd-project-document .muted { color: #4b5563; }
     .rd-project-document .center { text-align: center; }
     .rd-project-document .w-50 { width: 34pt; }
@@ -131,16 +219,29 @@
   {%- endmacro %}
 
   <section class="cover-page">
+    <div class="cover-top-rule"></div>
+    <div class="cover-document-type">企业研究开发项目管理文件</div>
+    <div class="cover-number">项目编号　{{ project.project_no or '待补充' }}</div>
     <h1 class="cover-title">科研项目书</h1>
-    <div class="cover-project-name">{{ project.rd_activity or '项目名称待补充' }}</div>
-    <table class="cover-meta keep-together" data-pymupdf-widths="28,72">
+    <div class="cover-project-panel">
+      <div class="cover-project-label">项目名称</div>
+      <div class="cover-project-name">{{ project.rd_activity or '项目名称待补充' }}</div>
+    </div>
+    <table class="cover-meta keep-together" data-pymupdf-widths="26,74">
       <tbody>
-        <tr><th>企业名称</th><td>{{ company.name }}</td></tr>
         <tr><th>项目编号</th><td>{{ project.project_no or '待补充' }}</td></tr>
         <tr><th>所属年度</th><td>{{ project.year or '待补充' }}</td></tr>
         <tr><th>研发周期</th><td>{{ project.rd_period or '待补充' }}</td></tr>
+        <tr><th>技术领域</th><td>{{ project.field or '待补充' }}</td></tr>
       </tbody>
     </table>
+    <table class="cover-issuer keep-together" data-pymupdf-widths="26,74">
+      <tbody>
+        <tr><th>编制单位</th><td>{{ company.name }}</td></tr>
+        <tr><th>编制日期</th><td>{{ temporal.issue_date }}</td></tr>
+      </tbody>
+    </table>
+    <div class="cover-bottom-rule"></div>
   </section>
 
   <section class="doc-part project-notice" data-pymupdf-page-break-before>
@@ -284,7 +385,7 @@
     </table>
   </section>
 
-  <section class="doc-part" data-pymupdf-page-break-before>
+  <section class="doc-part acceptance-part" data-pymupdf-page-break-before>
     <h2>五、{{ temporal.acceptance_title }}</h2>
     <table data-pymupdf-widths="16,34,16,34">
       <tbody>
@@ -310,15 +411,15 @@
     {{ text_block('2. 验收意见', application_sections.acceptance_opinion if temporal.acceptance_record_supported and application_sections.acceptance_opinion else temporal.acceptance_opinion) }}
     {{ text_block('3. 验收结论', application_sections.acceptance_result if temporal.acceptance_record_supported and application_sections.acceptance_result else temporal.acceptance_result, 'status') }}
 
-    <div class="table-stack keep-together">
+    <div class="table-stack keep-together acceptance-signoff">
       <table data-pymupdf-widths="16,34,16,34">
         <tbody>
-          <tr><th class="w-90">验收人员</th><td style="height:45px">{{ project.staff_names|join('、') or '待补充' }}</td><th class="w-90">{{ temporal.acceptance_date_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
+          <tr><th class="w-90">验收人员</th><td class="signature-space">{{ project.staff_names|join('、') or '待补充' }}</td><th class="w-90">{{ temporal.acceptance_date_label }}</th><td>{{ temporal.acceptance_date }}</td></tr>
         </tbody>
       </table>
       <table data-pymupdf-widths="16,84">
         <tbody>
-          <tr><th>审批意见</th><td style="height:45px">{{ '项目已到计划结束时间，待根据实际验收记录填写。' if temporal.can_accept else '待项目完成并组织正式验收后填写。' }}</td></tr>
+          <tr><th>审批意见</th><td class="signature-space">{{ '项目已到计划结束时间，待根据实际验收记录填写。' if temporal.can_accept else '待项目完成并组织正式验收后填写。' }}</td></tr>
         </tbody>
       </table>
       <table data-pymupdf-widths="16,34,16,34">

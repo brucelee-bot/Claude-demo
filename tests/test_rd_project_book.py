@@ -31,6 +31,60 @@ class RdProjectBookTests(unittest.TestCase):
         self.assertEqual(project["project_no"], "RD07")
         self.assertEqual(project["rd_code"], "RD07")
 
+    def test_project_number_is_normalized_to_rd_with_two_digits(self):
+        for raw_number, expected in (
+            ("RD1", "RD01"),
+            ("1", "RD01"),
+            ("RD01", "RD01"),
+            ("rd-12", "RD12"),
+        ):
+            with self.subTest(raw_number=raw_number):
+                data = {
+                    "gaoxin_relation_table": {
+                        "rows": [{
+                            "year": "2025",
+                            "rd_code": raw_number,
+                            "rd_activity": f"测试研发项目{raw_number}",
+                            "rd_period": "2025-01-01至2025-12-31",
+                        }],
+                    },
+                    "rd_0_no": "INTERNAL-OVERRIDE",
+                }
+
+                project = _collect_rd_project_rows(data)[0]
+
+                self.assertEqual(project["project_no"], expected)
+                self.assertEqual(project["rd_code"], raw_number)
+
+    def test_missing_relation_sequence_falls_back_to_project_order(self):
+        data = {
+            "gaoxin_relation_table": {
+                "rows": [
+                    {
+                        "year": "2025",
+                        "rd_code": "",
+                        "rd_activity": "第一研发项目",
+                        "rd_period": "2025-01-01至2025-06-30",
+                    },
+                    {
+                        "year": "2025",
+                        "rd_code": "",
+                        "rd_activity": "第二研发项目",
+                        "rd_period": "2025-07-01至2025-12-31",
+                    },
+                ],
+            },
+            "rd_0_no": "SAVED-OVERRIDE",
+            "rd_1_no": "RD99",
+        }
+
+        projects = _collect_rd_project_rows(data)
+
+        self.assertEqual(
+            [project["project_no"] for project in projects],
+            ["RD01", "RD02"],
+        )
+
     def test_collect_rd_staff_prefers_maintained_order_and_deduplicates(self):
         data = {
             "attachment_rd_staff_0_name": "张三",
@@ -204,7 +258,7 @@ class RdProjectBookTests(unittest.TestCase):
             '    <h2>一、项目基本情况与立项依据</h2>'
         )
         acceptance_start = template.index(
-            '<section class="doc-part" data-pymupdf-page-break-before>\n'
+            '<section class="doc-part acceptance-part" data-pymupdf-page-break-before>\n'
             '    <h2>五、{{ temporal.acceptance_title }}</h2>'
         )
 
@@ -215,6 +269,14 @@ class RdProjectBookTests(unittest.TestCase):
         self.assertIn("page-break-before: always;", template)
         self.assertNotIn("project.rd_code", template)
         self.assertGreaterEqual(template.count("project.project_no"), 6)
+        self.assertIn("企业研究开发项目管理文件", template)
+        self.assertIn('class="cover-project-panel"', template)
+        self.assertIn(
+            "<tr><th>编制单位</th><td>{{ company.name }}</td></tr>",
+            template,
+        )
+        self.assertIn('class="doc-part acceptance-part"', template)
+        self.assertIn('class="table-stack keep-together acceptance-signoff"', template)
 
     def test_print_template_uses_uniform_table_border_widths(self):
         template = (

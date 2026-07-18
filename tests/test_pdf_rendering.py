@@ -15,6 +15,7 @@ from flask import Flask, render_template
 from modules.docgen.routes import (
     _chrome_executable,
     _collect_rd_project_rows,
+    _combine_landscape_export_documents,
     _combine_portrait_export_documents,
     _ensure_landscape_page_rule,
     _export_rd_project_application_text,
@@ -447,6 +448,66 @@ class PdfRenderingTests(unittest.TestCase):
         finally:
             source.close()
 
+    def test_pymupdf_fallback_removes_empty_ten_point_background_fragments(self):
+        rows = "".join(
+            (
+                f"<tr><td>{index}</td><td>第{index}行续页背景检查。"
+                + "分页内容。" * 18
+                + "</td></tr>"
+            )
+            for index in range(1, 48)
+        )
+        html = f"""
+        <html><head><style>
+        @page {{ size: A4; margin: 28mm 16mm 18mm; }}
+        body {{ font-family: sans-serif; font-size: 9pt; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        th, td {{ border: 0.65pt solid #8f99a7; padding: 5pt 6pt; }}
+        th {{ background-color: #dfe7ef; }}
+        </style></head><body>
+        <table data-pymupdf-widths="20,80">
+          <thead><tr><th>序号</th><th>内容</th></tr></thead>
+          <tbody>{rows}</tbody>
+        </table>
+        </body></html>
+        """
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            pdf_path = os.path.join(output_dir, "ten-point-backgrounds.pdf")
+            with patch("modules.docgen.routes._chrome_executable", return_value=None):
+                _render_pdf_file(self.app, html, pdf_path, "十点续页背景")
+
+            document = fitz.open(pdf_path)
+            try:
+                self.assertGreater(document.page_count, 1)
+                target = (223 / 255, 231 / 255, 239 / 255)
+                for page in document.pages(1):
+                    word_centers = [
+                        ((word[0] + word[2]) / 2, (word[1] + word[3]) / 2)
+                        for word in page.get_text("words")
+                    ]
+                    empty_short_fills = []
+                    for drawing in page.get_drawings():
+                        fill = drawing.get("fill")
+                        rect = drawing["rect"]
+                        if not fill or not all(
+                            abs(actual - expected) < 0.01
+                            for actual, expected in zip(fill, target)
+                        ):
+                            continue
+                        if not 7.5 <= rect.height <= 10.5:
+                            continue
+                        if any(
+                            rect.x0 <= center_x <= rect.x1
+                            and rect.y0 <= center_y <= rect.y1
+                            for center_x, center_y in word_centers
+                        ):
+                            continue
+                        empty_short_fills.append(rect)
+                    self.assertFalse(empty_short_fills)
+            finally:
+                document.close()
+
     def test_pymupdf_html_preparation_adds_one_invisible_sizer_per_table(self):
         prepared = _prepare_pymupdf_story_html(
             "<html><head></head><body>"
@@ -872,7 +933,7 @@ class PdfRenderingTests(unittest.TestCase):
                     rendered_pdf.close()
             self.assertEqual(page_counts, [5, 5, 2])
 
-    def test_portrait_document_batches_do_not_mix_template_styles(self):
+    def test_document_batches_group_matching_template_styles_across_export_order(self):
         def document(label, style, body_class):
             return {
                 "label": label,
@@ -894,8 +955,28 @@ class PdfRenderingTests(unittest.TestCase):
 
         self.assertEqual(
             [[document["label"] for document in batch] for batch in batches],
-            [["A1", "A2"], ["B1", "B2"], ["A3"]],
+            [["A1", "A2", "A3"], ["B1", "B2"]],
         )
+
+    def test_landscape_batch_combination_forces_landscape_pages(self):
+        documents = [
+            {
+                "label": "横向材料",
+                "html": (
+                    "<html><head><style>@page { size: A4; margin: 20mm; }</style></head>"
+                    '<body class="landscape-source"><h1>横向材料</h1></body></html>'
+                ),
+            },
+        ]
+
+        combined_html = _combine_landscape_export_documents(
+            documents,
+            "测试科技有限公司",
+            "TEST TECHNOLOGY CO., LTD.",
+        )
+
+        self.assertIn("@page { size: A4 landscape; margin: 28mm 12mm 14mm; }", combined_html)
+        self.assertIn("GAOXINPDFDOC", combined_html)
 
     def test_pymupdf_story_splits_oversized_table_rows_without_losing_text(self):
         long_text = (
