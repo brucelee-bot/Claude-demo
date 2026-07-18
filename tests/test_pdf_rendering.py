@@ -173,7 +173,7 @@ class PdfRenderingTests(unittest.TestCase):
                     if "验收人员" in page.get_text()
                     and "审批意见" in page.get_text()
                 )
-                border_color = (143 / 255, 153 / 255, 167 / 255)
+                border_color = (178 / 255, 186 / 255, 196 / 255)
                 right_edges = [
                     drawing["rect"]
                     for drawing in acceptance_page.get_drawings()
@@ -183,7 +183,7 @@ class PdfRenderingTests(unittest.TestCase):
                         for actual, expected in zip(drawing["fill"], border_color)
                     )
                     and drawing["rect"].x0 > acceptance_page.rect.width - 50
-                    and drawing["rect"].width < 1
+                    and abs(drawing["rect"].width - 1.5) < 0.01
                     and drawing["rect"].height > 20
                 ]
                 self.assertTrue(right_edges)
@@ -305,15 +305,15 @@ class PdfRenderingTests(unittest.TestCase):
         table {
           width: 100%;
           border: 0;
-          border-top: 0.65pt solid #8f99a7;
-          border-right: 0.65pt solid #8f99a7;
+          border-top: 1.5pt solid #b2bac4;
+          border-right: 1.5pt solid #b2bac4;
           border-collapse: separate;
           border-spacing: 0;
         }
         td {
           border: 0;
-          border-left: 0.65pt solid #8f99a7;
-          border-bottom: 0.65pt solid #8f99a7;
+          border-left: 1.5pt solid #b2bac4;
+          border-bottom: 1.5pt solid #b2bac4;
           padding: 10pt;
         }
         </style></head><body>
@@ -333,7 +333,7 @@ class PdfRenderingTests(unittest.TestCase):
 
             document = fitz.open(pdf_path)
             try:
-                border_color = (143 / 255, 153 / 255, 167 / 255)
+                border_color = (178 / 255, 186 / 255, 196 / 255)
                 border_rects = [
                     drawing["rect"]
                     for drawing in document[0].get_drawings()
@@ -347,7 +347,7 @@ class PdfRenderingTests(unittest.TestCase):
                 self.assertEqual(len(border_rects), 10)
                 self.assertTrue(
                     all(
-                        abs(min(rect.width, rect.height) - 0.65) < 0.001
+                        abs(min(rect.width, rect.height) - 1.5) < 0.001
                         for rect in border_rects
                     )
                 )

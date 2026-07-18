@@ -54,13 +54,15 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         self.assertIn(expected_font_stack, shared_styles)
         self.assertIn(expected_font_stack, header_styles)
         self.assertIn("color: #17212b;", shared_styles)
-        self.assertIn("border-top: 0.65pt solid #8f99a7;", shared_styles)
-        self.assertIn("border-left: 0.65pt solid #8f99a7;", shared_styles)
-        self.assertIn("border-right: 0.65pt solid #8f99a7;", shared_styles)
-        self.assertIn("border-bottom: 0.65pt solid #8f99a7;", shared_styles)
-        self.assertNotIn("border: 0.65pt solid #8f99a7;", shared_styles)
+        self.assertIn("border-top: 1.5pt solid #b2bac4;", shared_styles)
+        self.assertIn("border-left: 1.5pt solid #b2bac4;", shared_styles)
+        self.assertIn("border-right: 1.5pt solid #b2bac4;", shared_styles)
+        self.assertIn("border-bottom: 1.5pt solid #b2bac4;", shared_styles)
+        self.assertIn("border: 1.5pt solid #b2bac4;", shared_styles)
         self.assertIn("border-collapse: separate;", shared_styles)
         self.assertIn("border-spacing: 0;", shared_styles)
+        self.assertIn("@media print {", shared_styles)
+        self.assertIn("border-collapse: collapse;", shared_styles)
         self.assertIn("background-color: #dfe7ef;", shared_styles)
         self.assertIn("background-color: #e9edf2;", shared_styles)
         self.assertNotIn("background: #", shared_styles)
@@ -68,6 +70,20 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         self.assertIn("vertical-align: middle !important;", shared_styles)
         self.assertNotIn("border-bottom-width: 1.5pt;", shared_styles)
         self.assertNotIn("#b4bbc4", shared_styles)
+
+    def test_chrome_and_pymupdf_receive_compatible_table_grid_models(self):
+        shared_styles = (self.template_dir / "_gaoxin_pdf_styles.html").read_text(
+            encoding="utf-8"
+        )
+
+        base_styles, print_styles = shared_styles.split("@media print {", 1)
+        self.assertIn("border-collapse: separate;", base_styles)
+        self.assertIn("border-top: 1.5pt solid #b2bac4;", base_styles)
+        self.assertIn("border-right: 1.5pt solid #b2bac4;", base_styles)
+        self.assertIn("border-left: 1.5pt solid #b2bac4;", base_styles)
+        self.assertIn("border-bottom: 1.5pt solid #b2bac4;", base_styles)
+        self.assertIn("border-collapse: collapse;", print_styles)
+        self.assertIn("border: 1.5pt solid #b2bac4;", print_styles)
 
     def test_shared_table_grid_draws_each_edge_once(self):
         shared_styles = (self.template_dir / "_gaoxin_pdf_styles.html").read_text(
@@ -94,6 +110,20 @@ class GaoxinPdfStyleTests(unittest.TestCase):
         )[1].split("}", 1)[0]
 
         self.assertNotIn("border-bottom", text_block_header_rule)
+
+    def test_print_templates_do_not_restore_the_old_thin_table_grid(self):
+        old_grid_fragments = (
+            "border-top-width: 0.65pt;",
+            "border-right-width: 0.65pt;",
+            "border-left-width: 0.65pt;",
+            "border-bottom-width: 0.65pt;",
+            "border: 0.65pt solid #8f99a7;",
+        )
+        for template_name in self.print_templates:
+            template = (self.template_dir / template_name).read_text(encoding="utf-8")
+            for fragment in old_grid_fragments:
+                with self.subTest(template=template_name, fragment=fragment):
+                    self.assertNotIn(fragment, template)
 
     def test_requested_summary_tables_define_pymupdf_column_ratios(self):
         expectations = {
