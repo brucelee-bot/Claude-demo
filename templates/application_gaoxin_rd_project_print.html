@@ -16,19 +16,22 @@
       page-break-after: always;
     }
     .rd-project-document table.cover-code-row {
-      width: 34%;
-      margin: 0 0 20mm auto;
+      width: 100%;
+      margin: 0 0 20mm;
       border: 0;
-      border-bottom: 0.75pt solid #7f91a3;
     }
     .rd-project-document table.cover-code-row td {
-      padding: 1.5mm 1mm 2mm;
+      padding: 0;
       border: 0;
       background-color: #ffffff;
+      vertical-align: middle;
+    }
+    .rd-project-document table.cover-code-row .cover-code-cell {
+      padding: 1.5mm 1mm 2mm;
+      border-bottom: 0.75pt solid #7f91a3;
       color: #526171;
       font-size: 8.5pt;
       line-height: 1.4;
-      vertical-align: middle;
       text-align: right;
     }
     .rd-project-document table.cover-code-row .cover-code-value {
@@ -218,10 +221,11 @@
   {%- endmacro %}
 
   <section class="cover-page">
-    <table class="cover-code-row" data-pymupdf-widths="100">
+    <table class="cover-code-row" data-pymupdf-widths="66,34">
       <tbody>
         <tr>
-          <td>项目编号&emsp;&emsp;<span class="cover-code-value">{{ project.project_no or '待补充' }}</span></td>
+          <td class="cover-code-spacer"></td>
+          <td class="cover-code-cell">项目编号&emsp;&emsp;<span class="cover-code-value">{{ project.project_no or '待补充' }}</span></td>
         </tr>
       </tbody>
     </table>

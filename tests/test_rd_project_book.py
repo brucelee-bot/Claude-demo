@@ -292,8 +292,15 @@ class RdProjectBookTests(unittest.TestCase):
         self.assertIn("企业研究开发项目管理文件", template)
         self.assertIn("min-height: 224mm;", template)
         self.assertIn("padding: 31mm 7mm 0;", template)
-        self.assertIn("width: 34%;", template)
-        self.assertIn("margin: 0 0 20mm auto;", template)
+        self.assertIn("width: 100%;", template)
+        self.assertIn("margin: 0 0 20mm;", template)
+        self.assertIn('data-pymupdf-widths="66,34"', template)
+        self.assertIn('class="cover-code-spacer"', template)
+        self.assertIn('class="cover-code-cell"', template)
+        self.assertIn(
+            ".rd-project-document table.cover-code-row .cover-code-cell {",
+            template,
+        )
         self.assertIn('class="cover-title-rule"', template)
         self.assertIn('class="cover-project-block"', template)
         self.assertIn(
