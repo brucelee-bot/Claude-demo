@@ -118,15 +118,19 @@ class GaoxinPdfJobTests(unittest.TestCase):
             db.session.commit()
             return job.id
 
-    def test_create_is_blocked_when_health_check_has_blockers(self):
+    def test_create_allows_export_and_returns_health_warning(self):
         response = self._client().post(
             f"/application/gaoxin_attachments/{self.company_id}/pdf/jobs"
         )
 
-        self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.get_json()["code"], "HEALTH_CHECK_BLOCKED")
+        self.assertEqual(response.status_code, 202)
+        payload = response.get_json()
+        self.assertEqual(payload["export_warning"]["code"], "HEALTH_CHECK_WARNING")
+        self.assertTrue(payload["export_warning"]["blockers"])
+        self.assertIn("测试阶段", payload["export_warning"]["message"])
+        self.assertIn("/application/assessment", payload["export_warning"]["health_url"])
         with self.app.app_context():
-            self.assertEqual(ExportJob.query.count(), 0)
+            self.assertEqual(ExportJob.query.count(), 1)
 
     @patch(
         "modules.docgen.routes._company_health_check",
@@ -243,8 +247,11 @@ class GaoxinPdfJobTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("exportPdfJobCreateUrl", template)
+        self.assertIn("exportWarningHtml", template)
+        self.assertIn("导出文件不代表申报评估已通过", template)
         self.assertIn("resumeExportJob", template)
         self.assertIn("launchAttempts", template)
+        self.assertNotIn("暂不能导出 PDF", template)
         self.assertNotIn("const exportPdfUrl", template)
 
 

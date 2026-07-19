@@ -104,6 +104,22 @@ def _company_health_check(company, data=None):
     )
 
 
+def _gaoxin_export_health_warning(company, health):
+    """测试阶段允许导出，但把申报体检风险明确返回给用户。"""
+    blockers = health.get("export_blockers", []) if isinstance(health, dict) else []
+    if not blockers:
+        return None
+    return {
+        "code": "HEALTH_CHECK_WARNING",
+        "message": (
+            f"当前为测试阶段，仍允许导出 PDF；申报体检发现 {len(blockers)} 个待处理项，"
+            "导出文件不代表申报评估已通过。"
+        ),
+        "health_url": url_for("docgen.assessment", company_id=company.id),
+        "blockers": blockers,
+    }
+
+
 def _latest_company_score(company):
     return (
         ScoreRecord.query
@@ -6138,6 +6154,10 @@ def gaoxin_attachments(company_id):
         return redirect(url_for("docgen.gaoxin_attachments", company_id=company.id))
 
     data = _load_company_data(company)
+    health_warning = _gaoxin_export_health_warning(
+        company,
+        _company_health_check(company, data),
+    )
     auto_data = _sync_gaoxin_finance_years(_merge_relation_fields(data))
     auto_data["attachment_rd_staff_rows"] = _collect_december_2025_rd_staff_rows(auto_data)
     _sync_staff_month_counts(auto_data, auto_data["attachment_rd_staff_rows"])
@@ -6186,6 +6206,7 @@ def gaoxin_attachments(company_id):
             if latest_export_job
             else None
         ),
+        export_health_warning=health_warning,
     )
 
 
@@ -6831,14 +6852,7 @@ def gaoxin_attachments_pdf_job_create(company_id):
     ).first_or_404()
     data = _load_company_data(company)
     health = _company_health_check(company, data)
-    if health["export_blockers"]:
-        return jsonify({
-            "ok": False,
-            "code": "HEALTH_CHECK_BLOCKED",
-            "error": f"导出前体检发现 {len(health['export_blockers'])} 个阻断项，请先处理后再导出。",
-            "health_url": url_for("docgen.assessment", company_id=company.id),
-            "blockers": health["export_blockers"],
-        }), 409
+    health_warning = _gaoxin_export_health_warning(company, health)
 
     fingerprint = _gaoxin_attachment_export_fingerprint(company, data)
     existing = (
@@ -6856,6 +6870,7 @@ def gaoxin_attachments_pdf_job_create(company_id):
     if existing:
         if not _expire_stale_export_job(existing):
             payload = _export_job_payload(existing)
+            payload["export_warning"] = health_warning
             payload["cache_hit"] = existing.status == "ready"
             return jsonify(payload), 200 if existing.status == "ready" else 202
 
@@ -6872,7 +6887,9 @@ def gaoxin_attachments_pdf_job_create(company_id):
     )
     db.session.add(job)
     db.session.commit()
-    return jsonify(_export_job_payload(job)), 202
+    payload = _export_job_payload(job)
+    payload["export_warning"] = health_warning
+    return jsonify(payload), 202
 
 
 @docgen_bp.route("/gaoxin_attachments/<int:company_id>/pdf/jobs/<job_id>")
@@ -6965,22 +6982,6 @@ def gaoxin_attachments_pdf(company_id):
         if not claimed:
             status_code = 409 if job.status == "failed" else 202
             return jsonify(_export_job_payload(job)), status_code
-    health = _company_health_check(company, data)
-    if health["export_blockers"]:
-        if job:
-            _update_export_job(
-                job,
-                status="failed",
-                stage="申报体检未通过",
-                error=f"导出前体检发现 {len(health['export_blockers'])} 个阻断项。",
-            )
-        return jsonify({
-            "ok": False,
-            "code": "HEALTH_CHECK_BLOCKED",
-            "error": f"导出前体检发现 {len(health['export_blockers'])} 个阻断项，请先处理后再导出。",
-            "health_url": url_for("docgen.assessment", company_id=company.id),
-            "blockers": health["export_blockers"],
-        }), 409
     auto_data = _sync_gaoxin_finance_years(_merge_relation_fields(data))
     auto_data["attachment_rd_staff_rows"] = _collect_december_2025_rd_staff_rows(auto_data)
     _sync_staff_month_counts(auto_data, auto_data["attachment_rd_staff_rows"])

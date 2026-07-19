@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from flask import Blueprint, Flask
 from flask_login import LoginManager
@@ -255,7 +256,11 @@ class GaoxinHealthcheckRouteTests(unittest.TestCase):
             db.drop_all()
         cls.temp_dir.cleanup()
 
-    def test_pdf_export_is_blocked_before_renderer_starts(self):
+    @patch(
+        "modules.docgen.routes._prepare_export_attachment_files",
+        side_effect=RuntimeError("export pipeline reached"),
+    )
+    def test_pdf_export_reaches_pipeline_even_with_health_blockers(self, prepare_files):
         client = self.app.test_client()
         with client.session_transaction() as session:
             session["_user_id"] = str(self.user_id)
@@ -266,11 +271,10 @@ class GaoxinHealthcheckRouteTests(unittest.TestCase):
             headers={"Accept": "application/pdf"},
         )
 
-        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.status_code, 500)
         payload = response.get_json()
-        self.assertEqual(payload["code"], "HEALTH_CHECK_BLOCKED")
-        self.assertTrue(payload["blockers"])
-        self.assertIn("/application/assessment", payload["health_url"])
+        self.assertIn("export pipeline reached", payload["error"])
+        prepare_files.assert_called_once()
 
     def test_legacy_health_page_redirects_to_assessment(self):
         client = self.app.test_client()
