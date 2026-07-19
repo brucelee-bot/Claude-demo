@@ -588,7 +588,10 @@
 {% set score_url = url_for('scoring.gaoxin') %}
 {% set diagnosis_url = url_for('docgen.assistant_brief', company_id=current_company.id) if current_company else url_for('docgen.assistant') %}
 {% set doc_url = url_for('docgen.gaoxin_relation_table', company_id=current_company.id) if current_company and current_app_type == '高新技术' else (url_for('docgen.fill', company_id=current_company.id) if current_company else url_for('docgen.index')) %}
+{% set health_url = url_for('docgen.health_check', company_id=current_company.id) if current_company and health else url_for('docgen.health_index') %}
 {% if next_action.endpoint in ['docgen.fill', 'docgen.gaoxin_book', 'docgen.gaoxin_relation_table'] and current_company %}
+  {% set next_url = url_for(next_action.endpoint, company_id=current_company.id) %}
+{% elif next_action.endpoint == 'docgen.health_check' and current_company %}
   {% set next_url = url_for(next_action.endpoint, company_id=current_company.id) %}
 {% elif next_action.endpoint == 'docgen.download' and current_draft %}
   {% set next_url = url_for(next_action.endpoint, draft_id=current_draft.id) %}
@@ -610,7 +613,7 @@
   {% if not current_company %}
   <section class="empty-card">
     <h2>从第一次企业评分开始</h2>
-    <p>首页会在评分完成后自动显示企业当前得分、达标状态、通过概率和下一步动作。</p>
+    <p>首页会在评分完成后自动显示企业当前得分、申报准备度、风险状态和下一步动作。</p>
     <a href="{{ url_for('scoring.gaoxin') }}" class="btn btn-primary btn-lg">立即评分</a>
   </section>
   {% else %}
@@ -619,6 +622,7 @@
       <div class="meta-row">
         <span class="pill">{{ current_app_type }}认定</span>
         <span class="pill {{ 'pass' if is_passed else 'fail' }}">{{ '已达标' if is_passed else '未达标' }}</span>
+        {% if health %}<span class="pill {{ 'pass' if health.status == 'ready' else 'fail' }}">{{ health.status_label }}</span>{% endif %}
         <span class="pill">当前企业</span>
       </div>
       <h2 class="company-name">{{ current_company.name }}</h2>
@@ -628,9 +632,9 @@
       </div>
       <div class="score-caption">
         {% if current_score %}
-        达标线为 {{ pass_score }} 分，当前通过概率约 {{ pass_probability }}%。{% if is_passed %}建议继续完善诊断与申报书，降低材料审核风险。{% else %}建议先补强关键短板，再进入申报书生成。{% endif %}
+        评分达标线为 {{ pass_score }} 分。{% if health %}当前申报准备度为 {{ health.readiness_score }} 分，{% endif %}{% if health and health.export_blockers %}请先处理阻断项，再导出申报材料。{% elif is_passed %}建议继续完善诊断与申报书，降低材料审核风险。{% else %}建议先补强关键短板，再进入申报书生成。{% endif %}
         {% else %}
-        该企业尚未完成评分。完成评分后，系统会在这里显示达标情况、通过概率和申报建议。
+        该企业尚未完成评分。完成评分后，系统会在这里显示得分、申报准备度和风险状态。
         {% endif %}
       </div>
       <div class="score-metrics">
@@ -639,8 +643,8 @@
           <div class="metric-value">{{ '达标' if is_passed else '待提升' }}</div>
         </div>
         <div class="metric-box">
-          <div class="metric-label">通过概率</div>
-          <div class="metric-value">{{ pass_probability }}%</div>
+          <div class="metric-label">申报准备度</div>
+          <div class="metric-value">{{ health.readiness_score if health else '--' }}{% if health %}<span style="font-size:13px;color:#64748b">/100</span>{% endif %}</div>
         </div>
       </div>
     </div>
@@ -700,6 +704,13 @@
           </div>
           <span class="mini-btn">查看诊断</span>
         </a>
+        <a class="quick-action" href="{{ health_url }}">
+          <div>
+            <h3>申报体检</h3>
+            <p>核验资格门槛、材料完整度和跨表数据一致性。</p>
+          </div>
+          <span class="mini-btn">进入体检</span>
+        </a>
         <a class="quick-action" href="{{ doc_url }}">
           <div>
             <h3>生成申报书</h3>
@@ -751,7 +762,8 @@
             <th>企业</th>
             <th>申报类型</th>
             <th>评分</th>
-            <th>状态</th>
+            <th>准备度</th>
+            <th>风险状态</th>
             <th>申报书</th>
             <th>操作</th>
           </tr>
@@ -767,9 +779,16 @@
             </td>
             <td>{{ item.score.score_type if item.score else item.company.app_type }}</td>
             <td>{{ item.score.total_score if item.score else '--' }}</td>
-            <td><span class="pill {{ 'pass' if item.passed else 'fail' }}">{{ '达标' if item.passed else '未达标' }}</span></td>
+            <td>{{ item.health.readiness_score if item.health else '--' }}{% if item.health %}/100{% endif %}</td>
+            <td><span class="pill {{ 'pass' if item.health and item.health.status == 'ready' else 'fail' if item.health and item.health.status == 'blocked' else '' }}">{{ item.health.status_label if item.health else ('达标' if item.passed else '未达标') }}</span></td>
             <td>{{ '已生成' if item.draft else '未生成' }}</td>
-            <td><a href="{{ url_for('dashboard', company_id=item.company.id) }}" class="btn-outline">查看</a></td>
+            <td>
+              {% if item.health %}
+              <a href="{{ url_for('docgen.health_check', company_id=item.company.id) }}" class="btn-outline">体检</a>
+              {% else %}
+              <a href="{{ url_for('dashboard', company_id=item.company.id) }}" class="btn-outline">查看</a>
+              {% endif %}
+            </td>
           </tr>
           {% endfor %}
         </tbody>

@@ -957,15 +957,29 @@ async function saveAndExportPdf() {
     status.textContent = stage;
     const response = await fetch(exportPdfUrl, {headers: {'Accept': 'application/pdf'}});
     if (!response.ok) {
-      let message = 'PDF 导出失败';
+      let result = {};
       try {
-        const result = await response.json();
-        message = result.error || message;
+        result = await response.json();
       } catch (error) {
         const text = await response.text();
-        if (text) message = text;
+        result = {error: text};
       }
-      throw new Error(message);
+      if (result.code === 'HEALTH_CHECK_BLOCKED') {
+        const blockers = Array.isArray(result.blockers) ? result.blockers.slice(0, 5) : [];
+        const list = blockers.map(function(item) {
+          return '<li><strong>' + escapeHtml(item.title || '待处理项') + '</strong><br><span>' + escapeHtml(item.reason || '') + '</span></li>';
+        }).join('');
+        const more = Array.isArray(result.blockers) && result.blockers.length > blockers.length
+          ? '<div style="margin-top:6px">其余 ' + (result.blockers.length - blockers.length) + ' 项请进入体检中心查看。</div>'
+          : '';
+        const link = result.health_url
+          ? '<a class="export-health-link" href="' + escapeHtml(result.health_url) + '">进入申报体检中心</a>'
+          : '';
+        status.className = 'export-status-toast is-error';
+        status.innerHTML = '<strong>暂不能导出 PDF</strong><ul>' + list + '</ul>' + more + link;
+        return;
+      }
+      throw new Error(result.error || 'PDF 导出失败');
     }
 
     stage = '正在下载 PDF';

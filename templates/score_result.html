@@ -21,11 +21,11 @@
   else %}rgba(248,81,73,0.08){% endif %};border-color:{% if result.passed
   %}rgba(63,185,80,0.3){% else %}rgba(248,81,73,0.3){% endif %}">
   {% if result.passed %}
-  <div style="font-size:24px">✅ 符合认定要求</div>
-  <p class="text-muted">综合得分 ≥{{ result.pass_score }} 分，达标</p>
+  <div style="font-size:24px">✅ 创新能力评分达到参考线</div>
+  <p class="text-muted">综合得分 ≥{{ result.pass_score }} 分，但仍需通过资格、证据和一致性体检</p>
   {% else %}
-  <div style="font-size:24px">❌ 未达到认定要求</div>
-  <p class="text-muted">{{ result.warnings[0] if result.warnings else '综合得分未达标' }}</p>
+  <div style="font-size:24px">❌ 创新能力评分未达到参考线</div>
+  <p class="text-muted">{{ result.warnings[0] if result.warnings else '综合得分未达到参考线，建议先补强创新能力指标' }}</p>
   {% endif %}
 </div>
 
@@ -126,6 +126,9 @@
   <a href="{{ url_for('scoring.gaoxin') }}" class="btn btn-secondary">🔄 重新评分</a>
   <div class="gap-2" style="display:flex">
     <a href="{{ url_for('scoring.index') }}" class="btn btn-secondary">📋 返回列表</a>
+    {% if health_company_id %}
+    <a href="{{ url_for('docgen.health_check', company_id=health_company_id) }}" class="btn btn-secondary">🩺 进入申报体检</a>
+    {% endif %}
     <a href="{{ url_for('docgen.index') }}" class="btn btn-primary">📝 生成申报书</a>
   </div>
 </div>

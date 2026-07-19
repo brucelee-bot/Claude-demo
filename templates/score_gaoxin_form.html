@@ -45,7 +45,7 @@
           <option value="D" {{ sel('ip_tech_level','D','B') }}>D. 较低（1-2分）</option>
           <option value="E" {{ sel('ip_tech_level','E','B') }}>E. 无（0分）</option>
         </select>
-        <input type="number" name="ip_tech_level_score" class="score-fine" placeholder="分数" min="0" max="8" value="{{ sc('ip_tech_level_score', 6) }}" />
+        <input type="number" name="ip_tech_level_score" class="score-fine" placeholder="可选" min="0" max="8" value="{{ sc('ip_tech_level_score', '') }}" />
       </div>
 
       <div class="form-group">
@@ -58,7 +58,7 @@
           <option value="D" {{ sel('ip_core_support','D','B') }}>D. 较弱（1-2分）</option>
           <option value="E" {{ sel('ip_core_support','E','B') }}>E. 无（0分）</option>
         </select>
-        <input type="number" name="ip_core_support_score" class="score-fine" placeholder="分数" min="0" max="8" value="{{ sc('ip_core_support_score', 6) }}" />
+        <input type="number" name="ip_core_support_score" class="score-fine" placeholder="可选" min="0" max="8" value="{{ sc('ip_core_support_score', '') }}" />
       </div>
 
       <div class="form-group">
@@ -71,7 +71,7 @@
           <option value="D" {{ sel('ip_quantity','D','') }}>D. 1～2项（Ⅱ类）（1-2分）</option>
           <option value="E" {{ sel('ip_quantity','E','') }}>E. 0项（0分）</option>
         </select>
-        <input type="number" name="ip_quantity_score" class="score-fine" placeholder="分数" min="0" max="8" value="{{ sc('ip_quantity_score', '') }}" />
+        <input type="number" name="ip_quantity_score" class="score-fine" placeholder="可选" min="0" max="8" value="{{ sc('ip_quantity_score', '') }}" />
       </div>
 
       <div class="form-group">
@@ -81,7 +81,7 @@
           <option value="A" {{ sel('ip_acquisition','A','') }}>A. 有自主研发（1-6分）</option>
           <option value="B" {{ sel('ip_acquisition','B','') }}>B. 仅有受让、受赠和并购等（1-3分）</option>
         </select>
-        <input type="number" name="ip_acquisition_score" class="score-fine" placeholder="分数" min="0" max="6" value="{{ sc('ip_acquisition_score', '') }}" />
+        <input type="number" name="ip_acquisition_score" class="score-fine" placeholder="可选" min="0" max="6" value="{{ sc('ip_acquisition_score', '') }}" />
       </div>
 
       <div class="form-group">
@@ -90,7 +90,7 @@
           <option value="B" {{ sel('ip_standard','B','B') }}>B. 否（0分）</option>
           <option value="A" {{ sel('ip_standard','A','B') }}>A. 是（1-2分）</option>
         </select>
-        <input type="number" name="ip_standard_score" class="score-fine" placeholder="分数" min="0" max="2" value="{{ sc('ip_standard_score', 0) }}" />
+        <input type="number" name="ip_standard_score" class="score-fine" placeholder="可选" min="0" max="2" value="{{ sc('ip_standard_score', '') }}" />
       </div>
     </div>
   </div>
@@ -99,16 +99,13 @@
   <div class="step-panel" data-step="3">
     <div class="card">
       <h3>2️⃣ 科技成果转化能力（≤30分）</h3>
-      <p class="text-muted" style="font-size:13px;margin-bottom:16px">近3年科技成果转化年平均数 = 专利数量 ÷ 3</p>
+      <p class="text-muted" style="font-size:13px;margin-bottom:16px">只填写有研发记录、验收/测试记录、销售或应用证明支持的实际成果转化年平均数，不能用专利数量替代。</p>
       <div class="form-group">
         <label>近3年科技成果转化年平均数 *</label>
         <input type="number" name="transform_count" id="transform_count"
-               placeholder="由专利数量自动计算" min="0" value="0" step="0.01" required readonly style="max-width:300px;background:var(--bg-tertiary)" />
-        <input type="hidden" name="patent_count" id="patent_count" value="0" />
-        <input type="number" name="transform_score" class="score-fine"
-               placeholder="自动生成分数" min="0" max="30" readonly style="background:var(--bg-tertiary)" />
+               placeholder="如 2.5" min="0" step="0.01" style="max-width:300px" />
         <div class="text-muted" style="font-size:12px;margin-top:4px">
-          专利数量÷3 后按档位计分：≥5项→30 | ≥4项→24 | ≥3项→18 | ≥2项→12 | ≥1项→6 | 0项→0
+          按实际转化成果记录统计；没有完整证据时建议留空，体检中心会标记为待核实。
         </div>
       </div>
     </div>
@@ -122,19 +119,19 @@
 
       <div class="form-group">
         <label>（1）组织管理制度 + 研发投入核算 + 研发费用辅助账 <span class="text-muted">（≤6分）</span></label>
-        <input type="number" name="rd_system" value="5" min="0" max="6" required style="max-width:200px" />
+        <input type="number" name="rd_system" placeholder="待核实" min="0" max="6" style="max-width:200px" />
       </div>
       <div class="form-group">
         <label>（2）内部研发机构 + 产学研合作 <span class="text-muted">（≤6分）</span></label>
-        <input type="number" name="rd_institution" value="5" min="0" max="6" required style="max-width:200px" />
+        <input type="number" name="rd_institution" placeholder="待核实" min="0" max="6" style="max-width:200px" />
       </div>
       <div class="form-group">
         <label>（3）成果转化激励制度 + 创新创业平台 <span class="text-muted">（≤4分）</span></label>
-        <input type="number" name="rd_transform_incentive" value="3" min="0" max="4" required style="max-width:200px" />
+        <input type="number" name="rd_transform_incentive" placeholder="待核实" min="0" max="4" style="max-width:200px" />
       </div>
       <div class="form-group">
         <label>（4）人才培养进修 + 人才引进 + 绩效奖励 <span class="text-muted">（≤4分）</span></label>
-        <input type="number" name="rd_talent" value="3" min="0" max="4" required style="max-width:200px" />
+        <input type="number" name="rd_talent" placeholder="待核实" min="0" max="4" style="max-width:200px" />
       </div>
     </div>
   </div>
@@ -230,23 +227,6 @@ function escapeHtml(value) {
 }
 
 
-function scoreTransformAverage(avg) {
-  if (avg >= 5) return 30;
-  if (avg >= 4) return 24;
-  if (avg >= 3) return 18;
-  if (avg >= 2) return 12;
-  if (avg >= 1) return 6;
-  return 0;
-}
-
-function updateTransformFromPatentCount(count) {
-  const patentCount = Math.max(0, parseInt(count || 0, 10) || 0);
-  const avg = patentCount / 3;
-  setFieldValue('patent_count', patentCount);
-  setFieldValue('transform_count', avg.toFixed(2));
-  setFieldValue('transform_score', scoreTransformAverage(avg));
-}
-
 function patentTypeLabel(type) {
   return {
     invention: '发明',
@@ -308,7 +288,6 @@ function renderPatentPreview(certificates, evaluation) {
     '</tr>';
   }).join('');
   box.style.display = 'block';
-  updateTransformFromPatentCount((certificates || []).length);
   const scoreSummary = evaluation ? (
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:8px 0">' +
       '<div><b>技术先进程度</b><br>' + escapeHtml(evaluation.ip_tech_level || '-') + ' / ' + escapeHtml(evaluation.ip_tech_level_score ?? '-') + '分</div>' +
@@ -318,13 +297,13 @@ function renderPatentPreview(certificates, evaluation) {
     '</div>'
   ) : '';
   box.innerHTML =
-    '<div style="margin-bottom:6px;color:var(--success)">已识别 ' + (certificates || []).length + ' 份专利 PDF，并已自动填入评分建议和成果转化年平均数。</div>' +
+    '<div style="margin-bottom:6px;color:var(--success)">已识别 ' + (certificates || []).length + ' 份专利 PDF，并已自动填入知识产权评分建议；成果转化数量仍需依据实际成果证据填写。</div>' +
     scoreSummary +
     (evaluation && evaluation.details ? '<pre style="white-space:pre-wrap;margin:6px 0;color:var(--text-secondary)">' + escapeHtml(evaluation.details) + '</pre>' : '') +
     '<div style="overflow-x:auto"><table class="book-table" style="font-size:12px"><thead><tr>' +
     '<th>编号</th><th>名称</th><th>专利类型</th><th>法律状态</th><th>专利号</th><th style="cursor:pointer;color:var(--accent)" onclick="sortPatentPreviewByDate()">申请日期 ↕</th><th>专利权人</th><th>授权日期</th><th>操作</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
-    '<div class="text-muted" style="margin-top:6px">不确定项：对主要产品的核心支持作用需要结合主营产品人工确认，系统默认按“较强”填入。</div>';
+  '<div class="text-muted" style="margin-top:6px">不确定项：对主要产品的核心支持作用需要结合主营产品人工确认，系统不会把专利数量当作成果转化数量。</div>';
 }
 
 async function deletePatentCertificate(certId) {

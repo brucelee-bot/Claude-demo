@@ -42,6 +42,7 @@ from modules.docgen.sales_contracts import (
     selectable_sales_contracts,
 )
 from modules.docgen.staff_certificates import STAFF_CERTIFICATE_FIELDS, analyze_staff_certificate
+from modules.healthcheck.engine import run_health_check, score_result_from_record
 from modules.storage import delete_file, ensure_local_file, persist_file
 from modules.ai.analyzer import analyze
 from modules.ai.llm_client import call_llm
@@ -79,6 +80,23 @@ def _load_company_data(company):
     except (json.JSONDecodeError, TypeError):
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def _company_health_check(company, data=None):
+    """为页面和导出生成同一份实时体检结果。"""
+    data = data if isinstance(data, dict) else _load_company_data(company)
+    merged_data = _merge_relation_fields(data)
+    latest_score = (
+        ScoreRecord.query
+        .filter_by(company_id=company.id)
+        .order_by(ScoreRecord.created_at.desc(), ScoreRecord.id.desc())
+        .first()
+    )
+    return run_health_check(
+        merged_data,
+        _load_gaoxin_attachments_from_data(data),
+        score_result_from_record(latest_score),
+    )
 
 
 def _company_english_name(company, data=None):
@@ -5674,6 +5692,42 @@ def gaoxin_relation_table(company_id):
     )
 
 
+@docgen_bp.route("/health/<int:company_id>")
+@login_required
+def health_check(company_id):
+    """高新技术企业申报资格、证据和一致性体检中心。"""
+    company = Company.query.filter_by(id=company_id, user_id=current_user.id).first_or_404()
+    result = _company_health_check(company)
+    return render_template(
+        "health_check.html",
+        company=company,
+        health=result,
+    )
+
+
+@docgen_bp.route("/health")
+@login_required
+def health_index():
+    """进入当前用户最近处理的高新技术企业体检。"""
+    company = (
+        Company.query
+        .filter_by(user_id=current_user.id, app_type="高新技术")
+        .order_by(Company.created_at.desc(), Company.id.desc())
+        .first()
+    )
+    if not company:
+        flash("暂无高新技术企业资料，请先完成评分。", "error")
+        return redirect(url_for("scoring.gaoxin"))
+    return redirect(url_for("docgen.health_check", company_id=company.id))
+
+
+@docgen_bp.route("/health/<int:company_id>/json")
+@login_required
+def health_check_json(company_id):
+    company = Company.query.filter_by(id=company_id, user_id=current_user.id).first_or_404()
+    return jsonify({"ok": True, "health": _company_health_check(company)})
+
+
 @docgen_bp.route("/gaoxin_relation_table/<int:company_id>/sales_contract_keywords", methods=["POST"])
 @login_required
 def gaoxin_relation_table_sales_contract_keywords(company_id):
@@ -6591,6 +6645,15 @@ def gaoxin_attachments_pdf(company_id):
     app = current_app._get_current_object()
     company = Company.query.filter_by(id=company_id, user_id=current_user.id).first_or_404()
     data = _load_company_data(company)
+    health = _company_health_check(company, data)
+    if health["export_blockers"]:
+        return jsonify({
+            "ok": False,
+            "code": "HEALTH_CHECK_BLOCKED",
+            "error": f"导出前体检发现 {len(health['export_blockers'])} 个阻断项，请先处理后再导出。",
+            "health_url": url_for("docgen.health_check", company_id=company.id),
+            "blockers": health["export_blockers"],
+        }), 409
     auto_data = _sync_gaoxin_finance_years(_merge_relation_fields(data))
     auto_data["attachment_rd_staff_rows"] = _collect_december_2025_rd_staff_rows(auto_data)
     _sync_staff_month_counts(auto_data, auto_data["attachment_rd_staff_rows"])

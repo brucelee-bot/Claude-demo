@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+{% block title %}申报体检 — {{ company.name }}{% endblock %}
+{% block head_extra %}
+<style>
+  .health-page {
+    display: grid;
+    gap: 18px;
+  }
+
+  .health-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 20px;
+  }
+
+  .health-header h1 {
+    margin: 0 0 6px;
+    color: #0f172a;
+    font-size: 26px;
+    letter-spacing: 0;
+  }
+
+  .health-header p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+  }
+
+  .health-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .health-summary {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 22px;
+    padding: 22px;
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: var(--shadow);
+  }
+
+  .readiness {
+    display: grid;
+    place-items: center;
+    min-height: 150px;
+    border-right: 1px solid #e2e8f0;
+  }
+
+  .readiness-value {
+    color: {{ '#047857' if health.status == 'ready' else '#b45309' if health.status == 'warning' else '#b91c1c' }};
+    font-size: 58px;
+    line-height: 1;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .readiness-label {
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .summary-copy {
+    display: grid;
+    align-content: center;
+    gap: 14px;
+  }
+
+  .status-title {
+    margin: 0;
+    color: #0f172a;
+    font-size: 22px;
+  }
+
+  .summary-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .summary-metric {
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f8fafc;
+  }
+
+  .summary-metric span {
+    display: block;
+    color: #64748b;
+    font-size: 11px;
+  }
+
+  .summary-metric strong {
+    display: block;
+    margin-top: 4px;
+    color: #0f172a;
+    font-size: 18px;
+  }
+
+  .health-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+    gap: 18px;
+  }
+
+  .health-panel {
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .health-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .health-panel-header h2 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 16px;
+  }
+
+  .health-panel-header span {
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .check-list {
+    display: grid;
+  }
+
+  .check-row {
+    display: grid;
+    grid-template-columns: 86px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 13px 16px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .check-row:last-child {
+    border-bottom: 0;
+  }
+
+  .state {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 26px;
+    padding: 3px 8px;
+    border: 1px solid;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .state-pass,
+  .state-complete {
+    border-color: #a7f3d0;
+    background: #ecfdf5;
+    color: #047857;
+  }
+
+  .state-fail,
+  .state-missing {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+
+  .state-pending,
+  .state-weak {
+    border-color: #fde68a;
+    background: #fffbeb;
+    color: #a16207;
+  }
+
+  .check-title {
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .check-detail {
+    margin-top: 3px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .check-link {
+    color: #2563eb;
+    font-size: 12px;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .action-list {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .action-item {
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid #dc2626;
+    border-radius: 6px;
+    background: #fff;
+  }
+
+  .action-item.p1 {
+    border-left-color: #d97706;
+  }
+
+  .action-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .action-meta strong {
+    color: #0f172a;
+    font-size: 13px;
+  }
+
+  .priority {
+    color: #b91c1c;
+    font-size: 11px;
+    font-weight: 750;
+  }
+
+  .action-item p {
+    margin: 6px 0 0;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .issue {
+    padding: 12px 14px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .issue:last-child {
+    border-bottom: 0;
+  }
+
+  .issue strong {
+    color: #991b1b;
+    font-size: 13px;
+  }
+
+  .issue p {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .empty-state {
+    padding: 26px 16px;
+    color: #64748b;
+    text-align: center;
+    font-size: 13px;
+  }
+
+  @media (max-width: 900px) {
+    .health-header,
+    .health-summary,
+    .health-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .health-actions {
+      justify-content: flex-start;
+    }
+
+    .readiness {
+      min-height: 120px;
+      border-right: 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .summary-metrics {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 620px) {
+    .summary-metrics {
+      grid-template-columns: 1fr;
+    }
+
+    .check-row {
+      grid-template-columns: 78px minmax(0, 1fr);
+    }
+
+    .check-link {
+      grid-column: 2;
+    }
+  }
+</style>
+{% endblock %}
+{% block content %}
+{% macro target_url(target) -%}
+  {%- if target == 'relation_table' -%}{{ url_for('docgen.gaoxin_relation_table', company_id=company.id) }}
+  {%- elif target == 'attachments' -%}{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}
+  {%- elif target == 'system_docs' -%}{{ url_for('docgen.gaoxin_system_docs', company_id=company.id) }}
+  {%- else -%}{{ url_for('docgen.gaoxin_book', company_id=company.id) }}
+  {%- endif -%}
+{%- endmacro %}
+{% macro state_label(status) -%}
+  {{ {'pass':'通过','fail':'不通过','pending':'待核实','complete':'完整','weak':'待补强','missing':'缺失'}.get(status, status) }}
+{%- endmacro %}
+
+<div class="health-page">
+  <header class="health-header">
+    <div>
+      <h1>申报体检中心</h1>
+      <p>{{ company.name }} · {{ health.application_year }} 年申报 · {{ health.rule_version }}</p>
+    </div>
+    <div class="health-actions">
+      <a class="btn btn-secondary" href="{{ url_for('docgen.gaoxin_relation_table', company_id=company.id) }}">关系表</a>
+      <a class="btn btn-secondary" href="{{ url_for('docgen.gaoxin_book', company_id=company.id) }}">申请书</a>
+      <a class="btn btn-primary" href="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}">附件制作</a>
+    </div>
+  </header>
+
+  <section class="health-summary">
+    <div class="readiness">
+      <div>
+        <div class="readiness-value">{{ health.readiness_score }}</div>
+        <div class="readiness-label">申报准备度 / 100</div>
+      </div>
+    </div>
+    <div class="summary-copy">
+      <div>
+        <h2 class="status-title">{{ health.status_label }}</h2>
+        <p style="margin:6px 0 0;color:#64748b;font-size:13px">
+          准备度反映资格、证据、数据一致性和评分完成度，不代表认定通过概率。
+        </p>
+      </div>
+      <div class="summary-metrics">
+        <div class="summary-metric"><span>资格通过</span><strong>{{ health.qualification.passed|length }}/{{ health.qualification['items']|length }}</strong></div>
+        <div class="summary-metric"><span>材料完整</span><strong>{{ health.evidence.complete|length }}/{{ health.evidence['items']|length }}</strong></div>
+        <div class="summary-metric"><span>数据冲突</span><strong>{{ health.consistency.conflicts|length }}</strong></div>
+        <div class="summary-metric"><span>导出阻断</span><strong>{{ health.export_blockers|length }}</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="health-grid">
+    <section class="health-panel">
+      <div class="health-panel-header">
+        <h2>资格条件</h2>
+        <span>硬性条件不由评分抵消</span>
+      </div>
+      <div class="check-list">
+        {% for item in health.qualification['items'] %}
+        <div class="check-row">
+          <span class="state state-{{ item.status }}">{{ state_label(item.status) }}</span>
+          <div>
+            <div class="check-title">{{ item.title }}</div>
+            <div class="check-detail">{{ item.detail }}</div>
+          </div>
+          <a class="check-link" href="{{ target_url(item.target) }}">处理</a>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="health-panel">
+      <div class="health-panel-header">
+        <h2>优先待办</h2>
+        <span>P0 先处理</span>
+      </div>
+      {% if health.actions %}
+      <div class="action-list">
+        {% for action in health.actions %}
+        <a href="{{ target_url(action.target) }}" class="action-item {{ 'p1' if action.priority == 'P1' else '' }}" style="text-decoration:none">
+          <div class="action-meta">
+            <strong>{{ action.title }}</strong>
+            <span class="priority">{{ action.priority }}</span>
+          </div>
+          <p>{{ action.reason }}</p>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">当前没有待办项。</div>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="health-grid">
+    <section class="health-panel">
+      <div class="health-panel-header">
+        <h2>证据完整度</h2>
+        <span>材料存在不等于事实已被证明</span>
+      </div>
+      <div class="check-list">
+        {% for item in health.evidence['items'] %}
+        <div class="check-row">
+          <span class="state state-{{ item.status }}">{{ state_label(item.status) }}</span>
+          <div>
+            <div class="check-title">{{ item.title }}</div>
+            <div class="check-detail">{{ item.detail }}</div>
+          </div>
+          <a class="check-link" href="{{ target_url(item.target) }}">处理</a>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div style="display:grid;gap:18px;align-content:start">
+      <section class="health-panel">
+        <div class="health-panel-header">
+          <h2>评分区间</h2>
+          <span>不使用“通过概率”</span>
+        </div>
+        {% if health.score.available %}
+        <div class="summary-metrics" style="padding:14px;grid-template-columns:repeat(3,minmax(0,1fr))">
+          <div class="summary-metric"><span>保守</span><strong>{{ health.score.conservative }}</strong></div>
+          <div class="summary-metric"><span>当前</span><strong>{{ health.score.expected }}</strong></div>
+          <div class="summary-metric"><span>乐观</span><strong>{{ health.score.optimistic }}</strong></div>
+        </div>
+        {% else %}
+        <div class="empty-state"><a href="{{ url_for('scoring.gaoxin') }}">尚未评分，进入评分</a></div>
+        {% endif %}
+      </section>
+
+      <section class="health-panel">
+        <div class="health-panel-header">
+          <h2>一致性问题</h2>
+          <span>{{ health.consistency.conflicts|length + health.consistency.warnings|length }} 项</span>
+        </div>
+        {% for item in health.consistency.conflicts %}
+        <div class="issue">
+          <strong>{{ item.title }}</strong>
+          <p>{{ item.detail }}</p>
+        </div>
+        {% endfor %}
+        {% for item in health.consistency.warnings %}
+        <div class="issue">
+          <strong style="color:#a16207">{{ item.title }}</strong>
+          <p>{{ item.detail }}</p>
+        </div>
+        {% endfor %}
+        {% if not health.consistency.conflicts and not health.consistency.warnings %}
+        <div class="empty-state">暂未发现跨表数据冲突。</div>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock %}

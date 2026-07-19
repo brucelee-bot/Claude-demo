@@ -1,3 +1,4 @@
+import json
 import os
 from flask import Flask, render_template
 from dotenv import load_dotenv
@@ -46,6 +47,7 @@ def create_app():
     def dashboard():
         from models import ScoreRecord, ApplicationDraft, Company, ScoringRule
         from flask import request
+        from modules.healthcheck.engine import run_health_check, score_result_from_record
 
         active_tab = request.args.get("tab", "gaoxin")
 
@@ -58,16 +60,6 @@ def create_app():
             if score_type == "小巨人":
                 return 60
             return 50
-
-        def probability_for(score, pass_score):
-            if not score:
-                return 0
-            total_score = float(score.total_score or 0)
-            if total_score >= pass_score + 10:
-                return 92
-            if total_score >= pass_score:
-                return 78
-            return max(18, min(68, round(total_score / pass_score * 68)))
 
         def latest_score_for(company):
             return (
@@ -113,12 +105,23 @@ def create_app():
         pass_score = pass_score_for(current_app_type)
         current_total_score = round(float(current_score.total_score or 0), 1) if current_score else 0
         is_passed = bool(current_score and current_total_score >= pass_score)
-        pass_probability = probability_for(current_score, pass_score)
+        health = None
+        if current_company and current_app_type == "高新技术":
+            try:
+                company_data = json.loads(current_company.data_json or "{}")
+            except (json.JSONDecodeError, TypeError):
+                company_data = {}
+            health = run_health_check(
+                company_data,
+                company_data.get("gaoxin_attachments", {}),
+                score_result_from_record(current_score),
+            )
 
         progress_steps = [
             {"title": "企业资料", "done": bool(current_company), "current": bool(current_company and not current_score)},
             {"title": "企业评分", "done": bool(current_score), "current": bool(current_score and not (current_score.ai_analysis or current_draft))},
-            {"title": "AI诊断", "done": bool(current_score and current_score.ai_analysis), "current": bool(current_score and not current_score.ai_analysis)},
+            {"title": "申报体检", "done": bool(health and health["status"] == "ready"), "current": bool(health and health["status"] != "ready")},
+            {"title": "AI诊断", "done": bool(current_score and current_score.ai_analysis), "current": bool(current_score and current_score.ai_analysis and health and health["status"] == "ready" and not current_draft)},
             {"title": "生成申报书", "done": bool(current_draft), "current": bool(current_score and current_score.ai_analysis and not current_draft)},
             {"title": "PDF导出", "done": False, "current": bool(current_draft)},
         ]
@@ -128,6 +131,8 @@ def create_app():
         elif not current_score:
             endpoint = "scoring.gaoxin" if current_app_type == "高新技术" else ("scoring.xiaojuren" if current_app_type == "小巨人" else "scoring.zhuanjing")
             next_action = {"label": "立即评分", "endpoint": endpoint, "hint": "完成评分后才能查看达标情况和诊断建议。"}
+        elif health and health["export_blockers"]:
+            next_action = {"label": "进入申报体检", "endpoint": "docgen.health_check", "hint": f"还有 {len(health['export_blockers'])} 个阻断项，先处理资格和材料风险。"}
         elif not current_score.ai_analysis:
             next_action = {"label": "查看诊断", "endpoint": "docgen.assistant_brief", "hint": "根据评分结果查看短板和补强建议。"}
         elif not current_draft:
@@ -148,12 +153,24 @@ def create_app():
             score = latest_score_for(company)
             draft = latest_draft_for(company)
             company_pass_score = pass_score_for(score.score_type if score else company.app_type)
+            company_health = None
+            if company.app_type == "高新技术" or (score and score.score_type == "高新技术"):
+                try:
+                    company_data = json.loads(company.data_json or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    company_data = {}
+                company_health = run_health_check(
+                    company_data,
+                    company_data.get("gaoxin_attachments", {}),
+                    score_result_from_record(score),
+                )
             recent_companies.append({
                 "company": company,
                 "score": score,
                 "draft": draft,
                 "pass_score": company_pass_score,
                 "passed": bool(score and (score.total_score or 0) >= company_pass_score),
+                "health": company_health,
             })
 
         stats = {
@@ -174,7 +191,7 @@ def create_app():
             current_total_score=current_total_score,
             pass_score=pass_score,
             is_passed=is_passed,
-            pass_probability=pass_probability,
+            health=health,
             progress_steps=progress_steps,
             next_action=next_action,
             recent_companies=recent_companies,

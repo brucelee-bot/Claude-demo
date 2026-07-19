@@ -472,7 +472,7 @@ def gaoxin():
 @login_required
 def result():
     """评分结果页 — 从 DB 加载最新记录"""
-    company_id = request.args.get("company_id") or session.get("last_company_id")
+    company_id = request.args.get("company_id", type=int) or session.get("last_company_id")
     result_json = session.get("last_score_result")
     ai_analysis = session.get("last_ai_analysis")
     company_name = session.get("last_company_name", "未知企业")
@@ -488,6 +488,7 @@ def result():
             record_query = record_query.filter(Company.id == int(company_id))
         record = record_query.order_by(ScoreRecord.created_at.desc(), ScoreRecord.id.desc()).first()
         if record:
+            company_id = record.company_id
             # 根据项目类型确定达标线和规则名
             if record.score_type == "专精特新":
                 pass_score = 50
@@ -521,9 +522,25 @@ def result():
         flash("暂无评分结果，请先进行评分", "error")
         return redirect(url_for("scoring.index"))
 
+    health_company_id = None
+    if result_json.get("rule_type") == "高新技术":
+        company_query = Company.query.filter_by(user_id=current_user.id)
+        if company_id:
+            health_company = company_query.filter_by(id=int(company_id)).first()
+        else:
+            health_company = (
+                company_query
+                .filter_by(app_type="高新技术")
+                .order_by(Company.created_at.desc(), Company.id.desc())
+                .first()
+            )
+        if health_company:
+            health_company_id = health_company.id
+
     basic_conditions = session.get("last_basic_conditions")
     return render_template("score_result.html", result=result_json, company_name=company_name,
-                           ai_analysis=ai_analysis, basic_conditions=basic_conditions)
+                           ai_analysis=ai_analysis, basic_conditions=basic_conditions,
+                           health_company_id=health_company_id)
 
 
 @scoring_bp.route("/history")
@@ -561,21 +578,15 @@ def _build_score_data(form_data: dict) -> dict:
         if form_data.get(score_key):
             data[score_key] = int(form_data[score_key])
 
-    # 科技成果转化：年平均数 = 专利数量 / 3
-    patent_count = int(float(form_data.get("patent_count", 0) or 0))
-    transform_count = patent_count / 3 if patent_count else float(form_data.get("transform_count", 0) or 0)
-    data["patent_count"] = patent_count
-    data["transform_count"] = transform_count
+    # 科技成果转化必须依据实际形成并转化的成果记录，不能用专利数量替代。
+    # 允许用户直接填写近三年转化年平均数，但空白必须保持空白并按 0 分处理。
+    if form_data.get("transform_count") not in (None, ""):
+        data["transform_count"] = float(form_data["transform_count"])
 
     # R&D 管理
-    rd_defaults = {
-        "rd_system": 5,
-        "rd_institution": 5,
-        "rd_transform_incentive": 3,
-        "rd_talent": 3,
-    }
-    for key, default in rd_defaults.items():
-        data[key] = int(form_data.get(key, default) or default)
+    for key in ["rd_system", "rd_institution", "rd_transform_incentive", "rd_talent"]:
+        if form_data.get(key) not in (None, ""):
+            data[key] = int(form_data[key])
 
     # 保留评分页上传/识别出的原始财务字段，供后续申请书自动回填。
     for key, value in form_data.items():

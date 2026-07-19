@@ -412,8 +412,41 @@ body {
 
 /* ===== 响应式 ===== */
 @media (max-width: 768px) {
+  body { overflow-x: hidden; }
   .container, .container-wide { padding: 16px; }
-  .navbar { padding: 0 16px; }
+  .navbar {
+    padding: 0 10px;
+    justify-content: flex-start;
+    gap: 10px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+  .navbar::-webkit-scrollbar { display: none; }
+  .navbar .brand {
+    flex: 0 0 auto;
+    gap: 7px;
+    font-size: 15px;
+  }
+  .navbar .brand span { display: none; }
+  .nav-links {
+    flex: 0 0 auto;
+    gap: 2px;
+    padding: 4px;
+  }
+  .nav-links a {
+    padding: 7px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .nav-user {
+    flex: 0 0 auto;
+    margin-left: 0;
+    padding-left: 8px;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .nav-user .btn { padding: 5px 8px; font-size: 12px; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .split-layout { flex-direction: column; }
   .header-bar { flex-direction: column; gap: 12px; }
