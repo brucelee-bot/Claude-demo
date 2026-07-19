@@ -107,6 +107,18 @@ def _unique_relation_values(rows: list[dict], *fields: str) -> list[str]:
     return values
 
 
+def _relation_entity_count(rows: list[dict], *identity_fields: str) -> int:
+    """Count each row by its first available identifier, using fields as fallbacks."""
+    identities = set()
+    for row in rows:
+        for field in identity_fields:
+            value = _text(row.get(field))
+            if value:
+                identities.add((field, value))
+                break
+    return len(identities)
+
+
 def _finance_totals(data: dict, application_year: int) -> dict:
     year_keys = [str(application_year - 3), str(application_year - 2), str(application_year - 1)]
 
@@ -161,8 +173,8 @@ def _finance_totals(data: dict, application_year: int) -> dict:
 
 def _ip_count(data: dict, attachments: dict) -> int | None:
     rows = _relation_rows(data)
-    relation_count = len(
-        _unique_relation_values(rows, "ip_code", "ip_auth_no", "ip_name")
+    relation_count = _relation_entity_count(
+        rows, "ip_code", "ip_auth_no", "ip_name"
     )
     ip_list = data.get("ip_list")
     list_count = len([item for item in ip_list if isinstance(item, dict) and (
@@ -469,7 +481,7 @@ def _build_evidence(data: dict, attachments: dict, application_year: int) -> dic
             target)
 
     ip_files = _file_count(attachments, "ip")
-    ip_rows = len(_unique_relation_values(relation, "ip_code", "ip_auth_no", "ip_name"))
+    ip_rows = _relation_entity_count(relation, "ip_code", "ip_auth_no", "ip_name")
     if ip_files and ip_rows:
         add("ip_mapping", "知识产权证明与关系表对应", "complete",
             f"已上传 {ip_files} 份证明，关系表识别 {ip_rows} 项。", "relation_table")
@@ -494,9 +506,9 @@ def _build_evidence(data: dict, attachments: dict, application_year: int) -> dic
             detail = f"缺少年份：{', '.join(missing_years)}。"
         add(key, title, status, detail, "attachments")
 
-    projects = len(_unique_relation_values(relation, "rd_code", "rd_activity"))
-    products = len(_unique_relation_values(relation, "ps_code", "ps_name"))
-    achievements = len(_unique_relation_values(relation, "result_no", "result_name"))
+    projects = _relation_entity_count(relation, "rd_code", "rd_activity")
+    products = _relation_entity_count(relation, "ps_code", "ps_name")
+    achievements = _relation_entity_count(relation, "result_no", "result_name")
     add("rd_relation", "RD-IP-PS 关系表", "complete" if projects and products else "missing",
         f"研发项目 {projects} 个、产品 {products} 个、成果 {achievements} 个。",
         "relation_table")
@@ -568,7 +580,7 @@ def _build_consistency(data: dict, attachments: dict, application_year: int) -> 
             })
 
     ip_files = _file_count(attachments, "ip")
-    ip_rows = len(_unique_relation_values(relation, "ip_code", "ip_auth_no", "ip_name"))
+    ip_rows = _relation_entity_count(relation, "ip_code", "ip_auth_no", "ip_name")
     if ip_files and ip_rows and ip_files != ip_rows:
         warnings.append({
             "id": "ip-file-row-count",

@@ -90,6 +90,107 @@ class GaoxinHealthcheckTests(unittest.TestCase):
         self.assertNotIn("transform_count", score_data)
         self.assertEqual(score_data["company_name"], "测试企业")
 
+    def test_relation_identity_fields_are_not_counted_as_separate_ip_items(self):
+        data = {
+            "ip_class1_count": 2,
+            "gaoxin_relation_table": {
+                "rows": [
+                    {
+                        "rd_code": "RD01",
+                        "rd_activity": "研发项目一",
+                        "ip_code": "IP01",
+                        "ip_auth_no": "ZL 2023 1 1121243.6",
+                        "ip_name": "知识产权一",
+                        "ps_code": "PS01",
+                        "ps_name": "高新产品一",
+                        "result_no": "成果01",
+                        "result_name": "成果名称一",
+                    },
+                    {
+                        "rd_code": "RD02",
+                        "rd_activity": "研发项目二",
+                        "ip_code": "IP02",
+                        "ip_auth_no": "ZL 2023 1 1141373.6",
+                        "ip_name": "知识产权二",
+                        "ps_code": "PS01",
+                        "ps_name": "高新产品一",
+                        "result_no": "成果02",
+                        "result_name": "成果名称一",
+                    },
+                ]
+            },
+        }
+        attachments = {
+            "ip": {
+                "files": [
+                    {"ip_seq": "IP01", "original_filename": "IP01.pdf"},
+                    {"ip_seq": "IP02", "original_filename": "IP02.pdf"},
+                ]
+            }
+        }
+
+        result = run_health_check(data, attachments, None, application_year=2026)
+        warning_ids = {
+            item["id"] for item in result["consistency"]["warnings"]
+        }
+        relation_item = next(
+            item
+            for item in result["evidence"]["items"]
+            if item["id"] == "rd_relation"
+        )
+        ip_item = next(
+            item
+            for item in result["evidence"]["items"]
+            if item["id"] == "ip_mapping"
+        )
+
+        self.assertNotIn("ip-file-row-count", warning_ids)
+        self.assertEqual(
+            ip_item["detail"],
+            "已上传 2 份证明，关系表识别 2 项。",
+        )
+        self.assertEqual(
+            relation_item["detail"],
+            "研发项目 2 个、产品 1 个、成果 2 个。",
+        )
+
+    def test_actual_ip_file_relation_count_mismatch_is_still_reported(self):
+        data = {
+            "gaoxin_relation_table": {
+                "rows": [
+                    {
+                        "ip_code": "IP01",
+                        "ip_auth_no": "ZL01",
+                        "ip_name": "知识产权一",
+                    },
+                    {
+                        "ip_code": "IP02",
+                        "ip_auth_no": "ZL02",
+                        "ip_name": "知识产权二",
+                    },
+                ]
+            }
+        }
+        attachments = {
+            "ip": {
+                "files": [
+                    {"ip_seq": "IP01", "original_filename": "IP01.pdf"},
+                ]
+            }
+        }
+
+        result = run_health_check(data, attachments, None, application_year=2026)
+        warning = next(
+            item
+            for item in result["consistency"]["warnings"]
+            if item["id"] == "ip-file-row-count"
+        )
+
+        self.assertEqual(
+            warning["detail"],
+            "证明 1 份，关系表 2 项，需人工确认是否一证多项或存在遗漏。",
+        )
+
 
 class GaoxinHealthcheckRouteTests(unittest.TestCase):
     @classmethod
