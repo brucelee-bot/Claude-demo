@@ -115,7 +115,7 @@ def create_app():
                 current_company_data = {}
             assessment_state = _assessment_input_state(current_company, current_company_data)
         health = None
-        if current_company and current_app_type == "高新技术":
+        if current_company and assessment_state["ready"] and current_app_type == "高新技术":
             health = run_health_check(
                 current_company_data,
                 current_company_data.get("gaoxin_attachments", {}),
@@ -156,11 +156,15 @@ def create_app():
             draft = latest_draft_for(company)
             company_pass_score = pass_score_for(score.score_type if score else company.app_type)
             company_health = None
-            if company.app_type == "高新技术" or (score and score.score_type == "高新技术"):
-                try:
-                    company_data = json.loads(company.data_json or "{}")
-                except (json.JSONDecodeError, TypeError):
-                    company_data = {}
+            company_data = {}
+            try:
+                company_data = json.loads(company.data_json or "{}")
+            except (json.JSONDecodeError, TypeError):
+                company_data = {}
+            company_assessment_state = _assessment_input_state(company, company_data)
+            if company_assessment_state["ready"] and (
+                company.app_type == "高新技术" or (score and score.score_type == "高新技术")
+            ):
                 company_health = run_health_check(
                     company_data,
                     company_data.get("gaoxin_attachments", {}),
@@ -173,6 +177,7 @@ def create_app():
                 "pass_score": company_pass_score,
                 "passed": bool(score and (score.total_score or 0) >= company_pass_score),
                 "health": company_health,
+                "assessment_ready": company_assessment_state["ready"],
             })
 
         stats = {

@@ -5878,7 +5878,21 @@ def health_index():
 @login_required
 def health_check_json(company_id):
     company = Company.query.filter_by(id=company_id, user_id=current_user.id).first_or_404()
-    return jsonify({"ok": True, "health": _company_health_check(company)})
+    data = _load_company_data(company)
+    input_state = _assessment_input_state(company, data)
+    if not input_state["ready"]:
+        return jsonify({
+            "ok": True,
+            "ready": False,
+            "missing": input_state["missing"],
+            "health": None,
+        })
+    return jsonify({
+        "ok": True,
+        "ready": True,
+        "missing": [],
+        "health": _company_health_check(company, data),
+    })
 
 
 @docgen_bp.route("/gaoxin_relation_table/<int:company_id>/sales_contract_keywords", methods=["POST"])

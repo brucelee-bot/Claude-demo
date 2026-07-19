@@ -169,6 +169,20 @@ class AssessmentRouteTests(unittest.TestCase):
             self.assertEqual(response.status_code, 302)
             self.assertIn("/application/assessment", response.headers["Location"])
 
+    def test_legacy_health_json_does_not_evaluate_before_inputs_are_ready(self):
+        response = self.client.get(
+            f"/application/health/{self.company_id}/json"
+        )
+
+        payload = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(payload["ready"])
+        self.assertIsNone(payload["health"])
+        self.assertEqual(
+            {item["key"] for item in payload["missing"]},
+            {"score", "application"},
+        )
+
     def test_navigation_has_one_assessment_entry(self):
         self._add_score()
         self._add_application_input()
