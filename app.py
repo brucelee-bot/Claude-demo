@@ -47,6 +47,7 @@ def create_app():
     def dashboard():
         from models import ScoreRecord, ApplicationDraft, Company, ScoringRule
         from flask import request
+        from modules.docgen.routes import _assessment_input_state
         from modules.healthcheck.engine import run_health_check, score_result_from_record
 
         active_tab = request.args.get("tab", "gaoxin")
@@ -105,24 +106,27 @@ def create_app():
         pass_score = pass_score_for(current_app_type)
         current_total_score = round(float(current_score.total_score or 0), 1) if current_score else 0
         is_passed = bool(current_score and current_total_score >= pass_score)
+        current_company_data = {}
+        assessment_state = {"ready": False, "application_ready": False}
+        if current_company:
+            try:
+                current_company_data = json.loads(current_company.data_json or "{}")
+            except (json.JSONDecodeError, TypeError):
+                current_company_data = {}
+            assessment_state = _assessment_input_state(current_company, current_company_data)
         health = None
         if current_company and current_app_type == "高新技术":
-            try:
-                company_data = json.loads(current_company.data_json or "{}")
-            except (json.JSONDecodeError, TypeError):
-                company_data = {}
             health = run_health_check(
-                company_data,
-                company_data.get("gaoxin_attachments", {}),
+                current_company_data,
+                current_company_data.get("gaoxin_attachments", {}),
                 score_result_from_record(current_score),
             )
 
         progress_steps = [
             {"title": "企业资料", "done": bool(current_company), "current": bool(current_company and not current_score)},
-            {"title": "企业评分", "done": bool(current_score), "current": bool(current_score and not (current_score.ai_analysis or current_draft))},
-            {"title": "申报体检", "done": bool(health and health["status"] == "ready"), "current": bool(health and health["status"] != "ready")},
-            {"title": "AI诊断", "done": bool(current_score and current_score.ai_analysis), "current": bool(current_score and current_score.ai_analysis and health and health["status"] == "ready" and not current_draft)},
-            {"title": "生成申报书", "done": bool(current_draft), "current": bool(current_score and current_score.ai_analysis and not current_draft)},
+            {"title": "企业评分", "done": bool(current_score), "current": bool(current_score and not assessment_state["application_ready"])},
+            {"title": "申报书", "done": bool(assessment_state["application_ready"]), "current": bool(current_score and assessment_state["application_ready"] and not assessment_state["ready"])},
+            {"title": "申报评估", "done": bool(assessment_state["ready"]), "current": bool(assessment_state["ready"] and health and health["status"] != "ready")},
             {"title": "PDF导出", "done": False, "current": bool(current_draft)},
         ]
 
@@ -131,15 +135,13 @@ def create_app():
         elif not current_score:
             endpoint = "scoring.gaoxin" if current_app_type == "高新技术" else ("scoring.xiaojuren" if current_app_type == "小巨人" else "scoring.zhuanjing")
             next_action = {"label": "立即评分", "endpoint": endpoint, "hint": "完成评分后才能查看达标情况和诊断建议。"}
-        elif health and health["export_blockers"]:
-            next_action = {"label": "进入申报体检", "endpoint": "docgen.health_check", "hint": f"还有 {len(health['export_blockers'])} 个阻断项，先处理资格和材料风险。"}
-        elif not current_score.ai_analysis:
-            next_action = {"label": "查看诊断", "endpoint": "docgen.assistant_brief", "hint": "根据评分结果查看短板和补强建议。"}
-        elif not current_draft:
+        elif not assessment_state["application_ready"]:
             endpoint = "docgen.gaoxin_relation_table" if current_app_type == "高新技术" else "docgen.fill"
             next_action = {"label": "生成申报书", "endpoint": endpoint, "hint": "使用当前企业数据生成申报材料。"}
+        elif not assessment_state["ready"]:
+            next_action = {"label": "进入申报评估", "endpoint": "docgen.assessment", "hint": "评分和申报书资料已具备，查看统一评估结果。"}
         else:
-            next_action = {"label": "导出申报书", "endpoint": "docgen.download", "hint": "申报书已生成，可继续导出或更新。"}
+            next_action = {"label": "进入申报评估", "endpoint": "docgen.assessment", "hint": "查看评分分析、资格条件、证据完整度和优先待办。"}
 
         recent_companies = []
         companies = (

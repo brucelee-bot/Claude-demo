@@ -586,17 +586,14 @@
 {% block content %}
 {% if current_user.is_authenticated %}
 {% set score_url = url_for('scoring.gaoxin') %}
-{% set diagnosis_url = url_for('docgen.assistant_brief', company_id=current_company.id) if current_company else url_for('docgen.assistant') %}
+{% set assessment_url = url_for('docgen.assessment', company_id=current_company.id) if current_company else url_for('docgen.assessment') %}
 {% set doc_url = url_for('docgen.gaoxin_relation_table', company_id=current_company.id) if current_company and current_app_type == '高新技术' else (url_for('docgen.fill', company_id=current_company.id) if current_company else url_for('docgen.index')) %}
-{% set health_url = url_for('docgen.health_check', company_id=current_company.id) if current_company and health else url_for('docgen.health_index') %}
 {% if next_action.endpoint in ['docgen.fill', 'docgen.gaoxin_book', 'docgen.gaoxin_relation_table'] and current_company %}
   {% set next_url = url_for(next_action.endpoint, company_id=current_company.id) %}
-{% elif next_action.endpoint == 'docgen.health_check' and current_company %}
+{% elif next_action.endpoint == 'docgen.assessment' and current_company %}
   {% set next_url = url_for(next_action.endpoint, company_id=current_company.id) %}
 {% elif next_action.endpoint == 'docgen.download' and current_draft %}
   {% set next_url = url_for(next_action.endpoint, draft_id=current_draft.id) %}
-{% elif next_action.endpoint == 'docgen.assistant_brief' and current_company %}
-  {% set next_url = url_for(next_action.endpoint, company_id=current_company.id) %}
 {% else %}
   {% set next_url = url_for(next_action.endpoint) %}
 {% endif %}
@@ -656,7 +653,7 @@
       </div>
       <div class="action-stack">
         <a href="{{ next_url }}" class="btn btn-primary btn-lg btn-block">{{ next_action.label }}</a>
-        <a href="{{ diagnosis_url }}" class="btn-outline btn-block">查看诊断</a>
+        <a href="{{ assessment_url }}" class="btn-outline btn-block">查看申报评估</a>
       </div>
     </aside>
   </section>
@@ -697,19 +694,12 @@
           </div>
           <span class="mini-btn">开始评分</span>
         </a>
-        <a class="quick-action" href="{{ diagnosis_url }}">
+        <a class="quick-action" href="{{ assessment_url }}">
           <div>
-            <h3>AI诊断</h3>
-            <p>查看评分短板、风险等级和优先补强建议。</p>
+            <h3>申报评估</h3>
+            <p>完成评分和申报书资料后，查看统一评估结果。</p>
           </div>
-          <span class="mini-btn">查看诊断</span>
-        </a>
-        <a class="quick-action" href="{{ health_url }}">
-          <div>
-            <h3>申报体检</h3>
-            <p>核验资格门槛、材料完整度和跨表数据一致性。</p>
-          </div>
-          <span class="mini-btn">进入体检</span>
+          <span class="mini-btn">进入评估</span>
         </a>
         <a class="quick-action" href="{{ doc_url }}">
           <div>
@@ -783,11 +773,7 @@
             <td><span class="pill {{ 'pass' if item.health and item.health.status == 'ready' else 'fail' if item.health and item.health.status == 'blocked' else '' }}">{{ item.health.status_label if item.health else ('达标' if item.passed else '未达标') }}</span></td>
             <td>{{ '已生成' if item.draft else '未生成' }}</td>
             <td>
-              {% if item.health %}
-              <a href="{{ url_for('docgen.health_check', company_id=item.company.id) }}" class="btn-outline">体检</a>
-              {% else %}
-              <a href="{{ url_for('dashboard', company_id=item.company.id) }}" class="btn-outline">查看</a>
-              {% endif %}
+              <a href="{{ url_for('docgen.assessment', company_id=item.company.id) }}" class="btn-outline">评估</a>
             </td>
           </tr>
           {% endfor %}

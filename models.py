@@ -70,3 +70,40 @@ class ScoringRule(db.Model):
     version = db.Column(db.Integer, default=1)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class ExportJob(db.Model):
+    __tablename__ = "export_jobs"
+
+    id = db.Column(db.String(36), primary_key=True)
+    company_id = db.Column(
+        db.Integer,
+        db.ForeignKey("companies.id"),
+        nullable=False,
+        index=True,
+    )
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+    job_type = db.Column(db.String(50), nullable=False, default="gaoxin_attachments_pdf")
+    fingerprint = db.Column(db.String(64), nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False, default="queued", index=True)
+    stage = db.Column(db.String(200), nullable=False, default="等待生成")
+    progress = db.Column(db.Integer, nullable=False, default=0)
+    error_message = db.Column(db.Text)
+    result_path = db.Column(db.String(500))
+    download_name = db.Column(db.String(300))
+    result_size = db.Column(db.Integer)
+    duration_seconds = db.Column(db.Float)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    started_at = db.Column(db.DateTime)
+    completed_at = db.Column(db.DateTime)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )

@@ -1,0 +1,461 @@
+{% extends "base.html" %}
+{% block title %}申报评估{% endblock %}
+{% block head_extra %}
+<style>
+  .assessment-page { display: grid; gap: 18px; }
+  .assessment-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 18px;
+  }
+  .assessment-header h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: 0; }
+  .assessment-header p { margin: 0; color: var(--text-muted); font-size: 13px; }
+  .company-switcher { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+  .company-switcher a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-decoration: none;
+  }
+  .company-switcher a.active { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }
+  .assessment-surface {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .assessment-surface-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .assessment-surface-header h2 { margin: 0; font-size: 18px; letter-spacing: 0; }
+  .assessment-surface-header p { margin: 5px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 3px 9px;
+    border: 1px solid;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .status-ready { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
+  .status-waiting { border-color: #fde68a; background: #fffbeb; color: #a16207; }
+  .status-blocked { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+  .gate-body { padding: 20px; }
+  .gate-note {
+    max-width: 760px;
+    padding: 13px 15px;
+    border-left: 3px solid #2563eb;
+    background: #eff6ff;
+    color: #1e40af;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .gate-list { display: grid; gap: 10px; margin-top: 16px; max-width: 760px; }
+  .gate-item {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 13px 14px;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+  }
+  .gate-index {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .gate-title { color: var(--text-primary); font-size: 13px; font-weight: 650; }
+  .gate-detail { margin-top: 3px; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+  .gate-item .btn { white-space: nowrap; }
+  .readiness-summary {
+    display: grid;
+    grid-template-columns: 160px minmax(0, 1fr);
+    gap: 20px;
+    padding: 20px;
+  }
+  .readiness-score {
+    display: grid;
+    place-items: center;
+    min-height: 130px;
+    border-right: 1px solid var(--border-light);
+  }
+  .readiness-score .value { color: #047857; font-size: 52px; line-height: 1; font-weight: 750; }
+  .readiness-score .label { margin-top: 7px; color: var(--text-muted); font-size: 11px; }
+  .summary-copy { display: grid; align-content: center; gap: 14px; }
+  .summary-copy h3 { margin: 0; font-size: 20px; letter-spacing: 0; }
+  .summary-copy p { margin: 5px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
+  .summary-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .metric {
+    padding: 11px 12px;
+    border: 1px solid var(--border-light);
+    border-radius: 7px;
+    background: #f8fafc;
+  }
+  .metric .value { color: var(--text-primary); font-size: 17px; font-weight: 700; }
+  .metric .label { margin-top: 4px; color: var(--text-muted); font-size: 11px; }
+  .work-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr); gap: 18px; }
+  .panel {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .panel-header h3 { margin: 0; font-size: 15px; letter-spacing: 0; }
+  .panel-header span { color: var(--text-muted); font-size: 11px; }
+  .panel-body { padding: 16px; }
+  .stack { display: grid; gap: 12px; }
+  .analysis-lead {
+    padding: 13px 14px;
+    border-left: 3px solid #2563eb;
+    background: #f8fafc;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.75;
+  }
+  .analysis-block { display: grid; gap: 8px; }
+  .analysis-block h4 { margin: 0; color: var(--text-primary); font-size: 13px; }
+  .analysis-list { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+  .analysis-list li {
+    padding: 10px 11px;
+    border: 1px solid var(--border-light);
+    border-radius: 7px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.65;
+    white-space: pre-line;
+  }
+  .quick-actions { display: grid; gap: 9px; }
+  .quick-actions .btn { justify-content: center; text-decoration: none; }
+  .material-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    font-size: 12px;
+  }
+  .material-row:last-child { border-bottom: 0; padding-bottom: 0; }
+  .material-state { font-weight: 700; }
+  .material-state.ok { color: #047857; }
+  .material-state.wait { color: #a16207; }
+  .health-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: 18px; }
+  .check-list { display: grid; }
+  .check-row {
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr) auto;
+    gap: 11px;
+    align-items: center;
+    padding: 11px 14px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .check-row:last-child { border-bottom: 0; }
+  .state {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 3px 7px;
+    border: 1px solid;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .state-pass, .state-complete { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
+  .state-fail, .state-missing { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+  .state-pending, .state-weak { border-color: #fde68a; background: #fffbeb; color: #a16207; }
+  .check-title { color: var(--text-primary); font-size: 12px; font-weight: 650; }
+  .check-detail { margin-top: 3px; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+  .check-link { color: #2563eb; font-size: 11px; text-decoration: none; white-space: nowrap; }
+  .action-list { display: grid; gap: 8px; padding: 12px; }
+  .action-item {
+    display: block;
+    padding: 11px 12px;
+    border: 1px solid var(--border-light);
+    border-left: 3px solid #dc2626;
+    border-radius: 7px;
+    color: inherit;
+    text-decoration: none;
+  }
+  .action-item.p1 { border-left-color: #d97706; }
+  .action-meta { display: flex; justify-content: space-between; gap: 10px; }
+  .action-meta strong { color: var(--text-primary); font-size: 12px; }
+  .priority { color: #b91c1c; font-size: 10px; font-weight: 750; }
+  .action-item p { margin: 5px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+  .issue { padding: 10px 13px; border-bottom: 1px solid #f1f5f9; }
+  .issue:last-child { border-bottom: 0; }
+  .issue strong { color: #991b1b; font-size: 12px; }
+  .issue p { margin: 4px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+  .empty-state { padding: 24px 15px; color: var(--text-muted); text-align: center; font-size: 12px; }
+  @media (max-width: 960px) {
+    .assessment-header, .readiness-summary, .work-grid, .health-grid { grid-template-columns: 1fr; }
+    .company-switcher { justify-content: flex-start; }
+    .readiness-score { min-height: 110px; border-right: 0; border-bottom: 1px solid var(--border-light); }
+  }
+  @media (max-width: 620px) {
+    .summary-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .gate-item { grid-template-columns: 30px minmax(0, 1fr); }
+    .gate-item .btn { grid-column: 2; justify-self: start; }
+    .check-row { grid-template-columns: 66px minmax(0, 1fr); }
+    .check-link { grid-column: 2; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+{% macro target_url(target) -%}
+  {%- if target == 'relation_table' -%}{{ url_for('docgen.gaoxin_relation_table', company_id=company.id) }}
+  {%- elif target == 'attachments' -%}{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}
+  {%- elif target == 'system_docs' -%}{{ url_for('docgen.gaoxin_system_docs', company_id=company.id) }}
+  {%- else -%}{{ application_url }}
+  {%- endif -%}
+{%- endmacro %}
+{% macro state_label(status) -%}
+  {{ {'pass':'通过','fail':'不通过','pending':'待核实','complete':'完整','weak':'待补强','missing':'缺失'}.get(status, status) }}
+{%- endmacro %}
+
+<div class="assessment-page">
+  <header class="assessment-header">
+    <div>
+      <h1>申报评估</h1>
+      {% if company %}
+      <p>{{ company.name }} · {{ company.app_type }} · 先评分，再填写申报书，最后查看统一评估</p>
+      {% else %}
+      <p>完成评分和申报书资料后，系统会生成统一评估结果</p>
+      {% endif %}
+    </div>
+    {% if companies %}
+    <div class="company-switcher">
+      {% for item in companies %}
+      <a href="{{ url_for('docgen.assessment', company_id=item.company.id) }}" class="{{ 'active' if company and item.company.id == company.id else '' }}">
+        <span>{{ item.company.name }}</span>
+        <span>{{ item.score.total_score if item.score else '未评分' }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </header>
+
+  {% if not company %}
+  <section class="assessment-surface">
+    <div class="gate-body">
+      <div class="gate-note">还没有企业资料。请先从评分板块建立企业记录。</div>
+      <div style="margin-top:16px"><a class="btn btn-primary" href="{{ url_for('scoring.index') }}">进入评分</a></div>
+    </div>
+  </section>
+  {% elif not input_state.ready %}
+  <section class="assessment-surface">
+    <div class="assessment-surface-header">
+      <div>
+        <h2>评估尚未开启</h2>
+        <p>评分和申报书资料是评估的输入，不满足这两项时不展示判断结论。</p>
+      </div>
+      <span class="status-badge status-waiting">等待资料</span>
+    </div>
+    <div class="gate-body">
+      <div class="gate-note">当前只显示需要完成的步骤。完成后重新进入本页即可获得评分分析和申报体检。</div>
+      <div class="gate-list">
+        {% for item in input_state.missing %}
+        <div class="gate-item">
+          <span class="gate-index">{{ loop.index }}</span>
+          <div>
+            <div class="gate-title">{{ item.title }}</div>
+            <div class="gate-detail">{{ item.detail }}</div>
+          </div>
+          <a class="btn btn-primary btn-sm" href="{{ item.url }}">去完成</a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% else %}
+  <section class="assessment-surface">
+    <div class="assessment-surface-header">
+      <div>
+        <h2>{{ company.name }}</h2>
+        <p>{{ health.application_year if health else '当前申报周期' }} · 评分、申报书和材料检查已合并</p>
+      </div>
+      <span class="status-badge {{ 'status-ready' if not health or health.status == 'ready' else 'status-blocked' if health.status == 'blocked' else 'status-waiting' }}">
+        {{ health.status_label if health else '已具备评估输入' }}
+      </span>
+    </div>
+    <div class="readiness-summary">
+      <div class="readiness-score">
+        {% if health %}
+        <div class="value">{{ health.readiness_score }}</div>
+        <div class="label">申报准备度 / 100</div>
+        {% else %}
+        <div class="value" style="font-size:34px;color:#047857">可评估</div>
+        <div class="label">评分和申报书已录入</div>
+        {% endif %}
+      </div>
+      <div class="summary-copy">
+        <div>
+          <h3>{{ analysis.overall if analysis else '已完成基础输入' }}</h3>
+          <p>{% if health %}准备度综合资格、证据、数据一致性和评分完成度，不代表认定通过概率。{% else %}当前企业已完成评分和申报书输入，可继续根据评分建议完善材料。{% endif %}</p>
+        </div>
+        <div class="summary-metrics">
+          <div class="metric"><div class="value">{{ score.total_score }}</div><div class="label">当前得分</div></div>
+          <div class="metric"><div class="value">{{ '已达标' if (score.total_score or 0) >= (71 if score.score_type == '高新技术' else 60 if score.score_type == '小巨人' else 50) else '未达标' }}</div><div class="label">评分状态</div></div>
+          <div class="metric"><div class="value">{{ '已保存' if input_state.application_ready else '待补' }}</div><div class="label">申报书资料</div></div>
+          <div class="metric"><div class="value">{{ analysis.risk_level if analysis else '—' }}</div><div class="label">评分风险</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="work-grid">
+    <section class="panel">
+      <div class="panel-header">
+        <h3>评分分析与优先补强</h3>
+        <span>{{ score.score_type }}</span>
+      </div>
+      <div class="panel-body stack">
+        {% if analysis %}
+        <div class="analysis-lead">{{ analysis.priority }}</div>
+        {% if analysis.weaknesses %}
+        <div class="analysis-block">
+          <h4>主要短板</h4>
+          <ul class="analysis-list">
+            {% for item in analysis.weaknesses[:4] %}<li>{{ item }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        <div class="analysis-block">
+          <h4>建议动作</h4>
+          <ul class="analysis-list">
+            {% for item in (analysis.recommendations or [])[:5] %}<li>{{ item }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="panel-header"><h3>下一步操作</h3><span>按当前状态</span></div>
+      <div class="panel-body">
+        <div class="quick-actions">
+          {% if score.score_type == '高新技术' %}
+          <a class="btn btn-primary" href="{{ url_for('scoring.gaoxin') }}">更新高新评分</a>
+          {% elif score.score_type == '小巨人' %}
+          <a class="btn btn-primary" href="{{ url_for('scoring.xiaojuren') }}">更新小巨人评分</a>
+          {% else %}
+          <a class="btn btn-primary" href="{{ url_for('scoring.zhuanjing') }}">更新专精特新评分</a>
+          {% endif %}
+          <a class="btn btn-secondary" href="{{ application_url }}">继续填写申报书</a>
+          {% if draft and draft.docx_path %}
+          <a class="btn btn-secondary" href="{{ url_for('docgen.download', draft_id=draft.id) }}">下载申报书</a>
+          {% endif %}
+        </div>
+        <div style="margin-top:16px">
+          <div class="material-row"><span>评分输入</span><span class="material-state ok">已完成</span></div>
+          <div class="material-row"><span>申报书输入</span><span class="material-state ok">已完成</span></div>
+          {% if health %}
+          <div class="material-row"><span>导出阻断</span><span class="material-state {{ 'wait' if health.export_blockers else 'ok' }}">{{ health.export_blockers|length }}</span></div>
+          {% endif %}
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  {% if health %}
+  <div class="health-grid">
+    <section class="panel">
+      <div class="panel-header"><h3>资格条件</h3><span>硬性条件不由评分抵消</span></div>
+      <div class="check-list">
+        {% for item in health.qualification['items'] %}
+        <div class="check-row">
+          <span class="state state-{{ item.status }}">{{ state_label(item.status) }}</span>
+          <div><div class="check-title">{{ item.title }}</div><div class="check-detail">{{ item.detail }}</div></div>
+          <a class="check-link" href="{{ target_url(item.target) }}">处理</a>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-header"><h3>优先待办</h3><span>P0 先处理</span></div>
+      {% if health.actions %}
+      <div class="action-list">
+        {% for action in health.actions %}
+        <a href="{{ target_url(action.target) }}" class="action-item {{ 'p1' if action.priority == 'P1' else '' }}">
+          <div class="action-meta"><strong>{{ action.title }}</strong><span class="priority">{{ action.priority }}</span></div>
+          <p>{{ action.reason }}</p>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}<div class="empty-state">当前没有待办项。</div>{% endif %}
+    </section>
+  </div>
+
+  <div class="health-grid">
+    <section class="panel">
+      <div class="panel-header"><h3>证据完整度</h3><span>材料存在不等于事实已被证明</span></div>
+      <div class="check-list">
+        {% for item in health.evidence['items'] %}
+        <div class="check-row">
+          <span class="state state-{{ item.status }}">{{ state_label(item.status) }}</span>
+          <div><div class="check-title">{{ item.title }}</div><div class="check-detail">{{ item.detail }}</div></div>
+          <a class="check-link" href="{{ target_url(item.target) }}">处理</a>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    <div class="stack">
+      <section class="panel">
+        <div class="panel-header"><h3>评分区间</h3><span>不使用通过概率</span></div>
+        {% if health.score.available %}
+        <div class="summary-metrics" style="padding:13px;grid-template-columns:repeat(3,minmax(0,1fr))">
+          <div class="metric"><div class="value">{{ health.score.conservative }}</div><div class="label">保守</div></div>
+          <div class="metric"><div class="value">{{ health.score.expected }}</div><div class="label">当前</div></div>
+          <div class="metric"><div class="value">{{ health.score.optimistic }}</div><div class="label">乐观</div></div>
+        </div>
+        {% endif %}
+      </section>
+      <section class="panel">
+        <div class="panel-header"><h3>一致性问题</h3><span>{{ health.consistency.conflicts|length + health.consistency.warnings|length }} 项</span></div>
+        {% for item in health.consistency.conflicts %}
+        <div class="issue"><strong>{{ item.title }}</strong><p>{{ item.detail }}</p></div>
+        {% endfor %}
+        {% for item in health.consistency.warnings %}
+        <div class="issue"><strong style="color:#a16207">{{ item.title }}</strong><p>{{ item.detail }}</p></div>
+        {% endfor %}
+        {% if not health.consistency.conflicts and not health.consistency.warnings %}<div class="empty-state">暂未发现跨表数据冲突。</div>{% endif %}
+      </section>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

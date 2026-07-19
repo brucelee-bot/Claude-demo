@@ -52,7 +52,13 @@
 .rd-project-action { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .rd-project-status { display: inline-flex; padding: 3px 7px; border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted); background: var(--bg-secondary); font-size: 12px; white-space: nowrap; }
 .rd-project-status.is-ready { border-color: #86efac; color: #166534; background: #f0fdf4; font-weight: 600; }
-.export-status-toast { position: fixed; left: 50%; bottom: 88px; z-index: 22; transform: translateX(-50%); min-width: 320px; max-width: calc(100% - 32px); padding: 10px 14px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; color: #1e40af; box-shadow: 0 12px 30px rgba(15,23,42,.16); text-align: center; font-size: 14px; }
+.export-status-toast { position: fixed; left: 50%; bottom: 88px; z-index: 22; transform: translateX(-50%); width: min(520px, calc(100% - 32px)); padding: 12px 14px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; color: #1e40af; box-shadow: 0 12px 30px rgba(15,23,42,.16); text-align: left; font-size: 14px; }
+.export-status-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.export-status-stage { font-weight: 700; min-width: 0; }
+.export-status-percent { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.export-progress { height: 6px; margin-top: 9px; overflow: hidden; border-radius: 3px; background: rgba(37,99,235,.14); }
+.export-progress-fill { width: 0; height: 100%; background: #2563eb; transition: width .25s ease; }
+.export-status-meta { margin-top: 7px; color: currentColor; opacity: .78; font-size: 12px; }
 .export-status-toast.is-success { border-color: #86efac; background: #f0fdf4; color: #166534; }
 .export-status-toast.is-error { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
 @media (max-width: 900px) {
@@ -586,8 +592,9 @@ const uploadUrls = {
 {% endfor %}
 };
 uploadUrls.staff_statement = '{{ url_for("docgen.gaoxin_attachment_upload", company_id=company.id, section_key="staff_statement") }}';
-const exportPdfUrl = '{{ url_for("docgen.gaoxin_attachments_pdf", company_id=company.id) }}';
+const exportPdfJobCreateUrl = '{{ url_for("docgen.gaoxin_attachments_pdf_job_create", company_id=company.id) }}';
 const exportPdfFilename = {{ ('高新技术企业认定附件制作_' ~ company.name ~ '.pdf') | tojson | safe }};
+const latestExportJob = {{ latest_export_job | default(None) | tojson | safe }};
 const autoData = {{ auto_data | tojson | safe }};
 const achievementRows = {{ achievement_rows | tojson | safe }};
 const achievementCompanyName = {{ company.name | tojson | safe }};
@@ -930,79 +937,149 @@ function escapeHtml(text) {
   });
 }
 
+function renderExportProgress(status, job, startedAt) {
+  const progress = Math.max(0, Math.min(100, Number(job.progress || 0)));
+  const elapsed = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+  status.className = 'export-status-toast';
+  status.innerHTML =
+    '<div class="export-status-head">' +
+      '<span class="export-status-stage">' + escapeHtml(job.stage || '正在生成 PDF') + '</span>' +
+      '<span class="export-status-percent">' + progress + '%</span>' +
+    '</div>' +
+    '<div class="export-progress"><div class="export-progress-fill" style="width:' + progress + '%"></div></div>' +
+    '<div class="export-status-meta">已用时 ' + elapsed + ' 秒。页面可以保持打开，生成完成后将自动下载。</div>';
+}
+
+async function readExportResponse(response) {
+  let result = {};
+  try {
+    result = await response.json();
+  } catch (error) {
+    result = {error: '服务器返回了无法识别的响应'};
+  }
+  if (!response.ok) {
+    const requestError = new Error(result.error || 'PDF 导出失败');
+    requestError.result = result;
+    throw requestError;
+  }
+  return result;
+}
+
+function showHealthCheckBlockers(status, result) {
+  const blockers = Array.isArray(result.blockers) ? result.blockers.slice(0, 5) : [];
+  const list = blockers.map(function(item) {
+    return '<li><strong>' + escapeHtml(item.title || '待处理项') + '</strong><br><span>' + escapeHtml(item.reason || '') + '</span></li>';
+  }).join('');
+  const more = Array.isArray(result.blockers) && result.blockers.length > blockers.length
+    ? '<div style="margin-top:6px">其余 ' + (result.blockers.length - blockers.length) + ' 项请进入体检中心查看。</div>'
+    : '';
+  const link = result.health_url
+    ? '<a class="export-health-link" href="' + escapeHtml(result.health_url) + '">进入申报评估</a>'
+    : '';
+  status.className = 'export-status-toast is-error';
+  status.innerHTML = '<strong>暂不能导出 PDF</strong><ul>' + list + '</ul>' + more + link;
+}
+
+async function runExportJob(job, status, startedAt) {
+  let currentJob = job;
+  let launchInFlight = false;
+  let launchAttempts = 0;
+  let lastLaunchError = null;
+  renderExportProgress(status, currentJob, startedAt);
+  if (currentJob.status === 'ready') return currentJob;
+
+  function launchExport() {
+    if (
+      currentJob.status !== 'queued' ||
+      !currentJob.run_url ||
+      launchInFlight ||
+      launchAttempts >= 3
+    ) return;
+    launchInFlight = true;
+    launchAttempts += 1;
+    fetch(currentJob.run_url, {
+      method: 'POST',
+      headers: {'Accept': 'application/json'}
+    }).then(function(response) {
+      return readExportResponse(response);
+    }).then(function(result) {
+      if (result && result.job) currentJob = result.job;
+    }).catch(function(error) {
+      lastLaunchError = error;
+    }).finally(function() {
+      launchInFlight = false;
+    });
+  }
+
+  launchExport();
+  while (currentJob.status === 'queued' || currentJob.status === 'running') {
+    await new Promise(function(resolve) { window.setTimeout(resolve, 1500); });
+    const statusResponse = await fetch(currentJob.status_url, {
+      headers: {'Accept': 'application/json'}
+    });
+    const statusResult = await readExportResponse(statusResponse);
+    currentJob = statusResult.job || currentJob;
+    renderExportProgress(status, currentJob, startedAt);
+    if (currentJob.status === 'queued' && !launchInFlight) {
+      if (launchAttempts >= 3) {
+        throw lastLaunchError || new Error('PDF 生成任务未能启动，请重新导出');
+      }
+      launchExport();
+    }
+  }
+  if (currentJob.status !== 'ready') {
+    throw new Error(currentJob.error || 'PDF 生成失败，请重新导出');
+  }
+  return currentJob;
+}
+
 async function saveAndExportPdf() {
   const form = document.getElementById('gaoxin-attachments-form');
   const buttons = Array.from(document.querySelectorAll('[data-export-pdf-button]'));
   if (buttons.some(function(button) { return button.disabled; })) return;
   const status = document.getElementById('export-pdf-status');
   const startedAt = Date.now();
-  let stage = '正在保存附件信息';
-  const timer = window.setInterval(function() {
-    const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
-    status.textContent = stage + '，已用时 ' + seconds + ' 秒';
-  }, 1000);
   buttons.forEach(function(button) {
     button.disabled = true;
     button.dataset.originalText = button.textContent;
-    button.textContent = '正在生成 PDF...';
+    button.textContent = '正在生成...';
   });
   status.hidden = false;
   status.className = 'export-status-toast';
-  status.textContent = stage;
+  renderExportProgress(status, {stage: '正在保存附件信息', progress: 1}, startedAt);
   try {
     const saveResponse = await fetch(form.action, {method: 'POST', body: new FormData(form)});
     if (!saveResponse.ok) throw new Error('保存附件失败');
 
-    stage = '正在整理并生成附件 PDF';
-    status.textContent = stage;
-    const response = await fetch(exportPdfUrl, {headers: {'Accept': 'application/pdf'}});
-    if (!response.ok) {
-      let result = {};
-      try {
-        result = await response.json();
-      } catch (error) {
-        const text = await response.text();
-        result = {error: text};
-      }
-      if (result.code === 'HEALTH_CHECK_BLOCKED') {
-        const blockers = Array.isArray(result.blockers) ? result.blockers.slice(0, 5) : [];
-        const list = blockers.map(function(item) {
-          return '<li><strong>' + escapeHtml(item.title || '待处理项') + '</strong><br><span>' + escapeHtml(item.reason || '') + '</span></li>';
-        }).join('');
-        const more = Array.isArray(result.blockers) && result.blockers.length > blockers.length
-          ? '<div style="margin-top:6px">其余 ' + (result.blockers.length - blockers.length) + ' 项请进入体检中心查看。</div>'
-          : '';
-        const link = result.health_url
-          ? '<a class="export-health-link" href="' + escapeHtml(result.health_url) + '">进入申报体检中心</a>'
-          : '';
-        status.className = 'export-status-toast is-error';
-        status.innerHTML = '<strong>暂不能导出 PDF</strong><ul>' + list + '</ul>' + more + link;
-        return;
-      }
-      throw new Error(result.error || 'PDF 导出失败');
-    }
-
-    stage = '正在下载 PDF';
-    status.textContent = stage;
-    const blob = await response.blob();
-    const downloadUrl = URL.createObjectURL(blob);
+    renderExportProgress(status, {stage: '正在创建 PDF 任务', progress: 2}, startedAt);
+    const createResponse = await fetch(exportPdfJobCreateUrl, {
+      method: 'POST',
+      headers: {'Accept': 'application/json'}
+    });
+    const createResult = await readExportResponse(createResponse);
+    const job = await runExportJob(createResult.job, status, startedAt);
     const link = document.createElement('a');
-    link.href = downloadUrl;
+    link.href = job.download_url;
     link.download = exportPdfFilename;
     document.body.appendChild(link);
     link.click();
     link.remove();
-    window.setTimeout(function() { URL.revokeObjectURL(downloadUrl); }, 30000);
 
     const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
     status.className = 'export-status-toast is-success';
-    status.textContent = 'PDF 已生成并开始下载，共用时 ' + seconds + ' 秒';
+    status.innerHTML =
+      '<div class="export-status-head"><span class="export-status-stage">PDF 已生成并开始下载</span><span class="export-status-percent">100%</span></div>' +
+      '<div class="export-progress"><div class="export-progress-fill" style="width:100%;background:#16a34a"></div></div>' +
+      '<div class="export-status-meta">本次用时 ' + seconds + ' 秒；材料未变化时再次导出将复用结果。</div>';
     window.setTimeout(function() { status.hidden = true; }, 5000);
   } catch (error) {
+    if (error.result && error.result.code === 'HEALTH_CHECK_BLOCKED') {
+      showHealthCheckBlockers(status, error.result);
+      return;
+    }
     status.className = 'export-status-toast is-error';
     status.textContent = error.message || '导出失败';
   } finally {
-    window.clearInterval(timer);
     buttons.forEach(function(button) {
       button.disabled = false;
       button.textContent = button.dataset.originalText || '导出 PDF';
@@ -1010,6 +1087,45 @@ async function saveAndExportPdf() {
     });
   }
 }
+
+async function resumeExportJob() {
+  if (!latestExportJob || !latestExportJob.id) return;
+  const status = document.getElementById('export-pdf-status');
+  const buttons = Array.from(document.querySelectorAll('[data-export-pdf-button]'));
+  const startedAt = Date.now();
+  status.hidden = false;
+  if (latestExportJob.status === 'ready') {
+    status.className = 'export-status-toast is-success';
+    status.innerHTML =
+      '<div class="export-status-head"><span class="export-status-stage">已有最新 PDF</span><span class="export-status-percent">100%</span></div>' +
+      '<div class="export-status-meta"><a href="' + escapeHtml(latestExportJob.download_url) + '">下载已生成文件</a>，材料发生变化后系统会自动重新生成。</div>';
+    return;
+  }
+
+  buttons.forEach(function(button) {
+    button.disabled = true;
+    button.dataset.originalText = button.textContent;
+    button.textContent = '正在生成...';
+  });
+  try {
+    const job = await runExportJob(latestExportJob, status, startedAt);
+    status.className = 'export-status-toast is-success';
+    status.innerHTML =
+      '<div class="export-status-head"><span class="export-status-stage">PDF 已生成</span><span class="export-status-percent">100%</span></div>' +
+      '<div class="export-status-meta"><a href="' + escapeHtml(job.download_url) + '">下载 PDF</a></div>';
+  } catch (error) {
+    status.className = 'export-status-toast is-error';
+    status.textContent = error.message || 'PDF 生成失败，请重新导出';
+  } finally {
+    buttons.forEach(function(button) {
+      button.disabled = false;
+      button.textContent = button.dataset.originalText || '导出 PDF';
+      delete button.dataset.originalText;
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', resumeExportJob);
 
 function setUploadStatus(card, text, color) {
   const status = card.querySelector('[data-upload-status]');

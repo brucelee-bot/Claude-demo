@@ -14,14 +14,12 @@
       <div class="nav-links">
         {% if current_user.is_authenticated %}
         {% set active_page = request.endpoint %}
-        {% set assistant_active = active_page in ['docgen.assistant', 'docgen.assistant_brief'] %}
-        {% set health_active = active_page in ['docgen.health_index', 'docgen.health_check'] %}
-        {% set app_active = active_page and active_page.startswith('docgen.') and not assistant_active and not health_active %}
+        {% set assessment_active = active_page in ['docgen.assessment', 'docgen.health_index', 'docgen.health_check', 'docgen.health_check_json', 'docgen.assistant', 'docgen.assistant_brief'] %}
+        {% set app_active = active_page and active_page.startswith('docgen.') and not assessment_active %}
         <a href="{{ url_for('dashboard') }}" class="{{ 'active' if active_page == 'dashboard' else '' }}">首页</a>
-        <a href="{{ url_for('docgen.assistant') }}" class="{{ 'active' if assistant_active else '' }}">助手</a>
         <a href="{{ url_for('scoring.index') }}" class="{{ 'active' if active_page and active_page.startswith('scoring.') else '' }}">评分</a>
-        <a href="{{ url_for('docgen.health_index') }}" class="{{ 'active' if health_active else '' }}">申报体检</a>
         <a href="{{ url_for('docgen.index') }}" class="{{ 'active' if app_active else '' }}">申报书</a>
+        <a href="{{ url_for('docgen.assessment') }}" class="{{ 'active' if assessment_active else '' }}">申报评估</a>
         <span class="nav-user">
           <span>{{ current_user.username }}</span>
           <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-secondary">退出</a>

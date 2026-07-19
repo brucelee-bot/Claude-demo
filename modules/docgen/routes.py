@@ -1,5 +1,6 @@
 import base64
 import copy
+import hashlib
 import json
 import mimetypes
 import os
@@ -21,7 +22,7 @@ from flask import abort, current_app, jsonify, render_template, request, redirec
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
-from models import db, Company, ScoreRecord, ApplicationDraft
+from models import db, Company, ScoreRecord, ApplicationDraft, ExportJob
 from modules.docgen import docgen_bp
 from modules.docgen.generator import generate, TEMPLATE_PATH
 from modules.docgen.generator_zhuanjing import generate_zhuanjing
@@ -43,7 +44,7 @@ from modules.docgen.sales_contracts import (
 )
 from modules.docgen.staff_certificates import STAFF_CERTIFICATE_FIELDS, analyze_staff_certificate
 from modules.healthcheck.engine import run_health_check, score_result_from_record
-from modules.storage import delete_file, ensure_local_file, persist_file
+from modules.storage import blob_enabled, delete_file, ensure_local_file, persist_file
 from modules.ai.analyzer import analyze
 from modules.ai.llm_client import call_llm
 
@@ -58,6 +59,10 @@ STAFF_CERTIFICATE_UPLOAD_EXTENSIONS = {
     ".tif",
     ".tiff",
 }
+
+GAOXIN_ATTACHMENT_EXPORT_VERSION = "2026-07-19-v1"
+GAOXIN_ATTACHMENT_EXPORT_JOB_TYPE = "gaoxin_attachments_pdf"
+GAOXIN_ATTACHMENT_EXPORT_STALE_SECONDS = 15 * 60
 
 
 def _upsert_application_draft(company, app_data, output_path):
@@ -97,6 +102,264 @@ def _company_health_check(company, data=None):
         _load_gaoxin_attachments_from_data(data),
         score_result_from_record(latest_score),
     )
+
+
+def _latest_company_score(company):
+    return (
+        ScoreRecord.query
+        .filter_by(company_id=company.id)
+        .order_by(ScoreRecord.created_at.desc(), ScoreRecord.id.desc())
+        .first()
+    )
+
+
+def _latest_company_draft(company):
+    return (
+        ApplicationDraft.query
+        .filter_by(company_id=company.id)
+        .order_by(ApplicationDraft.created_at.desc(), ApplicationDraft.id.desc())
+        .first()
+    )
+
+
+def _score_analysis_from_record(score, data):
+    """读取评分时生成的分析，旧记录没有分析时用本地规则补齐。"""
+    if not score:
+        return None
+    try:
+        analysis = json.loads(score.ai_analysis) if score.ai_analysis else None
+    except (json.JSONDecodeError, TypeError):
+        analysis = None
+    if analysis:
+        return analysis
+    try:
+        breakdown = json.loads(score.breakdown_json or "[]")
+    except (json.JSONDecodeError, TypeError):
+        breakdown = []
+    pass_score = 71 if score.score_type == "高新技术" else (60 if score.score_type == "小巨人" else 50)
+    return analyze(
+        {
+            "rule_type": score.score_type,
+            "total_score": score.total_score,
+            "full_score": 100,
+            "pass_score": pass_score,
+            "passed": (score.total_score or 0) >= pass_score,
+            "breakdown": breakdown,
+            "warnings": [],
+        },
+        data,
+        use_llm=False,
+    )
+
+
+def _has_meaningful_application_draft(draft):
+    if not draft or not draft.sections_json:
+        return False
+    try:
+        sections = json.loads(draft.sections_json)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    if not isinstance(sections, dict):
+        return False
+    return any(value not in (None, "", [], {}) for value in sections.values())
+
+
+def _has_legacy_application_input(data):
+    """识别统一标记上线前已经保存过的申报书资料。"""
+    if not isinstance(data, dict):
+        return False
+    if data.get("_application_input_saved"):
+        return True
+
+    relation = data.get("gaoxin_relation_table")
+    if isinstance(relation, dict):
+        if str(relation.get("tech_field_path") or "").strip():
+            return True
+        rows = relation.get("rows")
+        if isinstance(rows, list) and any(
+            isinstance(row, dict)
+            and any(str(row.get(key) or "").strip() for key in (
+                "rd_activity",
+                "rd_period",
+                "ps_name",
+                "result_name",
+                "technology",
+            ))
+            for row in rows
+        ):
+            return True
+
+    explicit_keys = {
+        "province",
+        "city",
+        "tech_field",
+        "registration_date",
+        "register_date",
+        "establish_date",
+        "company_established_at",
+        "company_register_date",
+        "innovation_ip_role",
+        "innovation_transform",
+        "innovation_rd_mgmt",
+        "innovation_talent",
+        "gaoxin_system_docs",
+    }
+    if any(data.get(key) not in (None, "", [], {}) for key in explicit_keys):
+        return True
+    return any(
+        key.startswith(("cv_", "attachment_", "ps_", "rd_"))
+        and value not in (None, "", [], {})
+        for key, value in data.items()
+    )
+
+
+def _assessment_input_state(company, data=None):
+    data = data if isinstance(data, dict) else _load_company_data(company)
+    score = _latest_company_score(company)
+    draft = _latest_company_draft(company)
+    score_ready = score is not None
+    application_ready = _has_meaningful_application_draft(draft) or _has_legacy_application_input(data)
+    missing = []
+    if not score_ready:
+        missing.append({
+            "key": "score",
+            "title": "完成评分",
+            "detail": "先提交评分表，评估页才会使用企业的实际评分结果。",
+            "url": url_for("scoring.index"),
+        })
+    if not application_ready:
+        application_url = (
+            url_for("docgen.gaoxin_relation_table", company_id=company.id)
+            if company.app_type == "高新技术"
+            else url_for("docgen.fill", company_id=company.id)
+        )
+        missing.append({
+            "key": "application",
+            "title": "填写申报书",
+            "detail": "先保存申请书、关系表或申报材料，评估页才会判断资料完整度。",
+            "url": application_url,
+        })
+    return {
+        "score": score,
+        "draft": draft,
+        "score_ready": score_ready,
+        "application_ready": application_ready,
+        "ready": score_ready and application_ready,
+        "missing": missing,
+    }
+
+
+def _gaoxin_attachment_export_fingerprint(company, data):
+    payload = {
+        "version": GAOXIN_ATTACHMENT_EXPORT_VERSION,
+        "company_id": company.id,
+        "company_name": company.name,
+        "data": data if isinstance(data, dict) else {},
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _gaoxin_attachment_export_relative_path(job):
+    return os.path.join(
+        "generated_exports",
+        str(job.user_id),
+        str(job.company_id),
+        f"{job.fingerprint}.pdf",
+    )
+
+
+def _gaoxin_attachment_export_local_path(job):
+    output_root = os.path.abspath(current_app.config["OUTPUT_FOLDER"])
+    relative_path = str(job.result_path or "").strip()
+    target = os.path.abspath(os.path.join(output_root, relative_path))
+    if target != output_root and not target.startswith(output_root + os.sep):
+        abort(403)
+    return target
+
+
+def _update_export_job(job, *, status=None, stage=None, progress=None, error=None):
+    if status is not None:
+        job.status = status
+    if stage is not None:
+        job.stage = stage
+    if progress is not None:
+        job.progress = max(0, min(100, int(progress)))
+    if error is not None:
+        job.error_message = str(error)[:4000]
+    job.updated_at = datetime.utcnow()
+    db.session.commit()
+
+
+def _export_job_is_stale(job):
+    reference_time = job.updated_at or job.started_at or job.created_at
+    return bool(
+        reference_time
+        and (datetime.utcnow() - reference_time).total_seconds()
+        > GAOXIN_ATTACHMENT_EXPORT_STALE_SECONDS
+    )
+
+
+def _expire_stale_export_job(job):
+    if job.status not in {"queued", "running"} or not _export_job_is_stale(job):
+        return False
+    _update_export_job(
+        job,
+        status="failed",
+        stage="生成任务已中断，可重新发起",
+        error="PDF 生成任务长时间没有进度，已结束本次任务，请重新发起导出。",
+    )
+    return True
+
+
+def _export_job_payload(job):
+    payload = {
+        "ok": True,
+        "job": {
+            "id": job.id,
+            "status": job.status,
+            "stage": job.stage,
+            "progress": int(job.progress or 0),
+            "error": job.error_message or "",
+            "result_size": int(job.result_size or 0),
+            "duration_seconds": round(float(job.duration_seconds or 0), 2),
+            "created_at": job.created_at.isoformat() if job.created_at else "",
+            "updated_at": job.updated_at.isoformat() if job.updated_at else "",
+            "status_url": url_for(
+                "docgen.gaoxin_attachments_pdf_job_status",
+                company_id=job.company_id,
+                job_id=job.id,
+            ),
+        },
+    }
+    if job.status in {"queued", "running"}:
+        payload["job"]["run_url"] = url_for(
+            "docgen.gaoxin_attachments_pdf",
+            company_id=job.company_id,
+            job=job.id,
+        )
+    if job.status == "ready":
+        payload["job"]["download_url"] = url_for(
+            "docgen.gaoxin_attachments_pdf_job_download",
+            company_id=job.company_id,
+            job_id=job.id,
+        )
+    return payload
+
+
+def _owned_export_job(company_id, job_id):
+    return ExportJob.query.filter_by(
+        id=job_id,
+        company_id=company_id,
+        user_id=current_user.id,
+        job_type=GAOXIN_ATTACHMENT_EXPORT_JOB_TYPE,
+    ).first_or_404()
 
 
 def _company_english_name(company, data=None):
@@ -189,6 +452,7 @@ def _save_gaoxin_attachment_form_data(company, form_data):
     for key, value in form_data.items():
         if key.startswith("cv_") or key in GAOXIN_SYSTEM_FRAMEWORK_FIELDS or key.startswith("attachment_"):
             data[key] = value
+    data["_application_input_saved"] = True
     _sync_staff_month_counts(data)
     company.data_json = json.dumps(data, ensure_ascii=False)
     db.session.commit()
@@ -4067,6 +4331,7 @@ def _relation_payload():
 def _save_relation_table(company, rows, tech_field_path=""):
     data = _load_company_data(company)
     data["gaoxin_relation_table"] = {"rows": rows, "tech_field_path": str(tech_field_path or "").strip()}
+    data["_application_input_saved"] = True
     company.data_json = json.dumps(data, ensure_ascii=False)
     db.session.commit()
 
@@ -4341,6 +4606,7 @@ def _save_gaoxin_book_data(company, form_data, finance_data=None):
     for key, value in existing.items():
         if re.match(r"^cv_\d+_", key) or key in GAOXIN_SYSTEM_FRAMEWORK_FIELDS:
             data[key] = value
+    data["_application_input_saved"] = True
     company.data_json = json.dumps(data, ensure_ascii=False)
     db.session.commit()
 
@@ -5306,193 +5572,15 @@ def history():
 @docgen_bp.route("/assistant", methods=["GET"])
 @login_required
 def assistant():
-    """项目申报助手总览页"""
-    app_type = request.args.get("type", "高新技术")
-
-    companies = (
-        Company.query
-        .filter(Company.user_id == current_user.id)
-        .order_by(Company.created_at.desc())
-        .all()
-    )
-
-    score_cards = []
-    recent_scores = []
-    for company in companies:
-        latest_score = (
-            ScoreRecord.query
-            .filter_by(company_id=company.id)
-            .order_by(ScoreRecord.created_at.desc(), ScoreRecord.id.desc())
-            .first()
-        )
-        latest_draft = (
-            ApplicationDraft.query
-            .filter_by(company_id=company.id)
-            .order_by(ApplicationDraft.created_at.desc(), ApplicationDraft.id.desc())
-            .first()
-        )
-        score_cards.append({
-            "company": company,
-            "score": latest_score,
-            "draft": latest_draft,
-        })
-        if latest_score:
-            recent_scores.append(latest_score)
-
-    total_companies = len(companies)
-    total_scores = len(recent_scores)
-    total_drafts = ApplicationDraft.query.join(Company).filter(Company.user_id == current_user.id).count()
-
-    if recent_scores:
-        avg_score = round(sum(s.total_score or 0 for s in recent_scores) / len(recent_scores), 1)
-        pass_count = sum(1 for s in recent_scores if (s.total_score or 0) >= (71 if s.score_type == "高新技术" else 50))
-    else:
-        avg_score = 0
-        pass_count = 0
-
-    selected_company = None
-    selected_score = None
-    selected_analysis = None
-    selected_draft = None
-    selected_recommendations = []
-    selected_warnings = []
-    company_id = request.args.get("company_id", type=int)
-    if company_id:
-        selected_company = Company.query.filter_by(id=company_id, user_id=current_user.id).first()
-    elif companies:
-        selected_company = companies[0]
-
-    if selected_company:
-        selected_score = (
-            ScoreRecord.query
-            .filter_by(company_id=selected_company.id)
-            .order_by(ScoreRecord.created_at.desc(), ScoreRecord.id.desc())
-            .first()
-        )
-        selected_draft = (
-            ApplicationDraft.query
-            .filter_by(company_id=selected_company.id)
-            .order_by(ApplicationDraft.created_at.desc(), ApplicationDraft.id.desc())
-            .first()
-        )
-        if selected_score:
-            try:
-                selected_analysis = json.loads(selected_score.ai_analysis) if selected_score.ai_analysis else None
-            except (json.JSONDecodeError, TypeError):
-                selected_analysis = None
-            if not selected_analysis:
-                selected_analysis = analyze(
-                    {
-                        "rule_type": selected_score.score_type,
-                        "total_score": selected_score.total_score,
-                        "full_score": 100,
-                        "pass_score": 71 if selected_score.score_type == "高新技术" else (60 if selected_score.score_type == "小巨人" else 50),
-                        "passed": selected_score.total_score >= (71 if selected_score.score_type == "高新技术" else (60 if selected_score.score_type == "小巨人" else 50)),
-                        "breakdown": json.loads(selected_score.breakdown_json or "[]"),
-                        "warnings": [],
-                    },
-                    json.loads(selected_company.data_json or "{}") if selected_company.data_json else None,
-                    use_llm=False,
-                )
-            selected_recommendations = selected_analysis.get("recommendations", [])[:3]
-            selected_warnings = [w for w in (selected_score.breakdown_json and [])]
-
-    if not selected_recommendations:
-        selected_recommendations = ["先完成一次评分，再查看针对性的申报建议。"]
-
-    return render_template(
-        "assistant.html",
-        app_type=app_type,
-        companies=companies,
-        score_cards=score_cards,
-        total_companies=total_companies,
-        total_scores=total_scores,
-        total_drafts=total_drafts,
-        avg_score=avg_score,
-        pass_count=pass_count,
-        selected_company=selected_company,
-        selected_score=selected_score,
-        selected_analysis=selected_analysis,
-        selected_draft=selected_draft,
-        selected_recommendations=selected_recommendations,
-        selected_warnings=selected_warnings,
-    )
+    """兼容旧入口，助手和体检统一进入申报评估。"""
+    return redirect(url_for("docgen.assessment", **request.args))
 
 
 @docgen_bp.route("/assistant/brief", methods=["GET"])
 @login_required
 def assistant_brief():
-    """项目申报助手建议页"""
-    company_id = request.args.get("company_id", type=int)
-    company = Company.query.filter_by(id=company_id, user_id=current_user.id).first() if company_id else None
-    if not company:
-        company = (
-            Company.query
-            .filter(Company.user_id == current_user.id)
-            .order_by(Company.created_at.desc())
-            .first()
-        )
-    if not company:
-        flash("请先添加企业或完成评分", "error")
-        return redirect(url_for("docgen.assistant"))
-
-    score = (
-        ScoreRecord.query
-        .filter_by(company_id=company.id)
-        .order_by(ScoreRecord.created_at.desc(), ScoreRecord.id.desc())
-        .first()
-    )
-    draft = (
-        ApplicationDraft.query
-        .filter_by(company_id=company.id)
-        .order_by(ApplicationDraft.created_at.desc(), ApplicationDraft.id.desc())
-        .first()
-    )
-
-    data = json.loads(company.data_json or "{}") if company.data_json else {}
-    analysis = None
-    if score:
-        try:
-            analysis = json.loads(score.ai_analysis) if score.ai_analysis else None
-        except (json.JSONDecodeError, TypeError):
-            analysis = None
-        if not analysis:
-            analysis = analyze(
-                {
-                    "rule_type": score.score_type,
-                    "total_score": score.total_score,
-                    "full_score": 100,
-                    "pass_score": 71 if score.score_type == "高新技术" else (60 if score.score_type == "小巨人" else 50),
-                    "passed": score.total_score >= (71 if score.score_type == "高新技术" else (60 if score.score_type == "小巨人" else 50)),
-                    "breakdown": json.loads(score.breakdown_json or "[]"),
-                    "warnings": [],
-                },
-                data,
-                use_llm=False,
-            )
-    else:
-        analysis = {
-            "overall": "尚未评分，建议先完成企业评分，再进入申报书填报。",
-            "strengths": [],
-            "weaknesses": [],
-            "recommendations": ["先补齐企业基础信息、知识产权和财务数据。"],
-            "priority": "先评分，再填报",
-            "risk_level": "未知",
-        }
-
-    suggestions = analysis.get("recommendations", [])[:5]
-    if not suggestions:
-        suggestions = ["先完成评分，再生成针对性的申报建议。"]
-
-    return render_template(
-        "assistant_brief.html",
-        company=company,
-        score=score,
-        draft=draft,
-        analysis=analysis,
-        suggestions=suggestions,
-        data=data,
-    )
+    """兼容旧入口，助手和体检统一进入申报评估。"""
+    return redirect(url_for("docgen.assessment", **request.args))
 
 
 def _indexed_form_count(form, prefix: str, suffix: str, minimum: int = 0) -> int:
@@ -5695,20 +5783,85 @@ def gaoxin_relation_table(company_id):
 @docgen_bp.route("/health/<int:company_id>")
 @login_required
 def health_check(company_id):
-    """高新技术企业申报资格、证据和一致性体检中心。"""
-    company = Company.query.filter_by(id=company_id, user_id=current_user.id).first_or_404()
-    result = _company_health_check(company)
+    """旧体检入口兼容跳转到合并后的申报评估页。"""
+    Company.query.filter_by(id=company_id, user_id=current_user.id).first_or_404()
+    return redirect(url_for("docgen.assessment", company_id=company_id))
+
+
+@docgen_bp.route("/assessment")
+@login_required
+def assessment():
+    """评分和申报书资料齐备后，统一展示评分分析与申报体检。"""
+    companies = (
+        Company.query
+        .filter_by(user_id=current_user.id)
+        .order_by(Company.created_at.desc(), Company.id.desc())
+        .all()
+    )
+    company_id = request.args.get("company_id", type=int)
+    company = (
+        Company.query.filter_by(id=company_id, user_id=current_user.id).first()
+        if company_id
+        else (companies[0] if companies else None)
+    )
+    if not company:
+        return render_template(
+            "assessment.html",
+            companies=[],
+            company=None,
+            input_state={"ready": False, "missing": []},
+            score=None,
+            draft=None,
+            analysis=None,
+            health=None,
+            data={},
+            application_url=url_for("docgen.index"),
+        )
+
+    data = _load_company_data(company)
+    input_state = _assessment_input_state(company, data)
+    score = input_state["score"]
+    draft = input_state["draft"]
+    analysis = _score_analysis_from_record(score, data) if input_state["ready"] else None
+    health = None
+    if input_state["ready"] and (
+        company.app_type == "高新技术" or (score and score.score_type == "高新技术")
+    ):
+        health = _company_health_check(company, data)
+
+    company_cards = []
+    for item in companies:
+        item_state = _assessment_input_state(item)
+        company_cards.append({
+            "company": item,
+            "score": item_state["score"],
+            "ready": item_state["ready"],
+            "application_ready": item_state["application_ready"],
+        })
+
+    if company.app_type == "高新技术":
+        application_url = url_for("docgen.gaoxin_relation_table", company_id=company.id)
+    else:
+        application_url = url_for("docgen.fill", company_id=company.id)
+
     return render_template(
-        "health_check.html",
+        "assessment.html",
+        companies=company_cards,
         company=company,
-        health=result,
+        input_state=input_state,
+        score=score,
+        draft=draft,
+        analysis=analysis,
+        health=health,
+        data=data,
+        application_url=application_url,
     )
 
 
 @docgen_bp.route("/health")
 @login_required
 def health_index():
-    """进入当前用户最近处理的高新技术企业体检。"""
+    """旧体检入口兼容跳转到合并后的申报评估页。"""
     company = (
         Company.query
         .filter_by(user_id=current_user.id, app_type="高新技术")
@@ -5718,7 +5871,7 @@ def health_index():
     if not company:
         flash("暂无高新技术企业资料，请先完成评分。", "error")
         return redirect(url_for("scoring.gaoxin"))
-    return redirect(url_for("docgen.health_check", company_id=company.id))
+    return redirect(url_for("docgen.assessment", company_id=company.id))
 
 
 @docgen_bp.route("/health/<int:company_id>/json")
@@ -5991,6 +6144,19 @@ def gaoxin_attachments(company_id):
             "test_report": str(auto_data.get(_achievement_evidence_field_name(achievement_index, "test_report")) or "").strip(),
             "user_report": str(auto_data.get(_achievement_evidence_field_name(achievement_index, "user_report")) or "").strip(),
         }
+    export_fingerprint = _gaoxin_attachment_export_fingerprint(company, data)
+    latest_export_job = (
+        ExportJob.query
+        .filter_by(
+            company_id=company.id,
+            user_id=current_user.id,
+            job_type=GAOXIN_ATTACHMENT_EXPORT_JOB_TYPE,
+            fingerprint=export_fingerprint,
+        )
+        .filter(ExportJob.status.in_(("queued", "running", "ready")))
+        .order_by(ExportJob.created_at.desc())
+        .first()
+    )
     return render_template(
         "application_gaoxin_attachments.html",
         company=company,
@@ -6001,6 +6167,11 @@ def gaoxin_attachments(company_id):
         achievement_rows=achievement_rows,
         rd_project_rows=rd_project_rows,
         rd_project_ai_template=RD_PROJECT_APPLICATION_TEMPLATE,
+        latest_export_job=(
+            _export_job_payload(latest_export_job)["job"]
+            if latest_export_job
+            else None
+        ),
     )
 
 
@@ -6637,13 +6808,13 @@ def gaoxin_rd_project_application_pdf(company_id, project_index):
     )
 
 
-@docgen_bp.route("/gaoxin_attachments/<int:company_id>/pdf")
+@docgen_bp.route("/gaoxin_attachments/<int:company_id>/pdf/jobs", methods=["POST"])
 @login_required
-def gaoxin_attachments_pdf(company_id):
-    """导出高新技术企业认定附件制作页面 PDF。"""
-    export_started = time.perf_counter()
-    app = current_app._get_current_object()
-    company = Company.query.filter_by(id=company_id, user_id=current_user.id).first_or_404()
+def gaoxin_attachments_pdf_job_create(company_id):
+    company = Company.query.filter_by(
+        id=company_id,
+        user_id=current_user.id,
+    ).first_or_404()
     data = _load_company_data(company)
     health = _company_health_check(company, data)
     if health["export_blockers"]:
@@ -6651,7 +6822,149 @@ def gaoxin_attachments_pdf(company_id):
             "ok": False,
             "code": "HEALTH_CHECK_BLOCKED",
             "error": f"导出前体检发现 {len(health['export_blockers'])} 个阻断项，请先处理后再导出。",
-            "health_url": url_for("docgen.health_check", company_id=company.id),
+            "health_url": url_for("docgen.assessment", company_id=company.id),
+            "blockers": health["export_blockers"],
+        }), 409
+
+    fingerprint = _gaoxin_attachment_export_fingerprint(company, data)
+    existing = (
+        ExportJob.query
+        .filter_by(
+            company_id=company.id,
+            user_id=current_user.id,
+            job_type=GAOXIN_ATTACHMENT_EXPORT_JOB_TYPE,
+            fingerprint=fingerprint,
+        )
+        .filter(ExportJob.status.in_(("queued", "running", "ready")))
+        .order_by(ExportJob.created_at.desc())
+        .first()
+    )
+    if existing:
+        if not _expire_stale_export_job(existing):
+            payload = _export_job_payload(existing)
+            payload["cache_hit"] = existing.status == "ready"
+            return jsonify(payload), 200 if existing.status == "ready" else 202
+
+    job = ExportJob(
+        id=str(uuid.uuid4()),
+        company_id=company.id,
+        user_id=current_user.id,
+        job_type=GAOXIN_ATTACHMENT_EXPORT_JOB_TYPE,
+        fingerprint=fingerprint,
+        status="queued",
+        stage="等待生成",
+        progress=2,
+        download_name=f"高新技术企业认定附件制作_{company.name}.pdf",
+    )
+    db.session.add(job)
+    db.session.commit()
+    return jsonify(_export_job_payload(job)), 202
+
+
+@docgen_bp.route("/gaoxin_attachments/<int:company_id>/pdf/jobs/<job_id>")
+@login_required
+def gaoxin_attachments_pdf_job_status(company_id, job_id):
+    job = _owned_export_job(company_id, job_id)
+    _expire_stale_export_job(job)
+    return jsonify(_export_job_payload(job))
+
+
+@docgen_bp.route("/gaoxin_attachments/<int:company_id>/pdf/jobs/<job_id>/download")
+@login_required
+def gaoxin_attachments_pdf_job_download(company_id, job_id):
+    job = _owned_export_job(company_id, job_id)
+    if job.status != "ready" or not job.result_path:
+        return jsonify({"ok": False, "error": "PDF 尚未生成完成"}), 409
+
+    local_path = _gaoxin_attachment_export_local_path(job)
+    ensure_local_file(local_path, job.result_path)
+    if not os.path.isfile(local_path):
+        _update_export_job(
+            job,
+            status="failed",
+            stage="导出文件已失效",
+            error="已生成的 PDF 文件无法读取，请重新发起导出。",
+        )
+        return jsonify({"ok": False, "error": job.error_message}), 410
+
+    return send_file(
+        local_path,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=job.download_name
+        or f"高新技术企业认定附件制作_{company_id}.pdf",
+        conditional=True,
+    )
+
+
+@docgen_bp.route("/gaoxin_attachments/<int:company_id>/pdf", methods=["GET", "POST"])
+@login_required
+def gaoxin_attachments_pdf(company_id):
+    """导出高新技术企业认定附件制作页面 PDF。"""
+    export_started = time.perf_counter()
+    app = current_app._get_current_object()
+    company = Company.query.filter_by(id=company_id, user_id=current_user.id).first_or_404()
+    data = _load_company_data(company)
+    job = None
+    job_id = str(request.args.get("job") or "").strip()
+    if job_id:
+        job = _owned_export_job(company.id, job_id)
+        if job.status == "ready":
+            return jsonify(_export_job_payload(job))
+        if job.status == "running":
+            return jsonify(_export_job_payload(job)), 202
+        if job.status == "failed":
+            return jsonify(_export_job_payload(job)), 409
+        current_fingerprint = _gaoxin_attachment_export_fingerprint(company, data)
+        if current_fingerprint != job.fingerprint:
+            _update_export_job(
+                job,
+                status="failed",
+                stage="材料已发生变化",
+                error="任务创建后附件内容发生变化，请重新发起导出。",
+            )
+            return jsonify(_export_job_payload(job)), 409
+        started_at = datetime.utcnow()
+        claimed = (
+            ExportJob.query
+            .filter_by(
+                id=job.id,
+                company_id=company.id,
+                user_id=current_user.id,
+                job_type=GAOXIN_ATTACHMENT_EXPORT_JOB_TYPE,
+                status="queued",
+            )
+            .update(
+                {
+                    ExportJob.status: "running",
+                    ExportJob.stage: "正在整理附件材料",
+                    ExportJob.progress: 6,
+                    ExportJob.error_message: "",
+                    ExportJob.started_at: started_at,
+                    ExportJob.updated_at: started_at,
+                },
+                synchronize_session=False,
+            )
+        )
+        db.session.commit()
+        job = db.session.get(ExportJob, job.id)
+        if not claimed:
+            status_code = 409 if job.status == "failed" else 202
+            return jsonify(_export_job_payload(job)), status_code
+    health = _company_health_check(company, data)
+    if health["export_blockers"]:
+        if job:
+            _update_export_job(
+                job,
+                status="failed",
+                stage="申报体检未通过",
+                error=f"导出前体检发现 {len(health['export_blockers'])} 个阻断项。",
+            )
+        return jsonify({
+            "ok": False,
+            "code": "HEALTH_CHECK_BLOCKED",
+            "error": f"导出前体检发现 {len(health['export_blockers'])} 个阻断项，请先处理后再导出。",
+            "health_url": url_for("docgen.assessment", company_id=company.id),
             "blockers": health["export_blockers"],
         }), 409
     auto_data = _sync_gaoxin_finance_years(_merge_relation_fields(data))
@@ -6661,6 +6974,12 @@ def gaoxin_attachments_pdf(company_id):
         auto_data,
         company.name,
     )
+    if job:
+        _update_export_job(
+            job,
+            stage="正在生成附件目录与内部材料",
+            progress=12,
+        )
     export_sections = [section for section in GAOXIN_ATTACHMENT_SECTIONS if section["key"] != "commitment"]
     attachments = _load_gaoxin_attachments_from_data(data)
     ip_attachment = _ip_attachment_context(company, data)
@@ -6955,6 +7274,12 @@ def gaoxin_attachments_pdf(company_id):
                     if str(item.get("attachment_year") or "") == year
                 ], f"{year}年汇算清缴")
 
+            if job:
+                _update_export_job(
+                    job,
+                    stage="正在准备已上传的附件文件",
+                    progress=28,
+                )
             prepared_attachment_count = _prepare_export_attachment_files(
                 app,
                 attachment_references,
@@ -6987,6 +7312,12 @@ def gaoxin_attachments_pdf(company_id):
             render_task_count = 1 + len(portrait_batches) + len(landscape_batches)
             configured_workers = max(1, int(app.config.get("PDF_RENDER_WORKERS", 3)))
             render_workers = min(configured_workers, render_task_count) if chrome_available else 1
+            if job:
+                _update_export_job(
+                    job,
+                    stage=f"正在渲染 PDF，共 {render_task_count} 个批次",
+                    progress=40,
+                )
             with ThreadPoolExecutor(max_workers=render_workers, thread_name_prefix="gaoxin-pdf") as executor:
                 attachments_future = executor.submit(
                     _render_export_pdf_file, app, html, export_dir, "附件目录"
@@ -7022,6 +7353,12 @@ def gaoxin_attachments_pdf(company_id):
                 portrait_pdf_paths = [future.result() for future in portrait_futures]
                 landscape_pdf_paths = [future.result() for future in landscape_futures]
 
+            if job:
+                _update_export_job(
+                    job,
+                    stage="PDF 渲染完成，正在检查页面",
+                    progress=72,
+                )
             if not attachments_pdf_path:
                 raise RuntimeError("附件目录 PDF 生成失败")
             if portrait_documents:
@@ -7044,6 +7381,12 @@ def gaoxin_attachments_pdf(company_id):
                 raise FileNotFoundError("未找到企业科研诚信承诺书原版 PDF")
 
             merged_pdf_path = os.path.join(export_dir, "gaoxin-attachments-merged.pdf")
+            if job:
+                _update_export_job(
+                    job,
+                    stage="正在按 13 个板块顺序合并",
+                    progress=82,
+                )
             commitment_pdf = fitz.open(str(commitment_path))
             attachments_pdf = fitz.open(attachments_pdf_path)
             merged_pdf = fitz.open()
@@ -7178,6 +7521,31 @@ def gaoxin_attachments_pdf(company_id):
                 prepared_attachment_count,
                 len(attachment_references),
             )
+            if job:
+                _update_export_job(
+                    job,
+                    stage="正在保存导出结果",
+                    progress=94,
+                )
+                relative_path = _gaoxin_attachment_export_relative_path(job)
+                job.result_path = relative_path
+                output_path = _gaoxin_attachment_export_local_path(job)
+                Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+                Path(output_path).write_bytes(pdf_bytes)
+                blob_result = persist_file(output_path, relative_path)
+                if blob_enabled() and not blob_result:
+                    raise RuntimeError("PDF 已生成，但云端文件保存失败")
+                job.result_size = len(pdf_bytes)
+                job.duration_seconds = duration
+                job.completed_at = datetime.utcnow()
+                _update_export_job(
+                    job,
+                    status="ready",
+                    stage="PDF 已生成，可下载",
+                    progress=100,
+                    error="",
+                )
+                return jsonify(_export_job_payload(job))
             response = send_file(
                 BytesIO(pdf_bytes),
                 mimetype="application/pdf",
@@ -7189,6 +7557,16 @@ def gaoxin_attachments_pdf(company_id):
             return response
     except Exception as e:
         app.logger.exception("高新附件 PDF 导出失败 company_id=%s", company.id)
+        if job:
+            db.session.rollback()
+            current_job = db.session.get(ExportJob, job.id)
+            if current_job:
+                _update_export_job(
+                    current_job,
+                    status="failed",
+                    stage="PDF 生成失败",
+                    error=f"PDF生成失败：{str(e)}",
+                )
         return jsonify({"ok": False, "error": f"PDF生成失败：{str(e)}"}), 500
 
 

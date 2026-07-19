@@ -270,9 +270,9 @@ class GaoxinHealthcheckRouteTests(unittest.TestCase):
         payload = response.get_json()
         self.assertEqual(payload["code"], "HEALTH_CHECK_BLOCKED")
         self.assertTrue(payload["blockers"])
-        self.assertIn("/application/health/", payload["health_url"])
+        self.assertIn("/application/assessment", payload["health_url"])
 
-    def test_health_page_renders_check_lists(self):
+    def test_legacy_health_page_redirects_to_assessment(self):
         client = self.app.test_client()
         with client.session_transaction() as session:
             session["_user_id"] = str(self.user_id)
@@ -280,6 +280,8 @@ class GaoxinHealthcheckRouteTests(unittest.TestCase):
 
         response = client.get(f"/application/health/{self.company_id}")
 
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("申报体检中心", response.get_data(as_text=True))
-        self.assertIn("资格条件", response.get_data(as_text=True))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(
+            f"/application/assessment?company_id={self.company_id}",
+            response.headers["Location"],
+        )

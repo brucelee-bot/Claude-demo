@@ -12,7 +12,7 @@
       <th>企业名称</th>
       <th>类型</th>
       <th>最近评分</th>
-      <th>申报体检</th>
+      <th>申报评估</th>
       <th>操作</th>
     </tr>
   </thead>
@@ -32,9 +32,9 @@
       </td>
       <td>
         {% if c.app_type == '高新技术' %}
-        <a href="{{ url_for('docgen.health_check', company_id=c.id) }}" class="btn btn-secondary btn-sm">进入体检</a>
+        <a href="{{ url_for('docgen.assessment', company_id=c.id) }}" class="btn btn-secondary btn-sm">进入评估</a>
         {% else %}
-        <span class="text-muted">不适用</span>
+        <a href="{{ url_for('docgen.assessment', company_id=c.id) }}" class="btn btn-secondary btn-sm">进入评估</a>
         {% endif %}
       </td>
       <td>
