@@ -1,7 +1,7 @@
 """
 LLM 客户端 — 通过 OpenAI 兼容 API 调用配置的模型
 """
-import json, os, time, ssl, re, socket, threading
+import json, logging, os, time, ssl, re, socket, threading
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
@@ -70,6 +70,7 @@ def _load_config():
 _CONFIG = _load_config()
 _WARMUP_STARTED = False
 _WARMUP_LOCK = threading.Lock()
+_LOGGER = logging.getLogger(__name__)
 
 
 def _is_retryable_error_text(text):
@@ -130,6 +131,57 @@ def _model_candidates(primary_model):
         if candidate and candidate not in candidates:
             candidates.append(candidate)
     return candidates or ["gpt-5.6-sol"]
+
+
+def _should_use_claude_fallback(error_text):
+    text = str(error_text or "").lower()
+    return "upstream access forbidden" in text
+
+
+def _call_claude_fallback(messages, temperature, max_tokens, timeout, primary_error):
+    if not _should_use_claude_fallback(primary_error):
+        return {"success": False, "error": primary_error}
+
+    system_parts = []
+    claude_messages = []
+    for message in messages or []:
+        role = message.get("role")
+        content = str(message.get("content") or "")
+        if role == "system":
+            if content:
+                system_parts.append(content)
+        elif role in {"user", "assistant"}:
+            claude_messages.append({"role": role, "content": content})
+
+    if not claude_messages:
+        return {"success": False, "error": primary_error}
+
+    try:
+        from modules.ai.claude_client import call_claude
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": f"{primary_error}；备用 AI 客户端不可用: {str(exc)[:120]}",
+        }
+
+    _LOGGER.warning("Primary LLM upstream denied access; switching to Claude fallback")
+    fallback = call_claude(
+        claude_messages,
+        system="\n\n".join(system_parts) or None,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        timeout=timeout,
+        max_retries=0,
+    )
+    if fallback.get("success"):
+        fallback["fallback_provider"] = "claude"
+        return fallback
+
+    fallback_error = fallback.get("error") or "未知错误"
+    return {
+        "success": False,
+        "error": f"主 AI 服务拒绝访问，备用 AI 服务也调用失败: {fallback_error}",
+    }
 
 
 def _extract_content_from_chunked_response(raw: str) -> dict:
@@ -279,7 +331,13 @@ def call_llm(
             err_body = _read_http_error(e)
             last_error = f"HTTP {e.code}: {err_body[:300]}"
             if not _is_retryable_http_error(e.code, last_error) or attempt == max_attempts - 1:
-                return {"success": False, "error": last_error}
+                return _call_claude_fallback(
+                    messages,
+                    temperature,
+                    max_tokens,
+                    timeout,
+                    last_error,
+                )
         except RuntimeError as e:
             last_error = str(e)[:300]
             status_match = re.match(r"HTTP\s+(\d+)", last_error)
@@ -288,7 +346,13 @@ def call_llm(
                 status_code
                 and not _is_retryable_http_error(status_code, last_error)
             ) or attempt == max_attempts - 1:
-                return {"success": False, "error": last_error}
+                return _call_claude_fallback(
+                    messages,
+                    temperature,
+                    max_tokens,
+                    timeout,
+                    last_error,
+                )
         except (URLError, ssl.SSLError, socket.timeout, TimeoutError, ConnectionResetError) as e:
             reason = getattr(e, "reason", e)
             last_error = f"连接失败: {str(reason)[:200]}"
@@ -311,7 +375,13 @@ def call_llm(
 
         time.sleep(_retry_delay(attempt))
 
-    return {"success": False, "error": last_error or "AI 调用失败"}
+    return _call_claude_fallback(
+        messages,
+        temperature,
+        max_tokens,
+        timeout,
+        last_error or "AI 调用失败",
+    )
 
 
 def warmup_llm_async():
