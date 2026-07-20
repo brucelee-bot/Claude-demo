@@ -16,7 +16,12 @@ from modules.docgen.date_logic import (
     enforce_temporal_wording,
     project_temporal_context,
 )
-from modules.docgen.product_terms import infer_ps_kind, normalize_ps_reference_text, ps_type_label
+from modules.docgen.product_terms import (
+    infer_ps_kind,
+    normalize_ps_reference_text,
+    ps_statement_case_template,
+    ps_type_label,
+)
 from modules.docgen.sales_contracts import (
     SALES_CONTRACT_YEARS,
     ensure_sales_contract_codes,
@@ -46,20 +51,6 @@ def _normalize_ai_text_spacing(text):
     text = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
     text = "\n".join(line.rstrip() for line in text.split("\n"))
     return re.sub(r"\n[ \t　]*\n+", "\n", text)
-
-
-def _ps_statement_case_template(ps_label):
-    return f"""以下模板综合三个盖章 PS 情况说明案例，仅用于约束正文结构和写法，不得照抄案例中的产品、技术、知识产权、年份或金额。
-
-【PS编号】“【高新技术{ps_label}名称】”该高新技术{ps_label}具有以下优势：
-
-【技术优势第一段：从已提供的核心技术、研发成果、申请书关键技术描述中选择一组关联紧密的技术，说明技术原理、作用对象及带来的性能或使用效果。】
-
-【技术优势第二段：继续归纳另一组技术或工艺，说明其对强度、稳定性、耐久性、精度、效率、安全性、适用性或服务质量的提升。资料充分时可增加一至两个技术优势自然段。】
-
-本高新技术{ps_label}相关知识产权【按关联知识产权列表准确统计】项。【逐项或按技术族说明知识产权名称、编号及其对核心技术的支撑关系；能够确定对应关系时写“某技术得到 IPxx 的支持”，不能确定时只说明这些知识产权共同形成技术支撑，不得强行配对。】
-
-【销售及实施结尾段：仅依据已提供的实施状态、销售合同或上年度销售收入撰写。已提供收入时写明对应年度、{ps_label}名称和销售收入；未提供金额时不得出现具体金额。没有批量实施事实时不得写“已进入批量实施阶段”；没有利润数据时不得声称带来利润。可客观总结其对主营业务收入、技术竞争力或业务发展的支撑作用。】"""
 
 
 def _generate_rd_application_sections(
@@ -1307,7 +1298,7 @@ def ai_write():
     ps_kind = infer_ps_kind(ps_name, context.get("ps_kind"))
     ps_label = ps_type_label(ps_name, ps_kind)
     if field == "ps_statement":
-        user_template = _ps_statement_case_template(ps_label)
+        user_template = ps_statement_case_template(ps_label)
     products_context = context.get("products_context", "")
     company = context.get("company_name", "本公司")
 

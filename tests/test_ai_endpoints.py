@@ -1,9 +1,11 @@
 import json
+import re
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import requests
-from flask import Flask
+from flask import Blueprint, Flask
 from flask_login import LoginManager
 
 from models import Company, ScoreRecord, User, db
@@ -38,7 +40,12 @@ AI_WRITE_FIELDS = (
 class AiRouteTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        app = Flask(__name__)
+        project_root = Path(__file__).resolve().parents[1]
+        app = Flask(
+            __name__,
+            template_folder=str(project_root / "templates"),
+            static_folder=str(project_root / "static"),
+        )
         app.config.update(
             TESTING=True,
             SECRET_KEY="test-secret",
@@ -52,6 +59,11 @@ class AiRouteTests(unittest.TestCase):
         def load_user(user_id):
             return db.session.get(User, int(user_id))
 
+        app.add_url_rule("/", endpoint="dashboard", view_func=lambda: "dashboard")
+        auth_bp = Blueprint("auth", __name__)
+        auth_bp.add_url_rule("/login", "login", lambda: "login")
+        auth_bp.add_url_rule("/logout", "logout", lambda: "logout")
+        app.register_blueprint(auth_bp, url_prefix="/auth")
         app.register_blueprint(parser_bp, url_prefix="/parser")
         app.register_blueprint(docgen_bp, url_prefix="/application")
         app.register_blueprint(scoring_bp, url_prefix="/score")
@@ -216,6 +228,43 @@ class AiRouteTests(unittest.TestCase):
             mocked.call_args.kwargs["product"]["revenue"],
             "318.50",
         )
+        self.assertIn(
+            "综合三个盖章 PS 情况说明案例",
+            mocked.call_args.kwargs["ps_statement_template"],
+        )
+
+    def test_ps_statement_page_renders_visible_template_and_valid_script_value(self):
+        with self.app.app_context():
+            company = db.session.get(Company, self.company_id)
+            company.data_json = json.dumps(
+                {
+                    "ps_0_no": "PS01",
+                    "ps_0_name": "智能校核服务",
+                    "ps_0_type": "service",
+                    "ps_0_tech": "规则校核与异常识别技术",
+                },
+                ensure_ascii=False,
+            )
+            db.session.commit()
+
+        response = self.client.get(
+            f"/application/gaoxin_attachments/{self.company_id}/hitech_products/ps/0"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("AI撰写模板", html)
+        self.assertIn("综合三个盖章 PS 情况说明案例", html)
+        script_value = re.search(
+            r"const psStatementTemplate = (.+?);\nconst productContext",
+            html,
+        )
+        self.assertIsNotNone(script_value)
+        rendered_template = json.loads(script_value.group(1))
+        self.assertIn("综合三个盖章 PS 情况说明案例", rendered_template)
+        self.assertIn("高新技术服务名称", rendered_template)
+        self.assertNotIn("const psStatementTemplate = 【PS编号】", html)
+        self.assertIn("function writePsStatement(btn)", html)
 
     def test_rd_application_allows_3000_words_and_does_not_retry(self):
         with patch(

@@ -12,6 +12,9 @@
 .ps-doc-meta div { background: var(--bg-secondary); border-radius: 12px; padding: 12px; }
 .ps-doc-meta b { display: block; margin-bottom: 4px; color: var(--text-muted); font-size: 12px; }
 .ps-doc-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 14px 0; }
+.ps-template-panel { border: 1px solid var(--border); background: var(--bg-secondary); padding: 14px; margin-bottom: 14px; }
+.ps-template-panel strong { display: block; margin-bottom: 6px; }
+.ps-template-panel pre { margin: 0; max-height: 280px; overflow: auto; white-space: pre-wrap; font-family: inherit; font-size: 13px; line-height: 1.65; color: var(--text-secondary); }
 .ps-doc-editor { width: 100%; min-height: 620px; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1.7; }
 .ps-doc-preview { width: 100%; height: 760px; border: 1px solid var(--border); border-radius: 12px; background: #f8fafc; }
 .status-text { color: var(--text-muted); font-size: 13px; }
@@ -39,11 +42,15 @@
 
   <div class="ps-doc-layout">
     <form method="POST" class="ps-doc-card" id="ps-statement-form">
+      <div class="ps-template-panel">
+        <strong>AI撰写模板</strong>
+        <pre>{{ ps_statement_template }}</pre>
+      </div>
       <div class="ps-doc-actions">
         <button type="button" class="btn btn-primary" onclick="writePsStatement(this)">AI撰写PS情况说明</button>
         <button type="submit" class="btn btn-success">保存</button>
         <a class="btn btn-secondary" href="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}#attachment-hitech_products">返回高新技术产品</a>
-        <span class="status-text" id="ps-statement-status"></span>
+        <span class="status-text" id="ps-statement-status" role="status" aria-live="polite"></span>
       </div>
       <textarea class="ps-doc-editor" name="{{ field_name }}" placeholder="点击“AI撰写PS情况说明”生成内容，或直接在此编辑。">{{ statement_text }}</textarea>
     </form>
@@ -62,15 +69,7 @@
 {% endblock %}
 {% block scripts %}
 <script>
-const psStatementTemplate = {{ """【PS编号】“【高新技术""" ~ product.type_label ~ """名称】”该高新技术""" ~ product.type_label ~ """具有以下优势：
-
-【结合已提供核心技术，说明第一组技术的原理、作用对象及实际优势。】
-
-【结合申请书关键技术、研发成果或销售材料，说明第二组技术对性能、稳定性、效率、耐久性、安全性或适用性的提升；资料充分时增加一至两个自然段。】
-
-本高新技术""" ~ product.type_label ~ """相关知识产权【准确数量】项。【逐项或按技术族说明知识产权名称、编号及其对核心技术的支撑关系。】
-
-【仅根据已提供的实施和销售事实撰写结尾。已提供收入时写明年度、""" ~ product.type_label ~ """名称和销售收入；未提供批量实施、金额或利润事实时不得自行补写。】""" | tojson | safe }};
+const psStatementTemplate = {{ ps_statement_template | tojson | safe }};
 const productContext = {{ product | tojson | safe }};
 
 function normalizeAiTextSpacing(text) {
@@ -126,7 +125,12 @@ function writePsStatement(btn) {
       template: psStatementTemplate,
       target_words: 850
     })
-  }).then(function(r) { return r.json(); })
+  }).then(function(r) {
+    return r.json().then(function(payload) {
+      if (!r.ok) throw new Error(payload.error || 'AI撰写失败');
+      return payload;
+    });
+  })
     .then(function(result) {
       if (!result.success) throw new Error(result.error || 'AI撰写失败');
       ta.value = normalizeAiTextSpacing(result.text);

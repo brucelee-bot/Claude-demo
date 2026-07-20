@@ -34,7 +34,12 @@ from modules.docgen.date_logic import (
     project_temporal_context,
     system_today,
 )
-from modules.docgen.product_terms import infer_ps_kind, normalize_ps_reference_text, ps_type_label
+from modules.docgen.product_terms import (
+    infer_ps_kind,
+    normalize_ps_reference_text,
+    ps_statement_case_template,
+    ps_type_label,
+)
 from modules.docgen.relation_table_exporter import export_relation_table, import_relation_table
 from modules.docgen.sales_contracts import (
     ensure_sales_contract_codes,
@@ -6534,6 +6539,7 @@ def gaoxin_ps_statement(company_id, product_index):
         abort(404)
     product = products[product_index]
     field_name = f"attachment_ps_statement_{product_index}"
+    statement_template = ps_statement_case_template(product["type_label"])
 
     if request.method == "POST":
         data[field_name] = request.form.get(field_name, "")
@@ -6551,6 +6557,7 @@ def gaoxin_ps_statement(company_id, product_index):
         product=product,
         product_index=product_index,
         field_name=field_name,
+        ps_statement_template=statement_template,
         statement_text=normalize_ps_reference_text(
             auto_data.get(field_name, ""),
             product.get("ps_name"),
