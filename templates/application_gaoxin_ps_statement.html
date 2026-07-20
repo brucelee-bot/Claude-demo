@@ -40,12 +40,12 @@
   <div class="ps-doc-layout">
     <form method="POST" class="ps-doc-card" id="ps-statement-form">
       <div class="ps-doc-actions">
-        <button type="button" class="btn btn-primary" onclick="writePsStatement(this)">撰写PS情况说明</button>
+        <button type="button" class="btn btn-primary" onclick="writePsStatement(this)">AI撰写PS情况说明</button>
         <button type="submit" class="btn btn-success">保存</button>
         <a class="btn btn-secondary" href="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}#attachment-hitech_products">返回高新技术产品</a>
         <span class="status-text" id="ps-statement-status"></span>
       </div>
-      <textarea class="ps-doc-editor" name="{{ field_name }}" placeholder="点击“撰写PS情况说明”生成内容，或直接在此编辑。">{{ statement_text }}</textarea>
+      <textarea class="ps-doc-editor" name="{{ field_name }}" placeholder="点击“AI撰写PS情况说明”生成内容，或直接在此编辑。">{{ statement_text }}</textarea>
     </form>
 
     <section class="ps-doc-card">
@@ -64,20 +64,13 @@
 <script>
 const psStatementTemplate = {{ """【PS编号】“【高新技术""" ~ product.type_label ~ """名称】”该高新技术""" ~ product.type_label ~ """具有以下优势：
 
-一、""" ~ product.type_label ~ """概况
-说明该高新技术""" ~ product.type_label ~ """的应用场景、功能定位和产业化情况。
+【结合已提供核心技术，说明第一组技术的原理、作用对象及实际优势。】
 
-二、核心技术及技术优势
-结合技术领域、核心技术、研发成果和""" ~ product.type_label ~ """特点，分点说明技术先进性、稳定性、适用性及与同类""" ~ product.type_label ~ """相比的优势。
+【结合申请书关键技术、研发成果或销售材料，说明第二组技术对性能、稳定性、效率、耐久性、安全性或适用性的提升；资料充分时增加一至两个自然段。】
 
-三、知识产权支撑情况
-说明关联知识产权数量、编号、名称及其对""" ~ product.type_label ~ """核心技术的支撑作用。
+本高新技术""" ~ product.type_label ~ """相关知识产权【准确数量】项。【逐项或按技术族说明知识产权名称、编号及其对核心技术的支撑关系。】
 
-四、成果转化及销售情况
-说明该""" ~ product.type_label ~ """已进入批量实施或稳定销售阶段，并填写年度销售收入。
-
-五、综合说明
-总结该""" ~ product.type_label ~ """对企业主营业务收入、技术竞争力和高新技术""" ~ product.type_label ~ """体系的支撑作用。""" | tojson | safe }};
+【仅根据已提供的实施和销售事实撰写结尾。已提供收入时写明年度、""" ~ product.type_label ~ """名称和销售收入；未提供批量实施、金额或利润事实时不得自行补写。】""" | tojson | safe }};
 const productContext = {{ product | tojson | safe }};
 
 function normalizeAiTextSpacing(text) {
@@ -121,6 +114,7 @@ function writePsStatement(btn) {
         ps_field: productContext.field,
         ps_source: productContext.source,
         ps_revenue: productContext.revenue,
+        ps_revenue_year: productContext.revenue_year,
         ps_ip: (productContext.ips || []).map(function(ip) { return ip.auth_no ? ip.label + '（' + ip.auth_no + '）' : ip.label; }).join('；'),
         ps_rds: (productContext.rds || []).join('；'),
         ps_technologies: (productContext.technologies || []).join('；'),
@@ -130,7 +124,7 @@ function writePsStatement(btn) {
         ps_support: productContext.ip_support
       },
       template: psStatementTemplate,
-      target_words: 1400
+      target_words: 850
     })
   }).then(function(r) { return r.json(); })
     .then(function(result) {

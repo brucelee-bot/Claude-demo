@@ -150,6 +150,73 @@ class AiRouteTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertTrue(response.get_json()["success"])
 
+    def test_ps_statement_uses_case_template_and_grounded_sales_rules(self):
+        with patch(
+            "modules.ai.llm_client.call_llm",
+            return_value={"success": True, "content": "PS01“智能校核服务”该高新技术服务具有以下优势："},
+        ) as mocked:
+            response = self.client.post(
+                "/parser/ai_write",
+                json={
+                    "field": "ps_statement",
+                    "context": {
+                        "company_name": "测试科技有限公司",
+                        "ps_code": "PS01",
+                        "ps_name": "智能校核服务",
+                        "ps_kind": "service",
+                        "ps_revenue": "318.50",
+                        "ps_revenue_year": "2025",
+                        "ps_ip": "IP01 智能校核方法；IP02 数据处理系统",
+                        "ps_technologies": "规则校核；异常识别",
+                    },
+                    "template": "一、旧版通用模板",
+                    "target_words": 850,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        prompt = mocked.call_args.args[0][1]["content"]
+        self.assertIn("综合三个盖章 PS 情况说明案例", prompt)
+        self.assertIn("正文保持 4 至 6 个自然段", prompt)
+        self.assertIn("销售收入年度：2025", prompt)
+        self.assertIn("没有批量实施事实时不得写“已进入批量实施阶段”", prompt)
+        self.assertNotIn("一、旧版通用模板", prompt)
+        self.assertEqual(mocked.call_args.kwargs["temperature"], 0.35)
+
+    def test_ps_statement_page_passes_revenue_year_to_template(self):
+        with self.app.app_context():
+            company = db.session.get(Company, self.company_id)
+            company.data_json = json.dumps(
+                {
+                    "ps_0_no": "PS01",
+                    "ps_0_name": "智能校核服务",
+                    "ps_0_type": "service",
+                    "ps_0_revenue": "318.50",
+                    "ps_0_tech": "规则校核与异常识别技术",
+                    "ps_0_ip_no": "IP01 智能校核方法",
+                },
+                ensure_ascii=False,
+            )
+            db.session.commit()
+
+        with patch(
+            "modules.docgen.routes.render_template",
+            return_value="PS statement page",
+        ) as mocked:
+            response = self.client.get(
+                f"/application/gaoxin_attachments/{self.company_id}/hitech_products/ps/0"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            mocked.call_args.kwargs["product"]["revenue_year"],
+            "2025",
+        )
+        self.assertEqual(
+            mocked.call_args.kwargs["product"]["revenue"],
+            "318.50",
+        )
+
     def test_rd_application_allows_3000_words_and_does_not_retry(self):
         with patch(
             "modules.ai.llm_client.call_llm",

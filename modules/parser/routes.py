@@ -48,6 +48,20 @@ def _normalize_ai_text_spacing(text):
     return re.sub(r"\n[ \t　]*\n+", "\n", text)
 
 
+def _ps_statement_case_template(ps_label):
+    return f"""以下模板综合三个盖章 PS 情况说明案例，仅用于约束正文结构和写法，不得照抄案例中的产品、技术、知识产权、年份或金额。
+
+【PS编号】“【高新技术{ps_label}名称】”该高新技术{ps_label}具有以下优势：
+
+【技术优势第一段：从已提供的核心技术、研发成果、申请书关键技术描述中选择一组关联紧密的技术，说明技术原理、作用对象及带来的性能或使用效果。】
+
+【技术优势第二段：继续归纳另一组技术或工艺，说明其对强度、稳定性、耐久性、精度、效率、安全性、适用性或服务质量的提升。资料充分时可增加一至两个技术优势自然段。】
+
+本高新技术{ps_label}相关知识产权【按关联知识产权列表准确统计】项。【逐项或按技术族说明知识产权名称、编号及其对核心技术的支撑关系；能够确定对应关系时写“某技术得到 IPxx 的支持”，不能确定时只说明这些知识产权共同形成技术支撑，不得强行配对。】
+
+【销售及实施结尾段：仅依据已提供的实施状态、销售合同或上年度销售收入撰写。已提供收入时写明对应年度、{ps_label}名称和销售收入；未提供金额时不得出现具体金额。没有批量实施事实时不得写“已进入批量实施阶段”；没有利润数据时不得声称带来利润。可客观总结其对主营业务收入、技术竞争力或业务发展的支撑作用。】"""
+
+
 def _generate_rd_application_sections(
     call_llm,
     project_desc,
@@ -1281,6 +1295,7 @@ def ai_write():
     ps_field = context.get("ps_field", "未指定领域")
     ps_source = context.get("ps_source", "")
     ps_revenue = context.get("ps_revenue", "")
+    ps_revenue_year = context.get("ps_revenue_year", "")
     ps_ip = context.get("ps_ip", "")
     ps_code = context.get("ps_code", "")
     ps_rds = context.get("ps_rds", "")
@@ -1291,6 +1306,8 @@ def ai_write():
     ps_support = context.get("ps_support", "")
     ps_kind = infer_ps_kind(ps_name, context.get("ps_kind"))
     ps_label = ps_type_label(ps_name, ps_kind)
+    if field == "ps_statement":
+        user_template = _ps_statement_case_template(ps_label)
     products_context = context.get("products_context", "")
     company = context.get("company_name", "本公司")
 
@@ -1325,7 +1342,15 @@ def ai_write():
             "不得编造数值。人员姓名、费用明细、检测数据和日期缺失时写“待补充”。不得输出 Markdown 符号。"
         ),
         "hitech_product_summary": f"按照模板生成高新技术{ps_label}汇总表内容，逐项列出PS编号、{ps_label}名称、技术领域、上年度销售收入、知识产权获得情况和证明材料；必须使用上下文已提供的{ps_label}、收入和知识产权信息，不得编造销售额、专利号或证明材料；可使用自然分段，不要输出 Markdown 表格符号",
-        "ps_statement": f"按照 PS 情况说明模板撰写单个高新技术{ps_label}的情况说明，包含{ps_label}概况、核心技术及技术优势、知识产权支撑情况、成果转化及销售情况、综合说明；必须结合{ps_label}编号、名称、领域、关联知识产权、核心技术、研发成果和销售收入，不得编造客户、合同、资质或未提供数据",
+        "ps_statement": (
+            f"按照已提供的三个案例所归纳出的固定写法，撰写单个高新技术{ps_label}的 PS 情况说明。"
+            f"正文保持 4 至 6 个自然段，不使用“一、二、三”等章节标题：首句点明 PS 编号、{ps_label}名称及"
+            "“具有以下优势”；中间用 2 至 4 个自然段归纳核心技术、技术原理和实际优势；随后单独用一段准确统计"
+            "关联知识产权数量，并逐项或按技术族说明支撑关系；最后一段说明实施与销售成效。"
+            f"必须结合{ps_label}编号、名称、领域、关联知识产权、核心技术、研发成果和销售收入。"
+            "知识产权数量必须根据已提供列表计算；没有明确技术对应关系时不得强行配对。"
+            "不得编造客户、合同、资质、年度、金额、利润、批量实施状态或其他未提供事实。"
+        ),
         "ps_tech": f"说明该{ps_label}采用的关键技术、技术指标（性能参数、精度、效率等），突出技术先进性和独特性",
         "ps_advantage": f"与市场上同类{ps_label}对比，从技术指标、成本、性能、服务等角度分析竞争优势",
         "ps_support": f"说明该{ps_label}拥有的知识产权如何支撑{ps_label}的核心技术，阐述IP与{ps_label}的对应关系及保护范围",
@@ -1352,6 +1377,7 @@ def ai_write():
 技术领域：{ps_field}
 技术来源：{ps_source}
 上年度销售收入：{ps_revenue}万元
+销售收入年度：{ps_revenue_year or '未提供'}
 关联RD项目：{ps_rds}
 关联知识产权：{ps_ip}
 核心技术：{ps_technologies}
@@ -1504,7 +1530,7 @@ RD序号：{rd_code}
                 {"role": "system", "content": "你是高新技术企业认定申报材料撰写专家。若用户提供模板，必须以模板为主，只扩写占位符并保留原结构；只输出最终正文。"},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.7,
+            temperature=0.35 if field == "ps_statement" else 0.7,
             max_tokens=max_tokens,
             timeout=45,
             max_attempts=2,

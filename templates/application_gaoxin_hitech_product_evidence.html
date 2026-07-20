@@ -37,7 +37,7 @@
     </div>
     <div class="upload-row" style="margin-top:14px">
       <a class="btn btn-secondary" href="{{ url_for('docgen.gaoxin_attachments', company_id=company.id) }}#attachment-hitech_products">返回高新技术产品说明</a>
-      <a class="btn btn-primary" href="{{ url_for('docgen.gaoxin_ps_statement', company_id=company.id, product_index=product_index) }}">撰写 PS 情况说明</a>
+      <a class="btn btn-primary" href="{{ url_for('docgen.gaoxin_ps_statement', company_id=company.id, product_index=product_index) }}">AI撰写 {{ product.ps_code or 'PS' }} 情况说明</a>
     </div>
   </section>
 

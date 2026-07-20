@@ -434,7 +434,7 @@
                   <td>{{ row.ps_name }}</td>
                   <td>{{ row.field }}</td>
                   <td>{{ row.revenue }}</td>
-                  <td><div style="display:flex;gap:6px;flex-wrap:wrap"><a class="btn btn-sm btn-primary" href="{{ url_for('docgen.gaoxin_ps_statement', company_id=company.id, product_index=row.index) }}">撰写PS情况说明</a><a class="btn btn-sm btn-secondary" href="{{ url_for('docgen.gaoxin_hitech_product_evidence', company_id=company.id, product_index=row.index) }}">附件制作</a></div></td>
+                  <td><div style="display:flex;gap:6px;flex-wrap:wrap"><a class="btn btn-sm btn-primary" href="{{ url_for('docgen.gaoxin_ps_statement', company_id=company.id, product_index=row.index) }}">AI撰写{{ row.ps_code }}情况说明</a><a class="btn btn-sm btn-secondary" href="{{ url_for('docgen.gaoxin_hitech_product_evidence', company_id=company.id, product_index=row.index) }}">附件制作</a></div></td>
                 </tr>
                 {% else %}
                 <tr><td colspan="5" style="text-align:center;color:var(--text-muted)">暂无高新技术产品（服务）数据，请先编辑 RD-IP-PS 关系表。</td></tr>

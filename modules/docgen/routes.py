@@ -1593,6 +1593,7 @@ def _collect_hitech_product_rows(data):
     for index, product in enumerate(products):
         product["field"] = product.get("field") or data.get(f"ps_{index}_field") or tech_field_path
         product["revenue"] = str(data.get(f"ps_{index}_revenue") or "").strip()
+        product["revenue_year"] = GAOXIN_FINANCE_YEARS[-1]
         product["source"] = str(data.get(f"ps_{index}_source") or "").strip()
         product["tech"] = str(data.get(f"ps_{index}_tech") or "").strip()
         product["advantage"] = str(data.get(f"ps_{index}_advantage") or "").strip()
