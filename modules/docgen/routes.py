@@ -646,10 +646,46 @@ def _compact_contract_text(text):
     return text.strip()
 
 
+SALES_CONTRACT_KEYWORD_EXTRACTION_VERSION = 2
+
+CONTRACT_CONTENT_LABEL_PATTERN = (
+    r"产品名称|货物名称|商品名称|设备名称|软件名称|服务名称|项目名称|"
+    r"合同标的|标的名称|标的物|采购内容|销售内容|供货内容|交付内容|"
+    r"产品内容|服务内容|服务范围|服务事项|工作内容|项目内容|建设内容|"
+    r"技术服务|服务项目|采购项目|名称及规格|产品及规格|货物及规格|"
+    r"设备及规格|技术要求|规格型号"
+)
+
+CONTRACT_KEYWORD_NOISE = (
+    "甲方",
+    "乙方",
+    "丙方",
+    "买方",
+    "卖方",
+    "需方",
+    "供方",
+    "合同编号",
+    "合同金额",
+    "付款方式",
+    "支付方式",
+    "税率",
+    "开户银行",
+    "银行账号",
+    "联系人",
+    "联系电话",
+    "签订日期",
+    "签订地点",
+    "法定代表人",
+    "违约责任",
+    "争议解决",
+)
+
+
 def _clean_contract_candidate(value):
     value = str(value or "").strip()
     value = re.sub(r"\s+", "", value)
     value = re.sub(r"^(?:货物|产品|服务|项目|标的|名称|内容|规格|型号|序号|数量|单位|单价|金额|备注|明细)[：:：]?", "", value)
+    value = re.sub(r"^(?:提供|销售|采购|购置|交付|供应|开发|建设|实施|完成)", "", value)
     value = re.split(r"(?:数量|单位|单价|金额|总价|备注|规格型号|型号规格|交付|验收|付款|税率|小计|合计|技术要求)[：:：]?", value, maxsplit=1)[0]
     value = re.sub(r"(?:[A-Za-z]{0,6}[-_]?\d+(?:\.\d+)?|V\d+(?:\.\d+)*|v\d+(?:\.\d+)*|\d+(?:\.\d+)?)(?:台|套|个|件|批|项|元|万元|%)?.*$", "", value)
     value = re.sub(r"(?<=[一-鿿])[A-Za-z0-9_.-]+$", "", value)
@@ -662,6 +698,18 @@ def _clean_contract_candidate(value):
     if re.search(r"^(?:需方|供方|买方|卖方|合同|协议|日期)$", value):
         return ""
     if re.fullmatch(r"[\dA-Za-z_.\-/]+", value):
+        return ""
+    return value
+
+
+def _clean_contract_keyword(value):
+    value = str(value or "").strip().strip(" ：:，,；;。.【】[]（）()《》<>\"'")
+    value = re.sub(r"\s+", "", value)
+    if len(value) < 2 or len(value) > 40:
+        return ""
+    if any(noise in value for noise in CONTRACT_KEYWORD_NOISE):
+        return ""
+    if re.fullmatch(r"(?:合同|协议|销售合同|采购合同|购销合同|双方|金额|付款|税费|日期|地址)", value):
         return ""
     return value
 
@@ -684,8 +732,8 @@ def _extract_contract_product_candidates(text):
             candidates.append(cleaned)
 
     label_patterns = [
-        r"(?:产品名称|货物名称|商品名称|设备名称|软件名称|服务名称|项目名称|合同标的|采购内容|销售内容|标的名称|产品/服务名称)\s*[：:]\s*([^\n；;。]+)",
-        r"(?:名称及规格|产品及规格|货物及规格|设备及规格|标的物)\s*[：:]\s*([^\n；;。]+)",
+        rf"(?:{CONTRACT_CONTENT_LABEL_PATTERN}|产品/服务名称)\s*[：:]\s*([^\n，,；;。]+)",
+        r"(?:名称及规格|产品及规格|货物及规格|设备及规格|标的物)\s*[：:]\s*([^\n，,；;。]+)",
     ]
     for pattern in label_patterns:
         for match in re.finditer(pattern, text):
@@ -694,7 +742,27 @@ def _extract_contract_product_candidates(text):
                 return candidates
 
     lines = [line.strip() for line in text.splitlines() if line.strip()]
-    header_words = ("产品名称", "货物名称", "商品名称", "设备名称", "服务名称", "项目名称", "名称", "规格", "型号", "数量", "金额")
+    header_words = (
+        "产品名称",
+        "货物名称",
+        "商品名称",
+        "设备名称",
+        "服务名称",
+        "项目名称",
+        "服务内容",
+        "服务范围",
+        "工作内容",
+        "项目内容",
+        "采购内容",
+        "销售内容",
+        "供货内容",
+        "交付内容",
+        "名称",
+        "规格",
+        "型号",
+        "数量",
+        "金额",
+    )
     for index, line in enumerate(lines):
         if any(word in line for word in header_words) and index + 1 < len(lines):
             for next_line in lines[index + 1:index + 5]:
@@ -712,6 +780,30 @@ def _extract_contract_product_candidates(text):
     return candidates
 
 
+def _extract_contract_content_snippets(text, limit=30):
+    lines = [line.strip() for line in _compact_contract_text(text).splitlines() if line.strip()]
+    snippets = []
+    selected_indexes = set()
+    for index, line in enumerate(lines):
+        if not re.search(CONTRACT_CONTENT_LABEL_PATTERN, line):
+            continue
+        for nearby_index in range(index, min(index + 4, len(lines))):
+            if nearby_index in selected_indexes:
+                continue
+            selected_indexes.add(nearby_index)
+            snippets.append(lines[nearby_index])
+            if len(snippets) >= limit:
+                return snippets
+    return snippets
+
+
+def _sales_contract_keyword_extraction_version(item):
+    try:
+        return int((item or {}).get("keyword_extraction_version") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _extract_sales_contract_info(text, row, filename=""):
     text = _compact_contract_text(text)
     filename_candidates = _extract_contract_product_candidates(_contract_filename_product_text(filename))
@@ -719,16 +811,11 @@ def _extract_sales_contract_info(text, row, filename=""):
         keywords = "；".join(filename_candidates[:8])
         summary = f"合同主要涉及{'、'.join(filename_candidates[:3])}等产品/服务。" if filename_candidates else ""
         return {"summary": summary, "keywords": keywords}
-    product_candidates = filename_candidates[:]
-    for candidate in _extract_contract_product_candidates(text):
-        if candidate not in product_candidates:
-            product_candidates.append(candidate)
-    important_snippets = []
-    for line in text.splitlines():
-        if re.search(r"产品名称|货物名称|商品名称|设备名称|服务名称|项目名称|合同标的|采购内容|销售内容|产品内容|服务内容|技术要求|规格型号|标的物", line):
-            important_snippets.append(line.strip())
-        if len(important_snippets) >= 20:
-            break
+    body_candidates = _extract_contract_product_candidates(text)
+    product_candidates = body_candidates[:]
+    if not product_candidates:
+        product_candidates.extend(filename_candidates)
+    important_snippets = _extract_contract_content_snippets(text)
     excerpt = "\n".join(important_snippets + [text[:12000]])[:14000]
     context = "\n".join(
         f"{label}：{value}"
@@ -742,26 +829,29 @@ def _extract_sales_contract_info(text, row, filename=""):
         for value in [str((row or {}).get(key) or "").strip()]
         if value
     )
-    prompt = f"""请从销售合同文本中提取与高新技术成果转化相关的信息，重点识别合同里的主要产品/服务内容。
+    prompt = f"""请从销售合同文本中提取与高新技术成果转化相关的信息。核心任务是识别这份合同实际销售、交付的产品，或者实际提供的服务内容。
 
 当前关系行：
 {context or '暂无'}
 
-程序预提取的产品/服务候选：
+程序从合同正文预提取的产品/服务候选：
 {'；'.join(product_candidates) or '暂无'}
 
 销售合同关键片段和正文：
 {excerpt}
 
 要求：
-1. summary 必须优先写清楚合同标的、主要产品/服务名称、产品功能/用途、交付内容和应用场景；如果候选中有合理产品名称，应纳入摘要。
-2. keywords 提取 8-16 个关键词，前 3 个优先放主要产品/服务名称或产品类别，其后放功能、技术方向、应用场景、交付内容、行业对象。
-3. 不要把甲方、乙方、合同编号、金额、付款、税率、地址、联系人作为关键词。
-4. 不要编造金额、日期、客户名称或合同中没有的性能参数。
-5. 只输出 JSON，不要 markdown，不要解释。
+1. offerings 提取 1-6 个合同中明确出现的产品名称、服务名称、项目标的或主要交付物。这是最重要的字段。
+2. summary 先写清楚合同实际销售或提供什么，再概括其功能、用途、服务范围、交付内容和应用场景。
+3. keywords 提取 6-12 个辅助关键词，仅包含产品功能、服务事项、技术方向、应用场景、交付内容和行业对象。
+4. 不要把企业名称、甲乙方、合同编号、金额、付款、税率、日期、地址、联系人、违约责任等交易或法律信息作为关键词。
+5. 不要用“销售合同”“采购合同”“技术服务”等过于宽泛的词代替具体产品或具体服务。
+6. 合同正文是主要依据；文件名和当前关系行只能帮助理解，不能覆盖正文中的实际产品或服务内容。
+7. 不要编造合同中没有的产品、服务、金额、日期、客户名称或性能参数。
+8. 只输出 JSON，不要 markdown，不要解释。
 
 JSON 格式：
-{{"summary": "合同主要产品内容摘要", "keywords": "产品名称1；产品类别；核心功能；应用场景"}}"""
+{{"summary": "合同产品或服务内容摘要", "offerings": ["具体产品名称", "具体服务名称"], "keywords": ["核心功能", "服务事项", "应用场景"]}}"""
     result = call_llm([
         {"role": "system", "content": "你是高新技术企业申报材料顾问，擅长从销售合同、采购合同和表格型 PDF 中识别主要产品/服务内容。输出必须是可解析 JSON。"},
         {"role": "user", "content": prompt},
@@ -769,26 +859,36 @@ JSON 格式：
     data = _extract_json_object(result.get("content")) if result.get("success") else None
     if isinstance(data, dict):
         summary = str(data.get("summary") or data.get("摘要") or "").strip()
-        keywords = _normalize_relation_value(data.get("keywords") or data.get("关键词") or "")
-        candidate_keywords = "；".join(product_candidates[:4])
-        keyword_candidates = []
-        for item in _as_text_list(keywords):
-            if item and item not in keyword_candidates:
-                keyword_candidates.append(item)
-        merged_keywords = _as_text_list(candidate_keywords) + keyword_candidates
-        keywords = "；".join(dict.fromkeys(merged_keywords[:16]))
+        offerings = (
+            data.get("offerings")
+            or data.get("products_services")
+            or data.get("产品服务")
+            or data.get("产品或服务")
+            or []
+        )
+        keywords = data.get("keywords") or data.get("关键词") or []
+        merged_keywords = []
+        for item in product_candidates[:4] + _as_text_list(offerings) + _as_text_list(keywords):
+            cleaned = _clean_contract_keyword(item)
+            if cleaned and cleaned not in merged_keywords:
+                merged_keywords.append(cleaned)
+        keywords = "；".join(merged_keywords[:16])
         if product_candidates and not any(candidate in summary for candidate in product_candidates[:3]):
             summary = f"合同主要涉及{'、'.join(product_candidates[:3])}等产品/服务。{summary}" if summary else f"合同主要涉及{'、'.join(product_candidates[:3])}等产品/服务。"
         return {"summary": summary, "keywords": keywords}
-    compact = re.sub(r"\s+", " ", text)[:500]
     words = list(product_candidates[:6])
-    for token in re.findall(r"[一-鿿]{2,10}(?:系统|平台|设备|装置|软件|模块|产品|服务)?", compact):
-        cleaned = _clean_contract_candidate(token)
+    fallback_text = " ".join(important_snippets)
+    for token in re.findall(r"[一-鿿]{2,16}(?:系统|平台|设备|装置|软件|模块|产品|服务|解决方案)?", fallback_text):
+        cleaned = _clean_contract_keyword(token)
         if cleaned and cleaned not in words and cleaned not in ["合同", "甲方", "乙方", "双方", "签订", "销售", "付款", "金额"]:
             words.append(cleaned)
         if len(words) >= 12:
             break
-    summary = f"合同主要涉及{'、'.join(product_candidates[:3])}等产品/服务。" if product_candidates else compact
+    summary = (
+        f"合同主要涉及{'、'.join(product_candidates[:3])}等产品/服务。"
+        if product_candidates
+        else (fallback_text[:500] if fallback_text else "")
+    )
     return {"summary": summary, "keywords": "；".join(words)}
 
 
@@ -5941,10 +6041,23 @@ def gaoxin_relation_table_sales_contract_keywords(company_id):
 
     summary = str(file_meta.get("summary") or "").strip()
     keywords = str(file_meta.get("keywords") or "").strip()
-    if force or not keywords:
+    extraction_version = _sales_contract_keyword_extraction_version(file_meta)
+    if force or not keywords or extraction_version < SALES_CONTRACT_KEYWORD_EXTRACTION_VERSION:
         relative_path = str(file_meta.get("relative_path") or "").strip()
         path = _safe_attachment_path(relative_path) if relative_path else ""
         if not path or not os.path.exists(path):
+            if keywords and not force:
+                return jsonify({
+                    "ok": True,
+                    "file": {
+                        "id": file_id,
+                        "code": file_meta.get("contract_code", ""),
+                        "year": file_meta.get("year", ""),
+                        "original_filename": file_meta.get("original_filename", ""),
+                    },
+                    "summary": summary,
+                    "keywords": keywords,
+                })
             return jsonify({"ok": False, "errors": ["销售合同文件不存在，无法解析关键词"]}), 404
         text = _extract_pdf_text(path)
         extracted = _extract_sales_contract_info(
@@ -5956,12 +6069,14 @@ def gaoxin_relation_table_sales_contract_keywords(company_id):
         keywords = str(extracted.get("keywords") or "").strip()
         file_meta["summary"] = summary
         file_meta["keywords"] = keywords
+        file_meta["keyword_extraction_version"] = SALES_CONTRACT_KEYWORD_EXTRACTION_VERSION
 
         required_contracts = ((data.get("required_materials") or {}).get("sales_contracts") or [])
         for item in required_contracts:
             if isinstance(item, dict) and str(item.get("id") or "").strip() == file_id:
                 item["summary"] = summary
                 item["keywords"] = keywords
+                item["keyword_extraction_version"] = SALES_CONTRACT_KEYWORD_EXTRACTION_VERSION
 
         relation_rows = ((data.get("gaoxin_relation_table") or {}).get("rows") or [])
         for relation_row in relation_rows:

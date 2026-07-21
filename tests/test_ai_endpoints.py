@@ -12,7 +12,11 @@ from models import Company, ScoreRecord, User, db
 from modules.ai.analyzer import analyze
 from modules.ai.claude_client import call_claude
 from modules.ai.llm_client import call_llm
-from modules.docgen.routes import docgen_bp
+from modules.docgen.routes import (
+    SALES_CONTRACT_KEYWORD_EXTRACTION_VERSION,
+    _extract_sales_contract_info,
+    docgen_bp,
+)
 from modules.parser import finance_extractor
 from modules.parser.routes import parser_bp
 from modules.scoring.routes import scoring_bp
@@ -373,6 +377,7 @@ class AiRouteTests(unittest.TestCase):
                                     "year": "2024",
                                     "original_filename": "智能校核服务合同.pdf",
                                     "relative_path": "contracts/test.pdf",
+                                    "keywords": "SC2024-01；测试科技有限公司",
                                 }
                             ]
                         }
@@ -399,12 +404,61 @@ class AiRouteTests(unittest.TestCase):
         ):
             response = self.client.post(
                 f"/application/gaoxin_relation_table/{self.company_id}/sales_contract_keywords",
-                json={"file_id": "contract-1", "row": {}, "force": True},
+                json={"file_id": "contract-1", "row": {}, "force": False},
             )
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("继电保护", response.get_json()["keywords"])
         self.assertEqual(mocked.call_args.kwargs["max_attempts"], 1)
+        with self.app.app_context():
+            company = db.session.get(Company, self.company_id)
+            saved = json.loads(company.data_json)
+        saved_contract = saved["gaoxin_attachments"]["relation_sales_contract"]["files"][0]
+        self.assertEqual(
+            saved_contract["keyword_extraction_version"],
+            SALES_CONTRACT_KEYWORD_EXTRACTION_VERSION,
+        )
+
+    def test_sales_contract_keywords_prioritize_product_and_service_content(self):
+        contract_text = """
+        销售合同
+        甲方：某电力有限公司
+        乙方：测试科技有限公司
+        合同编号：SC2024-01
+        服务内容：提供继电保护定值智能校核服务，包括定值单解析、风险分析和校核报告交付。
+        合同金额：人民币壹佰万元
+        """
+        with patch(
+            "modules.docgen.routes.call_llm",
+            return_value={
+                "success": True,
+                "content": json.dumps(
+                    {
+                        "summary": "提供继电保护定值智能校核服务。",
+                        "offerings": ["继电保护定值智能校核服务"],
+                        "keywords": ["定值单解析", "风险分析", "校核报告", "合同金额", "甲方名称"],
+                    },
+                    ensure_ascii=False,
+                ),
+            },
+        ) as mocked:
+            result = _extract_sales_contract_info(
+                contract_text,
+                {},
+                "某电力有限公司2024采购合同.pdf",
+            )
+
+        keywords = result["keywords"].split("；")
+        self.assertEqual(keywords[0], "继电保护定值智能校核服务")
+        self.assertIn("定值单解析", keywords)
+        self.assertIn("风险分析", keywords)
+        self.assertNotIn("合同金额", keywords)
+        self.assertNotIn("甲方名称", keywords)
+        self.assertNotIn("某电力有限公司2024", keywords)
+        prompt = mocked.call_args.args[0][1]["content"]
+        self.assertIn("实际销售、交付的产品", prompt)
+        self.assertIn("实际提供的服务内容", prompt)
+        self.assertIn("合同正文是主要依据", prompt)
 
     def test_system_document_ai_routes_use_single_attempt(self):
         for endpoint, payload in (

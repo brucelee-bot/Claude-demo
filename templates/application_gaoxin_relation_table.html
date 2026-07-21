@@ -546,12 +546,12 @@ function createSalesContractCell(row) {
   filename.textContent = row.sales_contract_filename || '';
   const keywordsLabel = document.createElement('div');
   keywordsLabel.className = 'contract-keywords-label';
-  keywordsLabel.textContent = '关键词（可手动修改）';
+  keywordsLabel.textContent = '产品/服务内容关键词（可手动修改）';
   const keywords = document.createElement('textarea');
   keywords.className = 'contract-keywords-input';
   keywords.setAttribute('data-key', 'sales_contract_keywords');
   keywords.setAttribute('data-contract-keywords', '1');
-  keywords.placeholder = '选择销售合同后自动填入，也可在这里手动补充或修改关键词';
+  keywords.placeholder = '优先识别合同中的产品名称、服务内容、功能用途和应用场景，可手动修改';
   keywords.value = row.sales_contract_keywords || '';
   const status = document.createElement('div');
   status.className = 'contract-keywords';
@@ -788,7 +788,7 @@ async function selectSalesContract(select) {
     renderTechFieldRecommendations();
     return;
   }
-  if (status) status.textContent = contract.keywords ? '已读取已保存的合同关键词' : '正在解析合同关键词...';
+  if (status) status.textContent = contract.keywords ? '正在核验产品/服务内容关键词...' : '正在解析产品/服务内容关键词...';
   await parseSalesContractKeywords(select, false);
 }
 
@@ -808,7 +808,7 @@ async function parseSalesContractKeywords(control, force) {
     button.textContent = '解析中';
   }
   select.disabled = true;
-  if (status) status.textContent = force ? '正在重新解析合同关键词...' : '正在读取合同关键词...';
+  if (status) status.textContent = force ? '正在重新解析产品/服务内容...' : '正在读取产品/服务内容...';
   try {
     const response = await fetch(salesContractKeywordsUrl, {
       method: 'POST',
@@ -840,7 +840,7 @@ async function parseSalesContractKeywords(control, force) {
       contract.summary = data.summary || '';
       contract.keywords = data.keywords || '';
     }
-    if (status) status.textContent = data.keywords ? '合同关键词已解析，可用于批量生成' : '未提取到关键词';
+    if (status) status.textContent = data.keywords ? '产品/服务内容关键词已解析，可用于批量生成' : '未提取到产品或服务内容';
     renderTechFieldRecommendations();
   } finally {
     select.disabled = false;

@@ -109,6 +109,14 @@ class RequiredMaterialTemplateTests(unittest.TestCase):
             self.relation_template,
         )
         self.assertNotIn("请选择合同编号", self.relation_template)
+        self.assertIn(
+            "产品/服务内容关键词（可手动修改）",
+            self.relation_template,
+        )
+        self.assertIn(
+            "优先识别合同中的产品名称、服务内容、功能用途和应用场景",
+            self.relation_template,
+        )
 
     def test_staff_section_exposes_template_download_and_excel_upload(self):
         self.assertIn(
