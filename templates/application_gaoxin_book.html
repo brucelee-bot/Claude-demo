@@ -1637,6 +1637,17 @@ function buildRdAiContext(rdItem) {
   };
 }
 
+function applyRdGeneratedText(textarea, text) {
+  var normalized = normalizeAiTextSpacing(text || '');
+  if (!textarea || !normalized) return '';
+  textarea.value = normalized;
+  textarea.classList.add('auto-filled');
+  textarea.dispatchEvent(new Event('input', {bubbles: true}));
+  textarea.dispatchEvent(new Event('change', {bubbles: true}));
+  textarea.scrollTop = 0;
+  return normalized;
+}
+
 function aiWrite(btn, field) {
   // 判断是 RD 还是 PS 条目
   var rdItem = btn.closest('.rd-item');
@@ -1677,13 +1688,17 @@ function aiWrite(btn, field) {
   fetch('/parser/ai_write', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({field: field, context: context, template: textarea.value || '', target_words: targetWordsForButton(btn)})
+    body: JSON.stringify({
+      field: field,
+      context: context,
+      template: rdItem ? buildRdTemplate(rdItem, field) : (textarea.value || ''),
+      target_words: targetWordsForButton(btn)
+    })
   })
   .then(function(r) { return r.json(); })
   .then(function(result) {
     if (result.success) {
-      textarea.value = normalizeAiTextSpacing(result.text);
-      textarea.classList.add('auto-filled');
+      applyRdGeneratedText(textarea, result.text);
     } else {
       alert('AI 撰写失败: ' + (result.error || '未知错误'));
     }
@@ -1733,7 +1748,7 @@ async function generateRdDescriptionField(item, field) {
       body: JSON.stringify({
         field: field,
         context: buildRdAiContext(item),
-        template: textarea.value || '',
+        template: buildRdTemplate(item, field),
         target_words: targetWords
       })
     });
@@ -1743,9 +1758,7 @@ async function generateRdDescriptionField(item, field) {
     }
     var text = normalizeAiTextSpacing(result.text || '');
     if (!text) throw new Error('AI返回内容为空');
-    textarea.value = text;
-    textarea.classList.add('auto-filled');
-    textarea.dispatchEvent(new Event('input', {bubbles: true}));
+    applyRdGeneratedText(textarea, text);
   } finally {
     textarea.classList.remove('is-writing');
   }
@@ -2018,13 +2031,7 @@ function rdTemporalStatus(period) {
   };
 }
 
-function fillTemplate(btn, field) {
-  var rdItem = btn.closest('.rd-item');
-  if (!rdItem) return;
-  var textarea = rdItem.querySelector('[name$="_' + field + '"]');
-  if (!textarea) return;
-  if (textarea.value.trim() && !confirm('当前已有内容，覆盖吗？')) return;
-  
+function buildRdTemplate(rdItem, field) {
   var nameEl = rdItem.querySelector('[name$="_name"]');
   var projectName = nameEl ? (nameEl.value.trim() || '【项目名称】') : '【项目名称】';
   var period = currentItemValue(rdItem, 'period') || '【起止时间】';
@@ -2062,8 +2069,17 @@ function fillTemplate(btn, field) {
 
     result: resultTemplate
   };
-  
-  textarea.value = normalizeAiTextSpacing(templates[field] || '');
+
+  return normalizeAiTextSpacing(templates[field] || '');
+}
+
+function fillTemplate(btn, field) {
+  var rdItem = btn.closest('.rd-item');
+  if (!rdItem) return;
+  var textarea = rdItem.querySelector('[name$="_' + field + '"]');
+  if (!textarea) return;
+  if (textarea.value.trim() && !confirm('当前已有内容，覆盖吗？')) return;
+  applyRdGeneratedText(textarea, buildRdTemplate(rdItem, field));
 }
 
 

@@ -168,6 +168,38 @@ class AiRouteTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertTrue(response.get_json()["success"])
 
+    def test_rd_section_ai_write_preserves_the_supplied_template_structure(self):
+        template = (
+            "组织管理方式：\n"
+            "【结合项目实际填写组织实施方式】\n"
+            "项目所属技术领域：【技术领域】。"
+        )
+        with patch(
+            "modules.ai.llm_client.call_llm",
+            return_value={"success": True, "content": "按模板生成的正文"},
+        ) as mocked:
+            response = self.client.post(
+                "/parser/ai_write",
+                json={
+                    "field": "purpose",
+                    "context": {
+                        "company_name": "测试科技有限公司",
+                        "rd_name": "智能校核技术研发",
+                        "rd_period": "2025.01-2025.12",
+                    },
+                    "template": template,
+                    "target_words": 400,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        prompt = mocked.call_args.args[0][1]["content"]
+        self.assertIn("用户给定模板：", prompt)
+        self.assertIn(template, prompt)
+        self.assertIn("必须优先保留用户模板的标题层级、段落顺序", prompt)
+        system_prompt = mocked.call_args.args[0][0]["content"]
+        self.assertIn("必须以模板为主", system_prompt)
+
     def test_ps_statement_uses_case_template_and_grounded_sales_rules(self):
         with patch(
             "modules.ai.llm_client.call_llm",

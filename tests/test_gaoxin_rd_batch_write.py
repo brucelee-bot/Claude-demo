@@ -28,6 +28,15 @@ class GaoxinRdBatchWriteTests(unittest.TestCase):
         self.assertIn("await saveRdBatchContent()", self.template)
         self.assertIn("updateRdBatchProgress(position, tasks.length)", self.template)
 
+    def test_batch_writer_uses_rd_templates_and_displays_generated_text(self):
+        self.assertIn("function buildRdTemplate(rdItem, field)", self.template)
+        self.assertIn("template: buildRdTemplate(item, field)", self.template)
+        self.assertIn("function applyRdGeneratedText(textarea, text)", self.template)
+        self.assertIn("textarea.value = normalized", self.template)
+        self.assertIn("textarea.dispatchEvent(new Event('input'", self.template)
+        self.assertIn("textarea.dispatchEvent(new Event('change'", self.template)
+        self.assertIn("applyRdGeneratedText(textarea, text)", self.template)
+
 
 if __name__ == "__main__":
     unittest.main()
