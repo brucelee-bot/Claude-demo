@@ -655,6 +655,37 @@ function collectRows() {
   return Array.from(document.querySelectorAll('#relation-body tr')).map(collectRowFromElement);
 }
 
+function normalizeResultName(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s，,。；;：:、（）()《》【】\[\]“”"'‘’·._\-—－\/\\]+/g, '');
+}
+
+function duplicateResultNameErrors(rows) {
+  const seen = new Map();
+  const errors = [];
+  rows.forEach((row, index) => {
+    const name = String(row.result_name || '').trim();
+    const key = normalizeResultName(name);
+    if (!key) return;
+    if (seen.has(key)) {
+      const previous = seen.get(key);
+      errors.push(`第${index + 1}行：成果名称“${name}”与第${previous.index + 1}行“${previous.name}”重复，成果名称不可以重复`);
+      return;
+    }
+    seen.set(key, {name, index});
+  });
+  return errors;
+}
+
+function existingResultNames(excludedRow) {
+  return Array.from(document.querySelectorAll('#relation-body tr'))
+    .filter(tr => tr !== excludedRow)
+    .map(tr => String(collectRowFromElement(tr).result_name || '').trim())
+    .filter(Boolean);
+}
+
 function addRow(row) {
   const nextRow = row || emptyRow();
   if (!row) {
@@ -671,7 +702,10 @@ function addRow(row) {
 
 function copyRow(button) {
   const tr = button.closest('tr');
-  tr.after(createRow(collectRowFromElement(tr), false));
+  const copied = collectRowFromElement(tr);
+  copied.result_no = getNextSequenceValue('result_no', '成果');
+  copied.result_name = '';
+  tr.after(createRow(copied, false));
   updateGroupRowspans();
 }
 
@@ -872,13 +906,19 @@ async function generateResultForRow(tr) {
   const response = await fetch(generateResultUrl, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({row})
+    body: JSON.stringify({row, existing_result_names: existingResultNames(tr)})
   });
   const data = await response.json().catch(() => ({errors: ['AI 生成失败']}));
   if (!response.ok || !data.ok) {
     return {ok: false, errors: data.errors || ['AI 生成失败']};
   }
-  setFieldValueIfBlank(tr, 'result_name', data.result_name);
+  const generatedName = String(data.result_name || '').trim();
+  const generatedKey = normalizeResultName(generatedName);
+  const duplicate = existingResultNames(tr).some(name => normalizeResultName(name) === generatedKey);
+  if (generatedKey && duplicate) {
+    return {ok: false, errors: [`成果名称“${generatedName}”与表内已有成果名称重复，请重新生成`]};
+  }
+  setFieldValueIfBlank(tr, 'result_name', generatedName);
   renderTechFieldRecommendations();
   return {ok: true};
 }
@@ -1440,10 +1480,16 @@ async function importRows() {
 
 async function saveRows(shouldContinue) {
   showErrors([]);
+  const rows = collectRows();
+  const duplicateErrors = duplicateResultNameErrors(rows);
+  if (duplicateErrors.length) {
+    showErrors(duplicateErrors);
+    return false;
+  }
   const response = await fetch(saveUrl, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({rows: collectRows(), tech_field_path: getTechFieldPath()})
+    body: JSON.stringify({rows, tech_field_path: getTechFieldPath()})
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({errors: ['保存失败']}));
@@ -1456,10 +1502,16 @@ async function saveRows(shouldContinue) {
 
 async function exportRows() {
   showErrors([]);
+  const rows = collectRows();
+  const duplicateErrors = duplicateResultNameErrors(rows);
+  if (duplicateErrors.length) {
+    showErrors(duplicateErrors);
+    return;
+  }
   const response = await fetch(exportUrl, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({rows: collectRows(), tech_field_path: getTechFieldPath()})
+    body: JSON.stringify({rows, tech_field_path: getTechFieldPath()})
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({errors: ['导出失败']}));

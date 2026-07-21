@@ -4358,10 +4358,19 @@ def _relation_source_details(row):
     return patent_name, contract_content
 
 
+def _relation_name_key(value):
+    return re.sub(
+        r"[\s，,。；;：:、（）()《》【】\[\]“”\"'‘’·._\-—－/\\]+",
+        "",
+        str(value or "").strip().lower(),
+    )
+
+
 def _validate_relation_rows(rows):
     errors = []
     ip_results = {}
     result_names = {}
+    result_name_usage = {}
     name_usage = {}
     rd_ps_usage = {}
 
@@ -4409,6 +4418,16 @@ def _validate_relation_rows(rows):
             if old_name and old_name != result_name:
                 errors.append(f"{label}：同一成果序号不能对应多个成果名称")
             result_names[result_no] = result_name
+        result_name_key = _relation_name_key(result_name)
+        if result_name_key:
+            previous = result_name_usage.get(result_name_key)
+            if previous:
+                previous_name, previous_label = previous
+                errors.append(
+                    f"{label}：成果名称“{result_name}”与{previous_label}“{previous_name}”重复，成果名称不可以重复"
+                )
+            else:
+                result_name_usage[result_name_key] = (result_name, label)
 
         add_name_usage("RD名称", row.get("rd_activity"), label)
         add_name_usage("PS名称", row.get("ps_name"), label)
@@ -5295,10 +5314,18 @@ JSON 格式：
     return {"success": True, "ps_name": ps_name}
 
 
-def _generate_relation_result(row):
+def _generate_relation_result(row, existing_result_names=None):
     ip_name, contract_content = _relation_source_details(row)
     if not ip_name and not contract_content:
         return {"success": False, "error": "请先填写专利名称或销售合同内容（合同关键词/摘要）"}
+
+    existing_names = []
+    existing_name_keys = set()
+    for name in _as_text_list(existing_result_names or []):
+        name_key = _relation_name_key(name)
+        if name_key and name_key not in existing_name_keys:
+            existing_names.append(name)
+            existing_name_keys.add(name_key)
 
     context = {
         "研发活动": str(row.get("rd_activity") or "").strip(),
@@ -5318,31 +5345,51 @@ def _generate_relation_result(row):
         if ip_name else
         "仅提供了销售合同内容，成果名称只能依托合同中明确的产品、服务、应用场景或交付内容生成，不得虚构专利或授权信息。"
     )
-    prompt = f"""请根据以下 RD-IP-PS 关系信息，生成高新技术企业申报材料中的科技成果名称。
+    existing_names_text = "；".join(existing_names) if existing_names else "暂无"
+    base_prompt = f"""请根据以下 RD-IP-PS 关系信息，生成高新技术企业申报材料中的科技成果名称。
 
 {context_text}
+
+本表已经使用的成果名称：
+{existing_names_text}
 
 生成要求：
 1. {source_instruction}
 2. 成果名称要能体现从研发活动到成果转化和 PS 名称之间的关联性，通常是产品/工艺/系统/材料/服务类专业名词。
-3. 不要写成完整句子，不要虚构具体专利号、性能参数、检测数据、未给出的企业事实。
-4. 只输出 JSON，不要 markdown，不要解释。
+3. 新成果名称不得与“本表已经使用的成果名称”中的任何名称重复，也不能只通过增加序号、年份或标点规避重复。
+4. 不要写成完整句子，不要虚构具体专利号、性能参数、检测数据、未给出的企业事实。
+5. 只输出 JSON，不要 markdown，不要解释。
 
 JSON 格式：
 {{"result_name": "成果名称"}}"""
-    result = call_llm([
-        {"role": "system", "content": "你是高新技术企业认定申报顾问，擅长基于专利内容和销售合同内容生成科技成果名称。只能使用已提供的事实依据；两类依据同时存在时需要综合使用。输出必须是可解析 JSON。"},
-        {"role": "user", "content": prompt},
-    ], temperature=0.2, max_tokens=400, timeout=40, max_attempts=2)
-    if not result.get("success"):
-        return {"success": False, "error": result.get("error") or "AI 生成失败"}
+    duplicate_name = ""
+    for attempt in range(2):
+        prompt = base_prompt
+        if duplicate_name:
+            prompt += (
+                f"\n\n你刚才生成的“{duplicate_name}”与已有成果名称重复。"
+                "请基于本行专利或合同中的具体技术、产品、服务内容重新提炼一个不重复的专业成果名称。"
+            )
+        result = call_llm([
+            {"role": "system", "content": "你是高新技术企业认定申报顾问，擅长基于专利内容和销售合同内容生成互不重复的科技成果名称。只能使用已提供的事实依据；两类依据同时存在时需要综合使用。输出必须是可解析 JSON。"},
+            {"role": "user", "content": prompt},
+        ], temperature=0.2, max_tokens=400, timeout=40, max_attempts=2)
+        if not result.get("success"):
+            return {"success": False, "error": result.get("error") or "AI 生成失败"}
 
-    data = _parse_relation_result_content(result.get("content"))
-    fallback = _fallback_relation_result(row)
-    result_name = str(data.get("result_name") or fallback.get("result_name") or "").strip()
-    if not result_name:
-        return {"success": False, "error": "AI 返回内容不完整，请重试"}
-    return {"success": True, "result_name": result_name}
+        data = _parse_relation_result_content(result.get("content"))
+        fallback = _fallback_relation_result(row)
+        result_name = str(data.get("result_name") or fallback.get("result_name") or "").strip()
+        if not result_name:
+            return {"success": False, "error": "AI 返回内容不完整，请重试"}
+        if _relation_name_key(result_name) not in existing_name_keys:
+            return {"success": True, "result_name": result_name}
+        duplicate_name = result_name
+
+    return {
+        "success": False,
+        "error": f"AI 连续生成了重复成果名称“{duplicate_name}”，请补充更具体的专利或合同内容后重试",
+    }
 
 
 def _merge_relation_fields(data):
@@ -6107,9 +6154,20 @@ def gaoxin_relation_table_sales_contract_keywords(company_id):
 @docgen_bp.route("/gaoxin_relation_table/<int:company_id>/generate_result", methods=["POST"])
 @login_required
 def gaoxin_relation_table_generate_result(company_id):
-    Company.query.filter_by(id=company_id, user_id=current_user.id).first_or_404()
+    company = Company.query.filter_by(id=company_id, user_id=current_user.id).first_or_404()
     payload = request.get_json(silent=True) or {}
-    generated = _generate_relation_result(payload.get("row") or {})
+    data = _load_company_data(company)
+    saved_rows = ((data.get("gaoxin_relation_table") or {}).get("rows") or [])
+    existing_result_names = [
+        str(row.get("result_name") or "").strip()
+        for row in saved_rows
+        if isinstance(row, dict) and str(row.get("result_name") or "").strip()
+    ]
+    existing_result_names.extend(_as_text_list(payload.get("existing_result_names") or []))
+    generated = _generate_relation_result(
+        payload.get("row") or {},
+        existing_result_names,
+    )
     if not generated.get("success"):
         return jsonify({"ok": False, "errors": [generated.get("error") or "AI 生成失败"]}), 400
     return jsonify({"ok": True, "result_name": generated["result_name"]})

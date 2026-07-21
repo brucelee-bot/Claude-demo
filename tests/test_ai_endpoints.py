@@ -15,6 +15,7 @@ from modules.ai.llm_client import call_llm
 from modules.docgen.routes import (
     SALES_CONTRACT_KEYWORD_EXTRACTION_VERSION,
     _extract_sales_contract_info,
+    _generate_relation_result,
     docgen_bp,
 )
 from modules.parser import finance_extractor
@@ -362,6 +363,31 @@ class AiRouteTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertTrue(response.get_json()["ok"])
                 self.assertTrue(response.get_json()[response_key])
+
+    def test_result_generation_retries_when_name_duplicates_existing_result(self):
+        with patch(
+            "modules.docgen.routes.call_llm",
+            side_effect=(
+                {"success": True, "content": '{"result_name":"智能校核技术成果"}'},
+                {"success": True, "content": '{"result_name":"继电保护定值风险分析成果"}'},
+            ),
+        ) as mocked:
+            generated = _generate_relation_result(
+                {
+                    "ip_name": "一种继电保护定值校核方法",
+                    "sales_contract_keywords": "继电保护定值智能校核服务；风险分析",
+                },
+                ["智能校核技术成果"],
+            )
+
+        self.assertTrue(generated["success"])
+        self.assertEqual(generated["result_name"], "继电保护定值风险分析成果")
+        self.assertEqual(mocked.call_count, 2)
+        first_prompt = mocked.call_args_list[0].args[0][1]["content"]
+        second_prompt = mocked.call_args_list[1].args[0][1]["content"]
+        self.assertIn("本表已经使用的成果名称", first_prompt)
+        self.assertIn("智能校核技术成果", first_prompt)
+        self.assertIn("与已有成果名称重复", second_prompt)
 
     def test_sales_contract_keyword_route_calls_ai_once(self):
         with self.app.app_context():

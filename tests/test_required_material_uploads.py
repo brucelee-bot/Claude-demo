@@ -17,6 +17,7 @@ from modules.docgen.routes import (
     _normalize_relation_rows,
     _relation_sales_contract_options,
     _summarize_hr_staff_rows,
+    _validate_relation_rows,
 )
 from modules.docgen.relation_table_exporter import export_relation_table, import_relation_table
 from modules.docgen.sales_contracts import (
@@ -649,6 +650,36 @@ class RequiredMaterialDeletionTests(unittest.TestCase):
 
 
 class SalesContractRelationExportTests(unittest.TestCase):
+    def test_relation_validation_rejects_duplicate_result_names(self):
+        rows = [
+            {
+                "year": "2024",
+                "rd_code": "RD01",
+                "rd_activity": "继电保护校核技术的研发",
+                "ip_code": "IP01",
+                "ip_name": "一种继电保护校核方法",
+                "ps_code": "PS01",
+                "ps_name": "继电保护校核服务",
+                "result_no": "成果01",
+                "result_name": "继电保护智能校核成果",
+            },
+            {
+                "year": "2024",
+                "rd_code": "RD01",
+                "rd_activity": "继电保护校核技术的研发",
+                "ip_code": "IP02",
+                "ip_name": "一种风险分析方法",
+                "ps_code": "PS01",
+                "ps_name": "继电保护校核服务",
+                "result_no": "成果02",
+                "result_name": "继电保护 智能校核成果",
+            },
+        ]
+
+        errors = _validate_relation_rows(rows)
+
+        self.assertTrue(any("成果名称不可以重复" in error for error in errors))
+
     def test_export_uses_original_pdf_filename_in_sales_contract_column(self):
         stream = export_relation_table(
             [
