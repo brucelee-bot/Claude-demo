@@ -5924,7 +5924,7 @@ def gaoxin_relation_table_sales_contract_keywords(company_id):
     payload = request.get_json(silent=True) or {}
     file_id = str(payload.get("file_id") or "").strip()
     if not file_id:
-        return jsonify({"ok": False, "errors": ["请先选择销售合同编号"]}), 400
+        return jsonify({"ok": False, "errors": ["请先选择销售合同"]}), 400
     row = payload.get("row") if isinstance(payload.get("row"), dict) else {}
     force = bool(payload.get("force"))
     data = _load_company_data(company)

@@ -18,6 +18,7 @@ from modules.docgen.routes import (
     _relation_sales_contract_options,
     _summarize_hr_staff_rows,
 )
+from modules.docgen.relation_table_exporter import export_relation_table, import_relation_table
 from modules.docgen.sales_contracts import (
     ensure_sales_contract_codes,
     remap_sales_contract_rows,
@@ -54,6 +55,9 @@ class RequiredMaterialTemplateTests(unittest.TestCase):
         cls.score_template = (ROOT / "templates" / "score_gaoxin_form.html").read_text(
             encoding="utf-8"
         )
+        cls.relation_template = (
+            ROOT / "templates" / "application_gaoxin_relation_table.html"
+        ).read_text(encoding="utf-8")
 
     def test_required_material_card_has_four_upload_sections(self):
         self.assertIn("<h3>必须上传的材料</h3>", self.upload_template)
@@ -85,6 +89,26 @@ class RequiredMaterialTemplateTests(unittest.TestCase):
         self.assertIn("此处不解析合同内容", self.upload_template)
         self.assertIn("正在保存 ${year} 年合同", self.upload_template)
         self.assertNotIn("正在识别 ${year} 年合同", self.upload_template)
+
+    def test_sales_contracts_are_displayed_by_original_pdf_filename(self):
+        self.assertIn(
+            "materialEscapeHtml(item.original_filename || '销售合同.pdf')",
+            self.upload_template,
+        )
+        self.assertNotIn(
+            "item.contract_code || '未编号合同'",
+            self.upload_template,
+        )
+        self.assertIn("已按 PDF 文件名保存", self.upload_template)
+        self.assertIn(
+            "option.textContent = contract.original_filename || contract.code || '未命名合同';",
+            self.relation_template,
+        )
+        self.assertIn(
+            "contract.original_filename === row.sales_contract_filename",
+            self.relation_template,
+        )
+        self.assertNotIn("请选择合同编号", self.relation_template)
 
     def test_staff_section_exposes_template_download_and_excel_upload(self):
         self.assertIn(
@@ -614,6 +638,60 @@ class RequiredMaterialDeletionTests(unittest.TestCase):
 
         self.assertEqual(contracts[0]["year"], "2024")
         self.assertEqual(contracts[0]["contract_code"], "2024合同01")
+
+
+class SalesContractRelationExportTests(unittest.TestCase):
+    def test_export_uses_original_pdf_filename_in_sales_contract_column(self):
+        stream = export_relation_table(
+            [
+                {
+                    "rd_code": "RD01",
+                    "year": "2024",
+                    "rd_activity": "智能校核研发",
+                    "sales_contract_code": "2024合同01",
+                    "sales_contract_filename": "继电保护智能校核服务合同.pdf",
+                }
+            ]
+        )
+        workbook = load_workbook(stream, data_only=True)
+        sheet = workbook.active
+
+        self.assertEqual(sheet.cell(1, 11).value, "销售合同")
+        self.assertEqual(sheet.cell(2, 11).value, "继电保护智能校核服务合同.pdf")
+
+    def test_import_reads_sales_contract_column_as_pdf_filename(self):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(
+            [
+                "序号",
+                "年份",
+                "研发活动",
+                "知识产权名称",
+                "成果名称",
+                "销售合同",
+            ]
+        )
+        sheet.append(
+            [
+                "RD01",
+                "2024",
+                "智能校核研发",
+                "智能校核专利",
+                "智能校核成果",
+                "继电保护智能校核服务合同.pdf",
+            ]
+        )
+        stream = io.BytesIO()
+        workbook.save(stream)
+        stream.seek(0)
+
+        rows = import_relation_table(stream)
+
+        self.assertEqual(
+            rows[0]["sales_contract_filename"],
+            "继电保护智能校核服务合同.pdf",
+        )
 
 
 class RequiredMaterialPersistenceTests(unittest.TestCase):

@@ -499,6 +499,7 @@ function createSalesContractCell(row) {
   const matchedContract = contractOptions.find(contract =>
     (row.sales_contract_file_id && contract.id === row.sales_contract_file_id)
     || (row.sales_contract_code && contract.code === row.sales_contract_code)
+    || (row.sales_contract_filename && contract.original_filename === row.sales_contract_filename)
   );
   if (matchedContract) {
     row.sales_contract_file_id = matchedContract.id;
@@ -521,13 +522,13 @@ function createSalesContractCell(row) {
   select.setAttribute('data-contract-select', '1');
   const blank = document.createElement('option');
   blank.value = '';
-  blank.textContent = contractOptions.length ? '请选择合同编号' : '暂无合同，请先在评分表上传';
+  blank.textContent = contractOptions.length ? '请选择销售合同' : '暂无合同，请先在评分表上传';
   select.appendChild(blank);
   contractOptions.forEach(contract => {
     const option = document.createElement('option');
     option.value = contract.id;
-    option.textContent = contract.code || contract.original_filename || '未编号合同';
-    option.title = [contract.code, contract.original_filename].filter(Boolean).join(' - ');
+    option.textContent = contract.original_filename || contract.code || '未命名合同';
+    option.title = contract.original_filename || contract.code || '';
     select.appendChild(option);
   });
   select.value = matchedContract ? matchedContract.id : (row.sales_contract_file_id || '');
@@ -542,7 +543,7 @@ function createSalesContractCell(row) {
   const filename = document.createElement('div');
   filename.className = 'contract-file-name';
   filename.setAttribute('data-contract-filename', '1');
-  filename.textContent = row.sales_contract_filename ? '原文件：' + row.sales_contract_filename : '';
+  filename.textContent = row.sales_contract_filename || '';
   const keywordsLabel = document.createElement('div');
   keywordsLabel.className = 'contract-keywords-label';
   keywordsLabel.textContent = '关键词（可手动修改）';
@@ -550,7 +551,7 @@ function createSalesContractCell(row) {
   keywords.className = 'contract-keywords-input';
   keywords.setAttribute('data-key', 'sales_contract_keywords');
   keywords.setAttribute('data-contract-keywords', '1');
-  keywords.placeholder = '选择合同编号后自动填入，也可在这里手动补充或修改关键词';
+  keywords.placeholder = '选择销售合同后自动填入，也可在这里手动补充或修改关键词';
   keywords.value = row.sales_contract_keywords || '';
   const status = document.createElement('div');
   status.className = 'contract-keywords';
@@ -772,7 +773,7 @@ function applyContractOption(tr, contract) {
   setContractValue(tr, 'sales_contract_keywords', contract ? contract.keywords : '');
   const filename = tr.querySelector('[data-contract-filename]');
   const keywords = tr.querySelector('[data-contract-keywords]');
-  if (filename) filename.textContent = contract && contract.original_filename ? '原文件：' + contract.original_filename : '';
+  if (filename) filename.textContent = contract && contract.original_filename ? contract.original_filename : '';
   if (keywords) keywords.value = contract ? (contract.keywords || '') : '';
 }
 
@@ -796,7 +797,7 @@ async function parseSalesContractKeywords(control, force) {
   const tr = control.closest('tr');
   const select = tr && tr.querySelector('[data-contract-select]');
   if (!tr || !select || !select.value) {
-    showErrors(['请先选择销售合同编号']);
+    showErrors(['请先选择销售合同']);
     return;
   }
   const button = tr.querySelector('.contract-parse-button');
@@ -831,7 +832,7 @@ async function parseSalesContractKeywords(control, force) {
     setContractValue(tr, 'sales_contract_keywords', data.keywords || '');
     const filename = tr.querySelector('[data-contract-filename]');
     const keywords = tr.querySelector('[data-contract-keywords]');
-    if (filename) filename.textContent = data.file.original_filename ? '原文件：' + data.file.original_filename : '';
+    if (filename) filename.textContent = data.file.original_filename || '';
     if (keywords) keywords.value = data.keywords || '未提取到关键词，请确认 PDF 是否包含可识别文本';
     const contract = findContractOption(data.file.id);
     if (contract) {

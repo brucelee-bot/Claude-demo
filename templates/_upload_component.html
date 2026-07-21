@@ -623,7 +623,7 @@ function renderSalesContractPreview(year) {
   preview.innerHTML = yearContracts.map(item =>
     '<div class="contract-preview-item">' +
       '<div class="contract-preview-main">' +
-        '<strong>' + materialEscapeHtml(item.contract_code || '未编号合同') + ' · ' + materialEscapeHtml(item.original_filename || '销售合同.pdf') + '</strong>' +
+        '<strong>' + materialEscapeHtml(item.original_filename || '销售合同.pdf') + '</strong>' +
         '<small>' + materialEscapeHtml(item.uploaded_at || '已保存，待后续按需解析') + '</small>' +
       '</div>' +
       '<button type="button" class="btn btn-danger btn-sm" onclick="deleteSalesContract(\'' + materialEscapeHtml(item.id || '') + '\')">删除</button>' +
@@ -669,7 +669,7 @@ async function uploadSalesContracts(year, selectedFiles) {
       completed += 1;
       renderSalesContractPreview(year);
     }
-    status.textContent = `已保存并编号，${year} 年共 ${salesContractsForYear(year).length} 份`;
+    status.textContent = `已按 PDF 文件名保存，${year} 年共 ${salesContractsForYear(year).length} 份`;
     input.value = '';
   } catch (err) {
     status.textContent = `已完成 ${completed}/${files.length}`;
