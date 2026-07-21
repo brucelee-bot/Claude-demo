@@ -197,6 +197,9 @@ class AiRouteTests(unittest.TestCase):
         self.assertIn("用户给定模板：", prompt)
         self.assertIn(template, prompt)
         self.assertIn("必须优先保留用户模板的标题层级、段落顺序", prompt)
+        self.assertIn("只补写当前栏目要求的内容", prompt)
+        self.assertIn("不得扩展为完整项目书", prompt)
+        self.assertNotIn("补写项目背景、研发内容及目标、计划进度和验收意见", prompt)
         system_prompt = mocked.call_args.args[0][0]["content"]
         self.assertIn("必须以模板为主", system_prompt)
 
