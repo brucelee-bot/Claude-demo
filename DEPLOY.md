@@ -10,9 +10,9 @@ Python Functions，也保留了 Render/Docker 部署方式。
 ```env
 SECRET_KEY=一串很长的随机字符串
 DATABASE_URL=PostgreSQL 连接串
-LLM_API_BASE=https://api.deepseek.com
+LLM_API_BASE=https://api.psydo.top/v1
 LLM_API_KEY=你的 LLM API Key
-LLM_MODEL=deepseek-chat
+LLM_MODEL=gpt-5.6-sol
 BLOB_READ_WRITE_TOKEN=Vercel Blob 读写令牌
 MAX_CONTENT_LENGTH=4194304
 MAX_FORM_MEMORY_SIZE=4194304

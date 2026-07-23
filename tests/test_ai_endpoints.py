@@ -10,7 +10,6 @@ from flask_login import LoginManager
 
 from models import Company, ScoreRecord, User, db
 from modules.ai.analyzer import analyze
-from modules.ai.claude_client import call_claude
 from modules.ai.llm_client import call_llm
 from modules.docgen.routes import (
     SALES_CONTRACT_KEYWORD_EXTRACTION_VERSION,
@@ -637,7 +636,7 @@ class LlmClientTests(unittest.TestCase):
         self.assertEqual(session.post.call_count, 2)
         self.assertEqual(session.post.call_args_list[0].kwargs["json"]["model"], "test")
 
-    def test_upstream_failed_400_switches_to_fallback_model(self):
+    def test_upstream_failed_400_retries_configured_model(self):
         failed = MagicMock(
             status_code=400,
             text='{"error":{"message":"Upstream request failed"}}',
@@ -657,10 +656,6 @@ class LlmClientTests(unittest.TestCase):
                     "model": "gpt-5.5",
                 },
             ),
-            patch.dict(
-                "modules.ai.llm_client.os.environ",
-                {"LLM_FALLBACK_MODELS": "gpt-5.4-mini,gpt-5.4"},
-            ),
             patch("requests.Session", return_value=session),
             patch("modules.ai.llm_client.time.sleep"),
         ):
@@ -675,9 +670,9 @@ class LlmClientTests(unittest.TestCase):
             call.kwargs["json"]["model"]
             for call in session.post.call_args_list
         ]
-        self.assertEqual(requested_models, ["gpt-5.5", "gpt-5.4-mini"])
+        self.assertEqual(requested_models, ["gpt-5.5", "gpt-5.5"])
 
-    def test_upstream_access_forbidden_switches_to_claude(self):
+    def test_upstream_access_forbidden_returns_error_after_retry(self):
         forbidden = MagicMock(
             status_code=502,
             text='{"error":{"message":"Upstream access forbidden, please contact administrator"}}',
@@ -699,10 +694,6 @@ class LlmClientTests(unittest.TestCase):
             ),
             patch("requests.Session", return_value=session),
             patch("modules.ai.llm_client.time.sleep"),
-            patch(
-                "modules.ai.claude_client.call_claude",
-                return_value={"success": True, "content": "备用通道生成内容"},
-            ) as mocked_claude,
         ):
             result = call_llm(
                 messages,
@@ -712,65 +703,9 @@ class LlmClientTests(unittest.TestCase):
                 max_attempts=2,
             )
 
-        self.assertTrue(result["success"])
-        self.assertEqual(result["content"], "备用通道生成内容")
-        self.assertEqual(result["fallback_provider"], "claude")
+        self.assertFalse(result["success"])
+        self.assertIn("Upstream access forbidden", result["error"])
         self.assertEqual(session.post.call_count, 2)
-        self.assertEqual(
-            mocked_claude.call_args.args[0],
-            [{"role": "user", "content": "撰写 PS 情况说明"}],
-        )
-        self.assertEqual(mocked_claude.call_args.kwargs["system"], "系统要求")
-        self.assertEqual(mocked_claude.call_args.kwargs["temperature"], 0.35)
-        self.assertEqual(mocked_claude.call_args.kwargs["max_tokens"], 1800)
-        self.assertEqual(mocked_claude.call_args.kwargs["timeout"], 45)
-
-    def test_claude_client_uses_http_when_sdk_is_unavailable(self):
-        response = MagicMock(
-            status_code=200,
-            text='{"content":[{"type":"text","text":"HTTP备用通道"}]}',
-        )
-        response.json.return_value = {
-            "model": "mimo-v2.5",
-            "content": [{"type": "text", "text": "HTTP备用通道"}],
-            "usage": {"input_tokens": 10, "output_tokens": 8},
-        }
-        session = MagicMock()
-        session.post.return_value = response
-        with (
-            patch(
-                "modules.ai.claude_client._client",
-                side_effect=ModuleNotFoundError("No module named 'anthropic'"),
-            ),
-            patch.dict(
-                "modules.ai.claude_client.os.environ",
-                {
-                    "CLAUDE_API_BASE": "https://claude.example.test/anthropic",
-                    "CLAUDE_API_KEY": "key",
-                    "CLAUDE_MODEL": "mimo-v2.5",
-                },
-            ),
-            patch("requests.Session", return_value=session),
-        ):
-            result = call_claude(
-                [{"role": "user", "content": "生成正文"}],
-                system="系统要求",
-                temperature=0.2,
-                max_tokens=1200,
-                timeout=45,
-                max_retries=0,
-            )
-
-        self.assertTrue(result["success"])
-        self.assertEqual(result["content"], "HTTP备用通道")
-        self.assertEqual(
-            session.post.call_args.args[0],
-            "https://claude.example.test/anthropic/v1/messages",
-        )
-        payload = session.post.call_args.kwargs["json"]
-        self.assertEqual(payload["system"], "系统要求")
-        self.assertEqual(payload["temperature"], 0.2)
-        self.assertEqual(payload["max_tokens"], 1200)
 
     def test_rule_analysis_can_explicitly_skip_llm(self):
         score = {
@@ -801,8 +736,8 @@ class FinanceAiTests(unittest.TestCase):
             ),
             patch.object(
                 finance_extractor,
-                "_claude_extract_financials_from_raw",
-                return_value=({}, "Claude unavailable"),
+                "_primary_llm_extract_financials_from_raw",
+                return_value=({}, "Primary LLM unavailable"),
             ),
             patch.object(
                 finance_extractor,
@@ -818,7 +753,7 @@ class FinanceAiTests(unittest.TestCase):
             result = finance_extractor.extract_with_validation("/tmp/test.pdf")
 
         self.assertEqual(result["sources"]["llm_fields"], 1)
-        self.assertEqual(result["sources"]["gpt55_fields"], 1)
+        self.assertEqual(result["sources"]["primary_llm_fields"], 0)
 
 
 if __name__ == "__main__":

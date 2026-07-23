@@ -35,12 +35,12 @@
   <h3 style="margin-bottom:8px">财务报表核验</h3>
   {% set mismatch_count = finance_validation.mismatched|length if finance_validation.mismatched else 0 %}
   {% if mismatch_count %}
-  <p style="margin:0;color:var(--warning)">Claude 识别与 GPT-5.5 复核存在 {{ mismatch_count }} 处差异，请以原始财务报表人工核对后再提交申报材料。</p>
+  <p style="margin:0;color:var(--warning)">AI 主识别与复核存在 {{ mismatch_count }} 处差异，请以原始财务报表人工核对后再提交申报材料。</p>
   {% else %}
-  <p style="margin:0;color:var(--success)">Claude 识别与 GPT-5.5 复核一致，已用于本次评分的财务数据回填。</p>
+  <p style="margin:0;color:var(--success)">AI 主识别与复核一致，已用于本次评分的财务数据回填。</p>
   {% endif %}
   {% if finance_validation.verifier_error %}
-  <p class="text-muted" style="font-size:12px;margin-top:6px">GPT-5.5 复核提示：{{ finance_validation.verifier_error }}</p>
+  <p class="text-muted" style="font-size:12px;margin-top:6px">AI 复核提示：{{ finance_validation.verifier_error }}</p>
   {% endif %}
 </div>
 {% endif %}

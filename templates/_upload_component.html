@@ -306,7 +306,7 @@ function uploadFile(file) {
         const year = guessYear(fileName, result.data);
         const validation = result.validation || {};
         const mismatchCount = Array.isArray(validation.mismatched) ? validation.mismatched.length : 0;
-        const validationMessage = mismatchCount > 0 ? `GPT-5.5复核发现${mismatchCount}处差异` : 'Claude识别+GPT-5.5复核完成';
+        const validationMessage = mismatchCount > 0 ? `AI复核发现${mismatchCount}处差异` : 'AI识别与复核完成';
         fileStates[fileName] = {
           id: result.file && result.file.id ? result.file.id : '',
           status: 'done',

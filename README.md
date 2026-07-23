@@ -25,9 +25,9 @@ gunicorn "app:create_app()" --bind 0.0.0.0:$PORT --timeout 180 --workers 2
 ```env
 SECRET_KEY=replace-with-a-long-random-secret
 DATABASE_URL=postgresql://user:password@host:5432/dbname
-LLM_API_BASE=https://api.deepseek.com
-LLM_API_KEY=replace-with-your-llm-api-key
-LLM_MODEL=deepseek-chat
+LLM_API_BASE=https://api.psydo.top/v1
+LLM_API_KEY=replace-with-your-openai-compatible-api-key
+LLM_MODEL=gpt-5.6-sol
 ```
 
 ## Deployment

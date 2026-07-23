@@ -11,20 +11,12 @@ services:
         fromDatabase:
           name: declare-assistant-db
           property: connectionString
-      - key: CLAUDE_API_BASE
-        value: https://api.xiaomimimo.com/anthropic
-      - key: CLAUDE_API_KEY
-        sync: false
-      - key: CLAUDE_MODEL
-        value: mimo-v2.5
       - key: LLM_API_BASE
         value: https://api.psydo.top/v1
       - key: LLM_API_KEY
         sync: false
       - key: LLM_MODEL
         value: gpt-5.6-sol
-      - key: LLM_FALLBACK_MODELS
-        value: gpt-5.4-mini,gpt-5.4
       - key: MAX_CONTENT_LENGTH
         value: "52428800"
       - key: MAX_FORM_MEMORY_SIZE

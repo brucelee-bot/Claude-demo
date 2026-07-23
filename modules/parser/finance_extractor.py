@@ -228,51 +228,38 @@ def _parse_financial_json_response(content: str) -> dict:
         return {}
 
 
-def _llm_extract_financials_from_raw(filepath: str, provider: str) -> tuple:
+def _llm_extract_financials_from_raw(filepath: str, source: str) -> tuple:
     raw_text = _raw_text_from_file(filepath)
     if not raw_text.strip():
-        return {}, f"{provider}: 未读取到可识别文本"
+        return {}, f"{source}: 未读取到可识别文本"
 
     fallback_year = _tax_period_year_from_text(raw_text) or _detect_file_year(filepath)
     prompt = _financial_extract_prompt(filepath, raw_text)
 
-    if provider == "claude":
-        try:
-            from modules.ai.claude_client import call_claude
-        except Exception as exc:
-            return {}, f"Claude 客户端不可用: {str(exc)[:120]}"
-        result = call_claude(
-            [{"role": "user", "content": prompt}],
-            system="你是财务报表数据抽取助手，只输出可解析的 JSON。",
-            max_tokens=1800,
-            timeout=50,
-            max_retries=0,
-        )
-    else:
-        try:
-            from modules.ai.llm_client import call_llm
-        except Exception as exc:
-            return {}, f"LLM 客户端不可用: {str(exc)[:120]}"
-        result = call_llm([
-            {"role": "system", "content": "你是财务报表数据抽取助手，只输出可解析的 JSON。"},
-            {"role": "user", "content": prompt},
-        ], temperature=0.0, max_tokens=1800, timeout=60, max_attempts=1)
+    try:
+        from modules.ai.llm_client import call_llm
+    except Exception as exc:
+        return {}, f"LLM 客户端不可用: {str(exc)[:120]}"
+    result = call_llm([
+        {"role": "system", "content": "你是财务报表数据抽取助手，只输出可解析的 JSON。"},
+        {"role": "user", "content": prompt},
+    ], temperature=0.0, max_tokens=1800, timeout=60, max_attempts=1)
 
     if not result.get("success"):
-        return {}, result.get("error") or f"{provider} 调用失败"
+        return {}, result.get("error") or f"{source} 调用失败"
 
     parsed = _parse_financial_json_response(result.get("content", ""))
     if not parsed:
-        return {}, f"{provider} 返回内容不是可解析 JSON"
+        return {}, f"{source} 返回内容不是可解析 JSON"
     return _coerce_ai_financial_json(parsed, fallback_year), ""
 
 
-def _claude_extract_financials_from_raw(filepath: str) -> tuple:
-    return _llm_extract_financials_from_raw(filepath, "claude")
+def _primary_llm_extract_financials_from_raw(filepath: str) -> tuple:
+    return _llm_extract_financials_from_raw(filepath, "primary_llm")
 
 
 def _secondary_llm_extract_financials_from_raw(filepath: str) -> tuple:
-    return _llm_extract_financials_from_raw(filepath, "llm")
+    return _llm_extract_financials_from_raw(filepath, "validation_llm")
 
 
 def _llm_normalize_financials(raw: dict) -> dict:
@@ -1075,7 +1062,7 @@ def _merge_missing_fields(primary: dict, secondary: dict) -> dict:
     return merged
 
 
-def _build_validation(primary: dict, verifier: dict, claude_error: str = "", verifier_error: str = "") -> dict:
+def _build_validation(primary: dict, verifier: dict, primary_llm_error: str = "", verifier_error: str = "") -> dict:
     comparable_keys = sorted(
         key for key in set(primary or {}) | set(verifier or {})
         if key == "company_name" or re.match(r"fin_20\d{2}_", key)
@@ -1099,9 +1086,9 @@ def _build_validation(primary: dict, verifier: dict, claude_error: str = "", ver
             only_in_verifier.append(key)
 
     return {
-        "primary_source": "local_rules_then_claude",
-        "secondary_source": "configured_llm",
-        "claude_error": claude_error,
+        "primary_source": "local_rules_then_configured_llm",
+        "secondary_source": "configured_llm_validation",
+        "primary_llm_error": primary_llm_error,
         "verifier_error": verifier_error,
         "matched": matched,
         "mismatched": mismatched,
@@ -1125,22 +1112,22 @@ def _extract_rule_data(filepath: str) -> dict:
 
 
 def extract_with_validation(filepath: str) -> dict:
-    """Extract financial data with Claude-first recognition and LLM validation."""
+    """Extract financial data with rule recognition and a single configured LLM."""
     rule_data = _extract_rule_data(filepath)
     if rule_data.get("error"):
         return {"data": rule_data, "validation": {"status": "error"}, "sources": {}}
 
-    claude_data, claude_error = _claude_extract_financials_from_raw(filepath)
+    primary_llm_data, primary_llm_error = _primary_llm_extract_financials_from_raw(filepath)
 
     fallback_year = _detect_tax_period_year_from_file(filepath) or _detect_file_year(filepath)
     primary = _merge_results(
         _normalize_for_gaoxin_score(rule_data, fallback_year),
-        _normalize_for_gaoxin_score(claude_data, fallback_year),
+        _normalize_for_gaoxin_score(primary_llm_data, fallback_year),
     )
 
     secondary_data, secondary_error = _secondary_llm_extract_financials_from_raw(filepath)
     normalized_secondary = _normalize_for_gaoxin_score(secondary_data, fallback_year)
-    validation = _build_validation(primary, normalized_secondary, claude_error, secondary_error)
+    validation = _build_validation(primary, normalized_secondary, primary_llm_error, secondary_error)
 
     normalized = _merge_missing_fields(primary, normalized_secondary)
     return {
@@ -1148,9 +1135,8 @@ def extract_with_validation(filepath: str) -> dict:
         "validation": validation,
         "sources": {
             "rule_fields": len(rule_data or {}),
-            "claude_fields": len(claude_data or {}),
+            "primary_llm_fields": len(primary_llm_data or {}),
             "llm_fields": len(secondary_data or {}),
-            "gpt55_fields": len(secondary_data or {}),
         },
     }
 
