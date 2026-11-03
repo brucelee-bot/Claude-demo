@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<title>《会记仇的影子》· 全三章完整版（共24关）</title>
+<style>
+ *{box-sizing:border-box}html,body{margin:0;height:100%;background:#0b0e1a;color:#fff;font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+ .wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;padding:18px 12px 22px;background:radial-gradient(900px 500px at 50% -10%,#2a3566 0%,#0b0e1a 55%)}
+ h1{margin:2px 0 4px;font-size:24px;letter-spacing:.06em}h1 span{color:#ff5d5d}
+ .sub{margin:0 0 12px;color:#aeb6d6;font-size:13.5px;text-align:center;line-height:1.6}
+ .hud{width:min(960px,96vw);display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-bottom:8px}
+ .pill{background:#171c33;border:1px solid #2e3766;border-radius:999px;padding:7px 12px;font-size:13px;color:#dbe2ff}.pill b{color:#ffd166}.pill.red b{color:#ff6b6b}
+ button{cursor:pointer;border:1px solid #3a457a;background:#20294f;color:#fff;border-radius:999px;padding:8px 14px;font-size:13px}button:hover{background:#2a376b}button.primary{background:#2e7d4f;border-color:#46b978}button.primary:hover{background:#379961}button:disabled{opacity:.38;cursor:not-allowed}
+ .stage{position:relative;width:min(960px,96vw);aspect-ratio:16/9;background:#11152a;border:1px solid #303a6b;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+ canvas{width:100%;height:100%;display:block}
+ .tip{width:min(960px,96vw);margin-top:10px;background:#141936;border:1px solid #2a3466;border-radius:12px;padding:10px 14px;line-height:1.7;font-size:14px;color:#e6eaff}.tip b{color:#ffd166}
+ .keys{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}kbd{background:#222a52;border:1px solid #44508a;border-bottom-width:3px;border-radius:6px;padding:2px 7px;font-size:12.5px}
+ .touch{display:none;width:min(960px,96vw);margin-top:10px;justify-content:space-between}.touch .grp{display:flex;gap:10px}.tbtn{width:58px;height:58px;border-radius:50%;font-size:20px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35)}@media(pointer:coarse){.touch{display:flex}}
+ .overlay{position:absolute;inset:0;display:none;place-items:center;background:rgba(5,7,18,.76);backdrop-filter:blur(3px);text-align:center;padding:20px;z-index:5}.overlay.show{display:grid}
+ .card{background:#171d3a;border:1px solid #3c4986;border-radius:18px;padding:26px 30px;max-width:600px;width:94%;max-height:94%;overflow:auto}.card h2{margin:0 0 8px;font-size:25px}.card p{color:#c6ceef;line-height:1.7;margin:6px 0 16px}
+ .lvlbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}
+ .lvlbtn{display:flex;justify-content:space-between;align-items:center;text-align:left;padding:10px 12px;border-radius:12px;font-size:13px;gap:6px}
+ .flash{position:absolute;left:50%;top:18px;transform:translateX(-50%);background:rgba(0,0,0,.78);border:1px solid #ff6b6b;color:#ffd7d7;padding:8px 16px;border-radius:999px;font-size:14px;display:none;white-space:nowrap;z-index:4}.flash.show{display:block}
+ .dots{letter-spacing:.1em;font-size:13px}
+ @media(max-width:640px){.lvlbtns{grid-template-columns:1fr}}
+
+ /* ==== iPhone / touch UI ==== */
+ html,body{overscroll-behavior:none}
+ body{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+ .stage{touch-action:none}
+ .wrap{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
+ .tctl{position:absolute;left:0;right:0;bottom:0;display:none;justify-content:space-between;align-items:flex-end;padding:0 16px calc(12px + env(safe-area-inset-bottom));z-index:3;pointer-events:none}
+ .tctl .grp{display:flex;gap:14px}
+ .tbtn2{pointer-events:auto;width:64px;height:64px;border-radius:50%;background:rgba(20,26,54,.48);border:1.5px solid rgba(255,255,255,.5);color:#fff;font-size:24px;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+ .tbtn2.jump{width:78px;height:78px;font-size:30px;background:rgba(46,125,79,.55)}
+ .tbtn2.on{background:rgba(255,209,102,.6)}
+ .rotateHint{position:absolute;top:calc(8px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:rgba(0,0,0,.68);padding:6px 14px;border-radius:999px;font-size:13px;display:none;z-index:3;pointer-events:none;white-space:nowrap}
+ @media(pointer:coarse){.tctl{display:flex}.touch{display:none!important}.wrap{padding-top:10px}.pill{font-size:12px;padding:6px 9px}h1{font-size:20px}.tip{font-size:13px}}
+ @media(pointer:coarse) and (orientation:portrait){.rotateHint{display:block}}
+
+ /* ==== FIX: menu must be fullscreen & scrollable on portrait phones ==== */
+ .overlay{position:fixed;inset:0;z-index:60;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:16px 10px calc(18px + env(safe-area-inset-bottom))}
+ .overlay.show{display:flex}
+ .card{margin:auto;max-height:none}
+ @media(pointer:coarse){.lvlbtn{padding:9px 11px;font-size:12.5px}.card{padding:20px 18px}.card h2{font-size:21px}}
+</style>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="记仇的影子"/>
+<meta name="theme-color" content="#0b0e1a"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+<link rel="apple-touch-icon" href="icons/icon-180.png"/>
+</head>
+<body>
+<div class="wrap">
+ <h1>《会记仇的影子》 <span id="levelTitle">第一关</span></h1>
+ <p class="sub" id="levelSub"></p>
+ <div class="hud">
+  <div class="pill">🗺 <span id="chapLabel">第一章</span> <span class="dots" id="dots"></span> <span id="progressText" style="color:#8f97bd;font-size:12px"></span></div>
+  <div class="pill">⏱ <b id="time">0.0</b> 秒</div>
+  <div class="pill">💀 失败 <b id="deaths">0</b></div>
+  <div class="pill red">❤ 仇恨 <b id="grudge">0</b> <span style="color:#8f97bd;font-size:12px" id="grudgeTotal"></span></div>
+  <div><button id="menuBtn">关卡选择</button> <button id="restartTop">↻ 重开 (R)</button> <button id="mute">🔊 音效</button></div>
+ </div>
+
+ <div class="stage">
+  <canvas id="game" width="960" height="540"></canvas>
+  <div class="flash" id="flash">失败了！回到检查点</div>
+  <div class="rotateHint">📱 旋转 iPhone 横屏，画面更大更好玩</div>
+  <div class="tctl"><div class="grp"><button class="tbtn2" id="mLeft" aria-label="向左">◀</button><button class="tbtn2" id="mRight" aria-label="向右">▶</button></div><div class="grp"><button class="tbtn2 jump" id="mJump" aria-label="跳跃">⬆</button></div></div>
+  <div class="overlay show" id="menu">
+   <div class="card">
+    <h2>《会记仇的影子》</h2>
+    <p>第一章「信任」· 第二章「账本」· 第三章「报复与和解」，共 24 关。<br>你的影子会模仿你几秒前的动作。利用它，也小心它记仇。通关一关，解锁下一关。</p>
+    <div class="lvlbtns" id="lvlBtns"></div>
+    <p style="font-size:12.5px;color:#8f97bd;margin-bottom:4px" id="saveHint">进度会自动保存在本浏览器中。</p>
+    <button id="clearSave" style="font-size:12px;padding:6px 12px">清除存档重来</button>
+   </div>
+  </div>
+  <div class="overlay" id="winOverlay">
+   <div class="card">
+    <h2 style="color:#7dffb0" id="winTitle">🎉 过关！</h2>
+    <p id="winText"></p>
+    <p style="font-size:13px;color:#ff9a9a" id="winTeaser"></p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="primary" id="nextBtn" style="font-size:15px;padding:11px 20px">进入下一关 →</button>
+      <button id="replayBtn">重玩本关</button>
+      <button id="winMenuBtn">关卡选择</button>
+    </div>
+   </div>
+  </div>
+ </div>
+
+ <div class="tip"><b>任务：</b><span id="tipText"></span>
+  <div class="keys"><span><kbd>A</kbd>/<kbd>D</kbd> 移动</span><span><kbd>W</kbd>/<kbd>空格</kbd> 跳跃</span><span><kbd>R</kbd> 重开本关</span><span><kbd>Esc</kbd> 关卡选择</span></div>
+ </div>
+ <div class="touch"><div class="grp"><button class="tbtn" id="left">◀</button><button class="tbtn" id="right">▶</button></div><div class="grp"><button class="tbtn" id="jump">↑</button><button class="tbtn" id="rst">↻</button></div></div>
+ <p style="color:#687096;font-size:12px;margin-top:14px">全三章完整版 · 共 24 关连通 · 通关自动解锁并保存进度 · 单文件，无需安装</p>
+</div>
+
+<script>
+(() => {
+ const cvs=document.getElementById('game'),ctx=cvs.getContext('2d');
+ const W=960,H=540,groundY=472,SAVE_KEY='shadowGrudgeSaveV1';
+ const $=id=>document.getElementById(id);
+ const timeEl=$('time'),tipText=$('tipText'),grudgeEl=$('grudge'),grudgeTotalEl=$('grudgeTotal'),deathsEl=$('deaths'),dotsEl=$('dots'),progressText=$('progressText');
+
+ // ================= Levels =================
+ // door: {plate:i} | {mode:'and',plates:[...]} | {mode:'soothe'}
+ // plate.only:'shadow' = 只有影子能踩
+ const B={platforms:[],enemy:null,checkpoint:null,spikes:[],ferry:null,keyItem:null,whiteStand:false,shooter:null,chaser:null,double:false,pauseShadow:false,reverseShadow:false,sootheZone:null,finale:false,delay:180};
+ const LEVELS=[
+  {...B,id:1,title:'第一关 · 它会帮你',sub:'学会让 3 秒前的自己，替你踩住机关。',startX:64,
+   plates:[{x:272,w:96,label:'机关'}],doors:[{x:592,w:44,top:286,plate:0}],goalX:836,goalW:52,
+   intro:'先走到黄色机关上，站满 3 秒，让影子“记住”这个动作。然后离开往右跑，等影子替你踩住机关开门。',teaser:'下一关：影子不止能踩机关，还能替你挡住守卫——但它会开始记仇。'},
+  {...B,id:2,title:'第二关 · 它替你挡刀',sub:'有巡逻守卫在，你的影子第一次要替你挨撞，而且它会记住。',startX:64,
+   plates:[{x:196,w:88,label:'机关①'},{x:706,w:92,label:'机关②'}],doors:[{x:392,w:40,top:272,plate:0},{x:852,w:38,top:286,plate:1}],goalX:902,goalW:42,
+   platforms:[{x:622,y:410,w:56,h:12},{x:688,y:358,w:124,h:14}],enemy:{min:606,max:832,speed:1.45,start:618},checkpoint:{x:452},
+   intro:'先踩机关①打开门①（和第一关一样），穿过去激活检查点。右侧：自己先踩机关②教给影子，守卫靠近就跳上观测台躲避，等影子踩②并撞晕守卫后冲终点。',teaser:'下一关「接力」：两道门、两次配合，一次都不能断。'},
+  {...B,id:3,title:'第三关 · 接力',sub:'两段机关门接力——影子做第一棒，你跑第二棒。',startX:56,
+   plates:[{x:150,w:88,label:'机关①'},{x:486,w:88,label:'机关②'}],doors:[{x:348,w:42,top:286,plate:0},{x:700,w:42,top:286,plate:1}],goalX:852,goalW:52,
+   spikes:[{x:428,w:58}],
+   intro:'先踩机关①开门①。穿过门①后跳过尖刺，再踩机关②——等影子接力踩住机关②、门②打开后冲向终点。',teaser:'下一关：机关就摆在守卫的巡逻路线上，影子必须一边踩、一边替你挡刀。'},
+  {...B,id:4,title:'第四关 · 挡刀的站位',sub:'机关就在守卫眼皮底下——影子要同时踩机关、挡守卫。',startX:56,
+   plates:[{x:612,w:92,label:'机关'}],doors:[{x:842,w:38,top:286,plate:0}],goalX:902,goalW:42,
+   platforms:[{x:540,y:410,w:56,h:12},{x:600,y:358,w:124,h:14}],enemy:{min:548,max:824,speed:1.7,start:560},checkpoint:{x:452},
+   intro:'前方就是守卫巡逻区（先到旗子处激活检查点）。自己先踩住巡逻区里的机关把动作教给影子，守卫靠近就跳上观测台；等影子踩住机关——它会顺便把撞来的守卫晕住——门开后立刻冲终点。',teaser:'下一关有个新规矩：让影子白站太久，它也会记仇。先拿钥匙，再教动作！'},
+  {...B,id:5,title:'第五关 · 先拿钥匙',sub:'终点上了锁。顺序错了，就会让影子白站——它会记仇的。',startX:56,
+   plates:[{x:452,w:92,label:'机关'}],doors:[{x:664,w:42,top:286,plate:0}],goalX:838,goalW:56,
+   platforms:[{x:128,y:410,w:58,h:12},{x:206,y:358,w:118,h:14}],keyItem:{x:238,y:316},whiteStand:true,
+   intro:'正确顺序：①先跳上左侧高台拿金钥匙 → ②再去踩机关站满 3 秒 → ③等影子踩住开门，立刻穿过去开终点。反过来先教机关、再慢慢拿钥匙，会让影子白站，仇恨 +1！',teaser:'下一关：影子的重量能驱动升降台——你要被 3 秒前的自己送上高台。'},
+  {...B,id:6,title:'第六关 · 配重升降台',sub:'影子踩住机关，升降台才会上升。你要站上台，被 3 秒前的自己送上去。',startX:56,
+   plates:[{x:176,w:92,label:'机关'}],doors:[],goalX:862,goalW:52,platforms:[{x:660,y:296,w:170,h:14}],
+   spikes:[{x:560,w:240}],ferry:{plate:0,vertical:true,x:540,w:100,h:14,yFrom:428,yTo:296,speed:0.0058,returnSpeed:0.03},
+   intro:'①先踩机关站满 4 秒（升降台会升起给你看，松开后它会快速落回）→ ②跑到尖刺左侧，跳上升降台站稳 → ③影子随后踩住机关，升降台会载你升到高处平台 → ④沿平台向右，跳下到安全地面，走向终点。',teaser:'下一关：有些门，一个人踩不开——要你和影子在同一瞬间，各站一个机关。'},
+  {...B,id:7,title:'第七关 · 一起站',sub:'双机关同亮门：你站一个，影子站一个，必须同时亮起，门才会锁住开启。',startX:56,
+   plates:[{x:170,w:84,label:'机关 A'},{x:540,w:84,label:'机关 B'}],doors:[{x:760,w:42,top:280,mode:'and',plates:[0,1]}],goalX:862,goalW:52,
+   intro:'这道门要两个机关在同一瞬间都被踩住才会锁定打开。做法：先在任意一个机关上站满 3 秒，再跑到另一个机关上站住——当影子踩住第一个、你踩着第二个，两灯同亮，门就开了。',teaser:'终章：把你学过的一切——接力、挡刀、配合——一次全用上。'},
+  {...B,id:8,title:'第八关 · 信任的考验',sub:'第一章终章：接力开门、守卫巡逻、影子挡刀，一次综合考试。',startX:56,
+   plates:[{x:126,w:84,label:'机关①'},{x:462,w:84,label:'机关②'}],doors:[{x:322,w:40,top:282,plate:0},{x:642,w:40,top:282,plate:1}],goalX:894,goalW:46,
+   platforms:[{x:706,y:410,w:54,h:12},{x:758,y:358,w:104,h:14}],enemy:{min:694,max:884,speed:1.6,start:706},checkpoint:{x:690},
+   intro:'终章流程：踩①开门① → 踩②开门② → 进入守卫区后先上右侧观测台，等你的影子赶上来撞晕守卫（或者看准空档），再冲向终点。检查点在守卫区入口。',teaser:'第二章「账本」开启：影子说，从今天起，它要慢半拍。'},
+  // ---- 第二章 账本：延迟 3.3 秒 ----
+  {...B,id:9,title:'第九关 · 慢半拍',sub:'第二章「账本」：影子开始兑现记仇——它的延迟变成了 3.3 秒。',startX:56,delay:198,
+   plates:[{x:190,w:92,label:'机关'}],doors:[{x:580,w:44,top:286,plate:0}],goalX:836,goalW:52,
+   intro:'注意：影子现在慢半拍（延迟 3.3 秒，头顶圆环和标签会显示 -3.3s）。规则没变，只是你要多等、多站一会：在机关上站满 4 秒再离开，到门前耐心等它。',teaser:'下一关：炮台守着机关，你得一边躲炮弹，一边把站位教给影子。'},
+  {...B,id:10,title:'第十关 · 弹幕机关',sub:'炮台会周期性开火。跳跃可以躲开炮弹，影子也可以替你挡下炮弹（仇恨 +1）。',startX:56,delay:198,
+   plates:[{x:452,w:96,label:'机关'}],doors:[{x:700,w:40,top:286,plate:0}],goalX:856,goalW:48,checkpoint:{x:330},
+   platforms:[{x:366,y:410,w:56,h:12}],shooter:{x:818,period:115},
+   intro:'右侧炮台每约 2 秒向左开一炮。机关在炮火覆盖区里：站在机关上时，炮弹飞来就原地起跳躲开（跳起时不算踩机关，断续站也可以，影子会照样复制）。机关左侧的小台子是安全喘息点。等影子断续踩住机关开门后，穿门并从炮台右侧绕到终点。',teaser:'下一关：守卫和炮台一起来。观测台是你的避难所。'},
+  {...B,id:11,title:'第十一关 · 双重守卫',sub:'先过机关门，再穿过守卫与炮火的交叉区。',startX:56,delay:198,
+   plates:[{x:250,w:88,label:'机关'}],doors:[{x:452,w:40,top:286,plate:0}],goalX:884,goalW:46,checkpoint:{x:492},
+   platforms:[{x:548,y:410,w:50,h:12},{x:600,y:358,w:110,h:14}],enemy:{min:560,max:760,speed:1.55,start:580},shooter:{x:838,period:140},
+   intro:'先用老办法过门（检查点在门后）。右侧交叉区：地上有守卫、天上有炮弹——跳上观测台两者都躲得开。等影子赶来撞晕守卫、或看准炮弹间隙，从观测台冲向最右侧终点（炮台右侧是安全区）。',teaser:'中章考验：接力双门，第二道机关同样在炮火之下。'},
+  {...B,id:12,title:'第十二关 · 账本中场',sub:'接力双门 + 炮火机关 + 尖刺，第二章上半场的综合题。',startX:56,delay:198,
+   plates:[{x:170,w:88,label:'机关①'},{x:520,w:88,label:'机关②'}],doors:[{x:380,w:40,top:286,plate:0},{x:742,w:40,top:286,plate:1}],goalX:862,goalW:48,checkpoint:{x:420},
+   spikes:[{x:640,w:54}],shooter:{x:828,period:125},
+   intro:'踩①开门①（检查点在门后）→ 跳过尖刺 → 在炮火下断续踩住机关②（炮弹来就跳）→ 等影子接力踩②开门②，冲向终点。',teaser:'下一关，你将见到第二个影子——6.6 秒前的你，也回来了。'},
+  {...B,id:13,title:'第十三关 · 双生',sub:'两个影子：-3.3 秒的它，和 -6.6 秒的它。三道门，靠它们接力开启。',startX:56,delay:198,double:true,
+   plates:[{x:140,w:88,label:'机关①'},{x:440,w:88,label:'机关②'}],doors:[{x:360,w:42,top:286,plate:0},{x:620,w:42,top:286,plate:1},{x:830,w:40,top:286,plate:1}],goalX:896,goalW:42,
+   intro:'新规则：你现在有两个影子（深色 -3.3s，蓝灰色 -6.6s）。流程：机关①站满 4 秒 → 等近影子开门①穿过去 → 机关②站满 4 秒 → 近影子开门② → 继续走向门③并在门前等一会：远影子会重演踩机关②，为你打开门③。',teaser:'下一关没有机关门——有一扇要用“并肩”打开的心门。'},
+  {...B,id:14,title:'第十四关 · 并肩',sub:'站在爱心圈里别走，等影子追上你，和你并肩站满 1 秒，心门就会打开。',startX:56,delay:198,
+   plates:[],doors:[{x:660,w:42,top:280,mode:'soothe'}],goalX:820,goalW:56,sootheZone:{x:308,w:116},
+   intro:'走到粉色爱心圈里站住，不要走开。影子会在 3.3 秒后走进圈里和你站在一起——并肩满 1 秒，心门开启，同时仇恨 -1（安抚成功）。然后穿过心门走向终点。',teaser:'下一关：三个机关、三个人——你和两个影子必须在同一瞬间各站一个。'},
+  {...B,id:15,title:'第十五关 · 三人同站',sub:'三机关同亮门：你、近影子、远影子，在同一瞬间各站一个机关。',startX:56,delay:198,double:true,
+   plates:[{x:120,w:80,label:'机关 A'},{x:330,w:80,label:'机关 B'},{x:540,w:80,label:'机关 C'}],doors:[{x:760,w:42,top:280,mode:'and',plates:[0,1,2]}],goalX:862,goalW:52,
+   intro:'顺序站位：机关 A 站满 3.5 秒 → 跑到机关 B 站满 3.5 秒 → 跑到机关 C 站住别走。当远影子站 A、近影子站 B、你站 C 的瞬间，三灯同亮，门锁定打开，然后冲向终点。',teaser:'第二章终章：炮火、双影子与一颗可以安抚的心——全部一起上。'},
+  {...B,id:16,title:'第十六关 · 账本终章',sub:'第二章终章：接力双门、炮火、双影子，还留了一处并肩点给你赎回仇恨。',startX:56,delay:198,double:true,
+   plates:[{x:170,w:88,label:'机关①'},{x:500,w:88,label:'机关②'}],doors:[{x:372,w:40,top:286,plate:0},{x:724,w:40,top:286,plate:1}],goalX:876,goalW:46,checkpoint:{x:412},
+   platforms:[{x:520,y:410,w:48,h:12},{x:566,y:358,w:104,h:14}],shooter:{x:838,period:130},sootheZone:{x:238,w:96},
+   intro:'流程：可选先在爱心圈和影子并肩（仇恨 -1）→ 踩①开门①（检查点）→ 机关②在炮火下断续站满，守卫没有，但炮弹会逼你跳 → 等影子（近的或远的）接力踩②开门②，冲终点。',teaser:'第三章「报复与和解」：影子学会了在回放中途停下来——瞪你 0.5 秒。'},
+  // ---- 第三章 报复与和解 ----
+  {...B,id:17,title:'第十七关 · 它停下了',sub:'第三章：影子会在回放中途停顿 0.5 秒瞪你（停顿前头顶会冒 !）。停顿能让它替你踩得更久。',startX:56,delay:198,pauseShadow:true,
+   plates:[{x:210,w:96,label:'机关'}],doors:[{x:620,w:44,top:286,plate:0}],goalX:836,goalW:52,
+   intro:'开局直接走到机关上站满 4 秒再离开——你站的这段录像里正好包含影子的第一个停顿点，它替你踩机关时会在中途停一下，实际踩得比你还久。到门前等它，门开后穿过去。',teaser:'下一关：双机关同亮门，而停顿正好能帮你把同亮窗口撑得更宽。'},
+  {...B,id:18,title:'第十八关 · 停顿的礼物',sub:'用停顿延长的那一站，去撑开双机关同亮的窗口。',startX:56,delay:198,pauseShadow:true,
+   plates:[{x:170,w:84,label:'机关 A'},{x:520,w:84,label:'机关 B'}],doors:[{x:770,w:42,top:280,mode:'and',plates:[0,1]}],goalX:862,goalW:52,
+   intro:'开局先在机关 A 站满 4 秒（让录像包含停顿点）→ 跑到机关 B 站满 4.5 秒别走。影子会在 A 上因停顿多站一会，与你站在 B 的时间重叠——两灯同亮，门锁定打开。',teaser:'下一关：有个东西会一直追着你跑。别怕，你身后还有影子。'},
+  {...B,id:19,title:'第十九关 · 追猎者',sub:'紫色的追猎者一旦被惊动会一直追你。它撞上影子会被晕住——让影子替你断后。',startX:56,delay:198,
+   plates:[{x:600,w:92,label:'机关'}],doors:[{x:792,w:40,top:286,plate:0}],goalX:866,goalW:46,checkpoint:{x:340},
+   platforms:[{x:520,y:410,w:54,h:12}],chaser:{triggerX:300,speed:2.0,startX:16},
+   intro:'走到旗子（检查点）再往前会惊动追猎者。别回头：一口气跑到机关上站满 4 秒。追猎者追来时，你的影子正沿你跑过的路赶来，会在机关处替你把它撞晕。等影子踩住开门，立刻冲终点；实在躲不开时，也可以跳过追猎者。',teaser:'下一关：追猎、停顿、接力，三种麻烦叠在一起。'},
+  {...B,id:20,title:'第二十关 · 停顿与追猎',sub:'接力双门，追猎者在身后，影子还会停顿——节奏就是一切。',startX:56,delay:198,pauseShadow:true,
+   plates:[{x:180,w:88,label:'机关①'},{x:540,w:88,label:'机关②'}],doors:[{x:400,w:40,top:286,plate:0},{x:760,w:40,top:286,plate:1}],goalX:862,goalW:48,checkpoint:{x:430},
+   chaser:{triggerX:280,speed:2.0,startX:16},
+   intro:'踩①开门①（检查点在门后，追猎者也会在此时被惊动）→ 踩②站满 4 秒 → 等影子接力开门②（它追猎者若追来，影子会替你断后）→ 冲终点。',teaser:'下一关：影子学会了最后的报复——在离开机关前，自己往回走一步。'},
+  {...B,id:21,title:'第二十一关 · 它退了一步',sub:'影子站完一个机关后，会自己往回退一步（地上红脚印是预告）。红色的反机关只有影子能踩。',startX:56,delay:198,reverseShadow:true,
+   plates:[{x:508,w:36,label:'机关 A'},{x:436,w:64,label:'反机关 B',only:'shadow'}],doors:[{x:720,w:42,top:280,plate:1}],goalX:852,goalW:52,
+   intro:'走到机关 A（黄色窄机关）靠左站好、面朝右，站满 3 秒，然后跑到门前等着。影子重演时：站完 A 后它会自己往回退一步，正好踩中后面的反机关 B，门就会短暂打开——看准时机穿过去（门开一半时也可以跳过去）。',teaser:'下一关：两次反步、两道门，中间有检查点。'},
+  {...B,id:22,title:'第二十二关 · 两次反步',sub:'两组 A/B 机关接力，影子要退两次步，你要等两次门。',startX:56,delay:198,reverseShadow:true,
+   plates:[{x:308,w:36,label:'A①'},{x:236,w:64,label:'B①',only:'shadow'},{x:608,w:36,label:'A②'},{x:536,w:64,label:'B②',only:'shadow'}],
+   doors:[{x:470,w:40,top:282,plate:1},{x:800,w:40,top:282,plate:3}],goalX:880,goalW:44,checkpoint:{x:490},
+   intro:'第一组：在 A① 靠左面朝右站满 3 秒 → 到门①前等影子反步踩 B①开门 → 穿过去（检查点）。第二组同理：A② 站满 3 秒 → 等反步开门② → 冲终点。',teaser:'总清算：停顿、反步、炮火，三种报复与危险同场。'},
+  {...B,id:23,title:'第二十三关 · 总清算',sub:'第三章总清算：普通机关门、反步门、炮火与停顿，全都在这一关结账。',startX:56,delay:198,pauseShadow:true,reverseShadow:true,
+   plates:[{x:240,w:88,label:'机关①'},{x:568,w:36,label:'机关 A'},{x:496,w:64,label:'反机关 B',only:'shadow'}],
+   doors:[{x:420,w:40,top:286,plate:0},{x:786,w:40,top:282,plate:2}],goalX:884,goalW:42,checkpoint:{x:440},shooter:{x:848,period:135},
+   intro:'踩①开门①（检查点）→ 到机关 A 靠左面朝右站满 3 秒（炮弹来就跳一下再站回）→ 到门②前等：影子站完 A 会反步踩中 B，门②短暂打开，穿过去就是终点。',teaser:'最后一关：没有敌人，没有炮火。只有你、影子，和一本要合上的账。'},
+  {...B,id:24,title:'第二十四关 · 和解',sub:'终局：先并肩，再让它退最后一步——然后，它会把账本合上。',startX:56,delay:198,double:true,pauseShadow:true,reverseShadow:true,finale:true,
+   plates:[{x:428,w:36,label:'机关 A'},{x:356,w:64,label:'反机关 B',only:'shadow'}],
+   doors:[{x:620,w:42,top:280,mode:'soothe'},{x:830,w:40,top:282,plate:1}],goalX:896,goalW:40,sootheZone:{x:180,w:116},
+   intro:'终局流程：①在爱心圈里和影子并肩站满 1 秒，心门开启（仇恨 -1）→ ②到机关 A 靠左面朝右站满 3 秒 → ③穿过心门，在最后一道门前等影子反步踩中 B → ④走进终点。这一次，它不会再记了。',teaser:''}
+ ];
+
+ // ================= Save =================
+ let save; try{save=JSON.parse(localStorage.getItem(SAVE_KEY))||null}catch(e){save=null}
+ if(!save||typeof save.unlocked!=='number')save={unlocked:1,completed:[],totalGrudge:0,lastLevel:1};
+ function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(save))}catch(e){}}
+ persist();
+
+ // ================= Audio =================
+ let muted=false,audioCtx=null;
+ function beep(f=660,d=0.08,type='sine',g=0.05){if(muted)return;try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();const o=audioCtx.createOscillator(),gn=audioCtx.createGain();o.type=type;o.frequency.value=f;gn.gain.value=g;o.connect(gn);gn.connect(audioCtx.destination);o.start();gn.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.stop(audioCtx.currentTime+d)}catch(e){}}
+ $('mute').onclick=e=>{muted=!muted;e.target.textContent=muted?'🔇 已静音':'🔊 音效'};
+
+ // ================= State =================
+ let state='menu',cur=1,cfg=LEVELS[0];
+ let keys={},history=[],frame=0,startAt=performance.now(),player=null,enemy=null,chaser=null,projs=[],doorsOpen=[],doorsLatched=[],deaths=0,levelGrudge=0,checkpointOn=false,shadowMsg='',shadowMsgUntil=0,stunCooldown=0,stoodFrames=0,hasKey=false,ferryProg=0,ferryX=0,ferryPrevX=0,ferryY=0,ferryPrevY=0,wsTimer=0,wsFired=false;
+ let p1=null,p2=null,revLeft=0,revFrom=null,stillCt=0,prevS1=null,sootheProg=0,sootheDone=false,sootheBank=0,cache={s1:null,eff1:null,s2:null};
+ function chapOf(id){return id<=8?1:id<=16?2:3}
+ function makeEnemy(){return cfg.enemy?{x:cfg.enemy.start,y:groundY-44,w:36,h:44,dir:1,speed:cfg.enemy.speed,stun:0}:null}
+ function makeChaser(){return cfg.chaser?{x:cfg.chaser.startX,y:groundY-44,w:36,h:44,active:false,stun:0}:null}
+ function makePointer(delay,nextPause){return{t:-delay,pauseLeft:0,nextPauseAt:nextPause}}
+ function resetDynamics(){
+  p1=cfg.pauseShadow?makePointer(cfg.delay,200):null;
+  p2=cfg.pauseShadow?makePointer(cfg.delay*2,350):null;
+  revLeft=0;revFrom=null;stillCt=0;prevS1=null;projs=[];chaser=makeChaser();sootheProg=0;
+  cache={s1:null,eff1:null,s2:null};
+ }
+ function loadLevel(n,showMenu=false){
+  cur=n;cfg=LEVELS[n-1];save.lastLevel=n;persist();
+  player={x:cfg.startX,y:groundY-44,w:34,h:44,vx:0,vy:0,onGround:false,face:1,walk:0};
+  enemy=makeEnemy();history=[];frame=0;doorsOpen=cfg.doors.map(()=>0);doorsLatched=cfg.doors.map(()=>false);
+  deaths=0;levelGrudge=0;checkpointOn=false;stunCooldown=0;stoodFrames=0;hasKey=false;sootheDone=false;sootheBank=0;
+  ferryProg=0;ferryX=cfg.ferry?(cfg.ferry.from||cfg.ferry.x||0):0;ferryPrevX=ferryX;ferryY=cfg.ferry?cfg.ferry.yFrom:0;ferryPrevY=ferryY;wsTimer=0;wsFired=false;
+  resetDynamics();
+  startAt=performance.now();
+  $('levelTitle').textContent=cfg.title;$('levelSub').textContent=cfg.sub;tipText.textContent=cfg.intro;
+  $('chapLabel').textContent='第'+['一','二','三'][chapOf(cur)-1]+'章';
+  $('winOverlay').classList.remove('show');if(!showMenu)$('menu').classList.remove('show');
+  state=showMenu?'menu':'playing';renderProgress();updateGrudgeHUD();
+ }
+ function renderProgress(){
+  const ch=chapOf(cur);
+  dotsEl.textContent=LEVELS.filter(l=>chapOf(l.id)===ch).map(l=>save.completed.includes(l.id)?'●':(l.id===cur?'◉':'○')).join(' ');
+  progressText.textContent=`全游戏已通关 ${save.completed.length}/${LEVELS.length} 关`;
+  const box=$('lvlBtns');box.innerHTML='';
+  let lastChap=0;
+  LEVELS.forEach(l=>{
+   if(chapOf(l.id)!==lastChap){lastChap=chapOf(l.id);const h=document.createElement('div');h.style.cssText='grid-column:1/-1;color:#ffd166;font-size:13px;margin-top:6px';h.textContent='第'+['一','二','三'][lastChap-1]+'章 · '+['信任','账本','报复与和解'][lastChap-1];box.appendChild(h)}
+   const b=document.createElement('button');b.className='lvlbtn';
+   const locked=l.id>save.unlocked,done=save.completed.includes(l.id);
+   b.disabled=locked;
+   b.innerHTML=`<span>${locked?'🔒':done?'✅':'▶'} ${l.title}</span><span style="color:#8f97bd;font-size:12px">${locked?'通关上一关解锁':done?'已通关':'开始'}</span>`;
+   b.onclick=()=>{loadLevel(l.id,false);beep(740,0.08)};
+   box.appendChild(b);
+  });
+  $('saveHint').textContent=save.completed.length?`存档：已解锁到第 ${Math.min(save.unlocked,LEVELS.length)} 关 · 累计仇恨 ${save.totalGrudge}（影子都记着呢）`:'进度会自动保存在本浏览器中。';
+ }
+ function updateGrudgeHUD(){grudgeEl.textContent=levelGrudge;grudgeTotalEl.textContent=(save.totalGrudge||levelGrudge)?`累计 ${Math.max(0,save.totalGrudge+levelGrudge-sootheBank)}`:'';deathsEl.textContent=deaths}
+ function completeLevel(){
+  state='won';
+  if(!save.completed.includes(cur))save.completed.push(cur);
+  if(cur<LEVELS.length)save.unlocked=Math.max(save.unlocked,cur+1);
+  save.totalGrudge=Math.max(0,save.totalGrudge+levelGrudge-sootheBank);
+  if(cfg.finale)save.totalGrudge=0;
+  persist();renderProgress();updateGrudgeHUD();
+  beep(990,0.15,'sine',0.07);setTimeout(()=>beep(1320,0.2,'sine',0.07),120);
+  const elapsed=timeEl.textContent,isLast=cur===LEVELS.length,chEnd=cur===8||cur===16;
+  $('winTitle').textContent=cfg.finale?'💛 和解 · 全游戏通关！':isLast?'🏆 通关！':chEnd?`🏆 第${['一','二','三'][chapOf(cur)-1]}章完成！`:`🎉 ${cfg.title.split('·')[0]}过关！`;
+  $('winText').textContent=cfg.finale?`用时 ${elapsed} 秒。它替你挡过刀、被你留下来白站、慢半拍、停顿、退步——最后它把账本合上了。累计仇恨已清零。谢谢你陪它走完 24 关。`:`用时 ${elapsed} 秒过关。本关仇恨 +${levelGrudge}${sootheBank?'，并肩安抚 -'+sootheBank:''}，累计仇恨 ${save.totalGrudge}。下一关已解锁！`;
+  $('winTeaser').textContent=cfg.teaser||'';
+  $('nextBtn').textContent=isLast?'回到关卡选择':`进入下一关：${LEVELS[cur].title} →`;
+  $('winOverlay').classList.add('show');
+ }
+ $('nextBtn').onclick=()=>{if(cur<LEVELS.length)loadLevel(cur+1,false);else{renderProgress();$('winOverlay').classList.remove('show');$('menu').classList.add('show');state='menu'}};
+ $('replayBtn').onclick=()=>loadLevel(cur,false);
+ $('winMenuBtn').onclick=()=>{renderProgress();$('winOverlay').classList.remove('show');$('menu').classList.add('show');state='menu'};
+ $('menuBtn').onclick=()=>{renderProgress();$('menu').classList.add('show');state='menu'};
+ $('clearSave').onclick=()=>{save={unlocked:1,completed:[],totalGrudge:0,lastLevel:1};persist();loadLevel(1,true);renderProgress()};
+ $('restartTop').onclick=()=>{if(state!=='menu')loadLevel(cur,false)};
+
+ // ================= Helpers =================
+ function overlap(a,b){return a&&b&&a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
+ function onPlate(e,p){if(!e)return false;return overlap({x:e.x+4,y:e.y+e.h-6,w:e.w-8,h:10},{x:p.x,y:groundY-16,w:p.w,h:18})}
+ function plateBy(e,p){return p.only==='shadow'?(e&&e.__shadow?onPlate(e,p):false):onPlate(e,p)}
+ function ferryRect(){if(!cfg.ferry)return null;return cfg.ferry.vertical?{x:cfg.ferry.x,y:ferryY,w:cfg.ferry.w,h:cfg.ferry.h}:{x:ferryX,y:cfg.ferry.y,w:cfg.ferry.w,h:cfg.ferry.h}}
+ function solids(){
+  const s=[{x:0,y:groundY,w:960,h:68},{x:0,y:0,w:10,h:H},{x:950,y:0,w:10,h:H},...cfg.platforms];
+  const fr=ferryRect();if(fr)s.push(fr);
+  cfg.doors.forEach((d,i)=>{s.push({x:d.x,y:0,w:d.w,h:d.top});const h=(groundY-d.top)*(1-doorsOpen[i]);if(h>4)s.push({x:d.x,y:groundY-h,w:d.w,h:h})});
+  return s;
+ }
+ function physics(e){const s=solids();e.vy+=0.7;if(e.vy>16)e.vy=16;e.x+=e.vx;for(const w of s){if(overlap(e,w)){if(e.vx>0)e.x=w.x-e.w;else if(e.vx<0)e.x=w.x+w.w;e.vx=0}}e.y+=e.vy;e.onGround=false;for(const w of s){if(overlap(e,w)){if(e.vy>0){e.y=w.y-e.h;e.vy=0;e.onGround=true}else if(e.vy<0){e.y=w.y+w.h;e.vy=0}}}if(e.x<10)e.x=10;if(e.x>950-e.w)e.x=950-e.w}
+ function shadowAt(delayF){if(history.length<=delayF)return null;const f=history[history.length-1-delayF];return{x:f.x,y:f.y,w:34,h:44,face:f.face,walk:f.walk,__shadow:true}}
+ function advancePointer(p){if(!p)return;if(p.pauseLeft>0)p.pauseLeft--;else{p.t++;if(p.t===p.nextPauseAt){p.pauseLeft=30;p.nextPauseAt+=300}}}
+ function shadowFromPointer(p){if(!p||p.t<0||p.t>=history.length)return null;const f=history[p.t];return{x:f.x,y:f.y,w:34,h:44,face:f.face,walk:f.walk,__shadow:true}}
+ function computeShadows(){
+  let s1,s2;
+  if(cfg.pauseShadow){s1=shadowFromPointer(p1);s2=cfg.double?shadowFromPointer(p2):null}
+  else{s1=shadowAt(cfg.delay);s2=cfg.double?shadowAt(cfg.delay*2):null}
+  return{s1,s2};
+ }
+ function say(m,ms=2600){shadowMsg=m;shadowMsgUntil=performance.now()+ms}
+ function respawn(reason){
+  deaths++;updateGrudgeHUD();
+  player={x:checkpointOn?cfg.checkpoint.x:cfg.startX,y:groundY-44,w:34,h:44,vx:0,vy:0,onGround:false,face:1,walk:0};
+  enemy=makeEnemy();history=[];doorsOpen=cfg.doors.map((d,i)=>checkpointOn&&i===0?doorsOpen[i]:(doorsLatched[i]?1:0));
+  ferryProg=0;ferryX=cfg.ferry?(cfg.ferry.from||cfg.ferry.x||0):0;ferryPrevX=ferryX;ferryY=cfg.ferry?cfg.ferry.yFrom:0;ferryPrevY=ferryY;wsTimer=0;wsFired=false;
+  resetDynamics();
+  const fl=$('flash');fl.textContent=reason||'失败了！回到检查点';fl.classList.add('show');setTimeout(()=>fl.classList.remove('show'),1500);beep(160,0.22,'sawtooth',0.06);
+  if(checkpointOn)tipText.textContent='回到检查点了（影子记录已清空）。按本关流程重新把动作教给影子。';
+ }
+
+ // ================= Input =================
+ addEventListener('keydown',e=>{keys[e.code]=true;if(['Space','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();if(e.code==='KeyR'&&state==='playing')loadLevel(cur,false);if(e.code==='Escape'){renderProgress();$('menu').classList.add('show');state='menu'}});
+ addEventListener('keyup',e=>keys[e.code]=false);
+ function bindTouch(id,code){const el=$(id);if(!el)return;const active=new Set();const sync=()=>{keys[code]=active.size>0;el.classList.toggle('on',active.size>0)};el.addEventListener('pointerdown',e=>{e.preventDefault();try{el.setPointerCapture(e.pointerId)}catch(_){}active.add(e.pointerId);sync()});const off=e=>{active.delete(e.pointerId);sync()};el.addEventListener('pointerup',off);el.addEventListener('pointercancel',off);el.addEventListener('lostpointercapture',off);el.addEventListener('contextmenu',e=>e.preventDefault())}
+ bindTouch('left','ArrowLeft');bindTouch('right','ArrowRight');bindTouch('jump','Space');$('rst').onclick=()=>loadLevel(cur,false);
+ bindTouch('mLeft','ArrowLeft');bindTouch('mRight','ArrowRight');bindTouch('mJump','Space');
+
+ // ================= Update =================
+ function update(){
+  if(state!=='playing')return;frame++;
+  // plate states (pre-move, for ferry)
+  const pre=computeShadows();
+  const plateAnyPre=cfg.plates.map(p=>plateBy(player,p)||plateBy(pre.s1,p)||plateBy(pre.s2,p));
+  const left=keys['KeyA']||keys['ArrowLeft'],right=keys['KeyD']||keys['ArrowRight'];
+  player.vx=left?-3.9:right?3.9:0;
+  if(player.vx!==0){player.face=player.vx>0?1:-1;player.walk++}else player.walk=0;
+  if((keys['KeyW']||keys['Space']||keys['ArrowUp'])&&player.onGround){player.vy=-13.2;player.onGround=false;beep(520,0.06,'square',0.03)}
+  if(cfg.ferry){
+   ferryPrevX=ferryX;ferryPrevY=ferryY;
+   if(cfg.ferry.vertical){
+    ferryProg+=(plateAnyPre[cfg.ferry.plate]?cfg.ferry.speed:-cfg.ferry.returnSpeed);
+    if(ferryProg<0)ferryProg=0;if(ferryProg>1)ferryProg=1;
+    ferryY=cfg.ferry.yFrom+(cfg.ferry.yTo-cfg.ferry.yFrom)*ferryProg;
+    const dy=ferryY-ferryPrevY,fr=ferryRect();
+    if(dy!==0&&Math.abs((player.y+player.h)-fr.y)<10&&player.x+player.w>fr.x&&player.x<fr.x+fr.w)player.y+=dy;
+   }
+  }
+  physics(player);
+  history.push({x:player.x,y:player.y,face:player.face,walk:player.walk});if(history.length>20000)history.shift();
+  if(cfg.pauseShadow){advancePointer(p1);if(cfg.double)advancePointer(p2)}
+  const sh=computeShadows();
+  const s1raw=sh.s1,s2=sh.s2;
+  // reverse step (shadow1)
+  let eff1=s1raw;
+  if(cfg.reverseShadow&&s1raw){
+   if(revLeft>0){revLeft--;const el=70-revLeft,slide=Math.min(1,el/8);eff1={x:revFrom.x-revFrom.face*44*slide,y:revFrom.y,w:34,h:44,face:revFrom.face,walk:0,__shadow:true}}
+   else{
+    if(prevS1&&Math.abs(s1raw.x-prevS1.x)<=1&&Math.abs(s1raw.y-prevS1.y)<=1)stillCt++;
+    else{if(stillCt>=140){revLeft=70;revFrom={x:s1raw.x,y:s1raw.y,face:s1raw.face};say('这一步，我自己走。',1800);beep(300,0.12,'square',0.05)}stillCt=0}
+    eff1=s1raw;
+   }
+   prevS1={x:s1raw.x,y:s1raw.y};
+  }
+  cache={s1:s1raw,eff1,s2};
+  const pP=cfg.plates.map(p=>plateBy(player,p)),pS=cfg.plates.map(p=>(eff1&&plateBy(eff1,p))||(s2&&plateBy(s2,p))),pA=cfg.plates.map((_,i)=>pP[i]||pS[i]);
+  // checkpoint
+  if(cfg.checkpoint&&!checkpointOn&&player.x>cfg.checkpoint.x){checkpointOn=true;say('检查点到了。',1500);beep(880,0.1)}
+  // soothe
+  if(cfg.sootheZone&&!sootheDone){
+   const z=cfg.sootheZone,cx=player.x+player.w/2,inZone=cx>z.x&&cx<z.x+z.w;
+   if(inZone&&eff1&&overlap(player,eff1)){sootheProg++;if(sootheProg===50){sootheDone=true;cfg.doors.forEach((d,i)=>{if(d.mode==='soothe')doorsLatched[i]=true});if(levelGrudge>0)levelGrudge--;else sootheBank=1;updateGrudgeHUD();say('……好久，没这样并肩了。',3000);beep(880,0.14);setTimeout(()=>beep(1174,0.18),130)}}
+   else if(sootheProg>0)sootheProg--;
+  }
+  if(cfg.sootheZone&&sootheDone)cfg.doors.forEach((d,i)=>{if(d.mode==='soothe')doorsLatched[i]=true});
+  // doors
+  cfg.doors.forEach((d,i)=>{
+   let target=0;
+   if(d.mode==='and'){if(d.plates.every(pi=>pA[pi])&&!doorsLatched[i]){doorsLatched[i]=true;beep(1200,0.18,'sine',0.07);say(cur===15?'三个人…一起。':'我们…一起打开了它。',2400)}target=doorsLatched[i]?1:0}
+   else if(d.mode==='soothe'){target=doorsLatched[i]?1:0}
+   else target=pA[d.plate!==undefined?d.plate:i]?1:0;
+   doorsOpen[i]+=(target-doorsOpen[i])*0.14;if(Math.abs(target-doorsOpen[i])<0.01)doorsOpen[i]=target;
+  });
+  // key
+  if(cfg.keyItem&&!hasKey&&overlap(player,{x:cfg.keyItem.x,y:cfg.keyItem.y,w:28,h:28})){hasKey=true;beep(1040,0.12);say('钥匙拿到了，这次顺序对了。',2000);tipText.textContent='钥匙✓。现在去踩机关站满 3 秒，再等影子替你开门——别让它白站太久。'}
+  // white stand
+  if(cfg.whiteStand){
+   const sOn=pS.some(Boolean);
+   if(sOn&&player.x<(cfg.doors[0]?cfg.doors[0].x:999)){wsTimer++;if(wsTimer===95)say('……你人呢？',1600);if(wsTimer>165&&!wsFired){wsFired=true;levelGrudge++;updateGrudgeHUD();beep(220,0.18,'square',0.06);say('你让我白站了这么久…记住了。',2800);tipText.textContent='⚠ 影子白站记仇 +1！下次先拿钥匙、再教机关，并及时穿门。'}}
+   else if(!sOn){wsTimer=0;wsFired=false}
+  }
+  // spikes
+  for(const sp of cfg.spikes){if(overlap(player,{x:sp.x,y:groundY-15,w:sp.w,h:15})){respawn('踩到尖刺了！回到起点');return}}
+  // tips
+  if(cur===1){
+   if(pP[0])stoodFrames++;
+   if(pS[0])tipText.textContent='就是现在！影子正替你踩着机关，门已打开，快冲到右侧绿色终点！';
+   else if(stoodFrames>0&&stoodFrames<150)tipText.textContent='站稳别动… 你站得越久，影子之后也会站得越久。至少站满 3 秒再离开。';
+   else if(stoodFrames>=150)tipText.textContent='很好！离开机关往右到门前等着，影子重走你的路踩上机关时，门就会开。';
+  }else if(cur===9&&pS[0])tipText.textContent='影子踩住了（慢了半拍，但还是来了）。门开后立刻穿过去！';
+  else if(cur===13&&pS[1])tipText.textContent='机关②被踩住了！如果门③还没开，在门③前等一会——远影子（-6.6s）马上会再踩一次机关②。';
+  else if(cur===14){if(sootheDone)tipText.textContent='心门已开！穿过去走向终点。';else if(sootheProg>0)tipText.textContent=`并肩中…保持别走开（${Math.floor(sootheProg/50*100)}%）`}
+  else if(cur===24){if(sootheDone&&!pS[1])tipText.textContent='心门已开。去机关 A 教它最后一次，然后穿过心门等最后一道门。';if(pS[1])tipText.textContent='它退了最后一步——门开了。走吧，这次不用回头。'}
+  if(s1raw&&frame===cfg.delay+5&&cur===1)say('我回来了——3 秒前的你。',2200);
+  if(s1raw&&frame===cfg.delay+5&&cur===9)say('……我慢半拍。账，开始算了。',2600);
+  // patrol guard
+  if(enemy){
+   if(stunCooldown>0)stunCooldown--;
+   if(enemy.stun>0)enemy.stun--;
+   else{
+    enemy.x+=enemy.dir*enemy.speed;
+    if(enemy.x<cfg.enemy.min){enemy.x=cfg.enemy.min;enemy.dir=1}if(enemy.x>cfg.enemy.max-enemy.w){enemy.x=cfg.enemy.max-enemy.w;enemy.dir=-1}
+    const blocker=(eff1&&overlap(enemy,eff1))?eff1:(s2&&overlap(enemy,s2))?s2:null;
+    if(blocker&&stunCooldown===0){enemy.stun=130;stunCooldown=220;enemy.dir=blocker.x<enemy.x?1:-1;levelGrudge++;updateGrudgeHUD();beep(220,0.18,'square',0.06);say(levelGrudge===1?'唔…我替你挡住了。':levelGrudge===2?'又是 我 挡…我记住了。':'……（影子的眼睛彻底红了）',2800)}
+    if(overlap(enemy,player)){respawn('被守卫抓住了！回到检查点');return}
+   }
+  }
+  // chaser
+  if(chaser){
+   if(!chaser.active&&player.x>cfg.chaser.triggerX){chaser.active=true;say('它来了——别停下！',2000);beep(196,0.25,'sawtooth',0.06)}
+   if(chaser.active){
+    if(chaser.stun>0)chaser.stun--;
+    else{
+     const dir=Math.sign((player.x+player.w/2)-(chaser.x+chaser.w/2))||1;
+     chaser.x+=dir*cfg.chaser.speed;
+     const blocker=(eff1&&overlap(chaser,eff1))?eff1:(s2&&overlap(chaser,s2))?s2:null;
+     if(blocker){chaser.stun=170;levelGrudge++;updateGrudgeHUD();beep(220,0.18,'square',0.06);say('我替你断后…走！',2400)}
+     else if(overlap(chaser,player)){respawn('被追猎者抓住了！回到检查点');return}
+    }
+   }
+  }
+  // shooter
+  if(cfg.shooter){
+   if(frame%cfg.shooter.period===0)projs.push({x:cfg.shooter.x-16,y:groundY-36,w:14,h:14,vx:-4.4});
+   const sld=solids();
+   projs=projs.filter(pr=>{
+    pr.x+=pr.vx;
+    if(pr.x<8||pr.x>950)return false;
+    for(const w of sld){if(overlap(pr,w))return false}
+    if((eff1&&overlap(pr,eff1))||(s2&&overlap(pr,s2))){levelGrudge++;updateGrudgeHUD();beep(240,0.15,'square',0.06);say('炮弹…我挡了。记一笔。',2200);return false}
+    return true;
+   });
+   for(const pr of projs){if(overlap(pr,player)){respawn('被炮弹打中了！回到检查点');return}}
+  }
+  timeEl.textContent=((performance.now()-startAt)/1000).toFixed(1);
+  const goal={x:cfg.goalX,y:groundY-92,w:cfg.goalW,h:92};
+  if(overlap(player,goal)){
+   if(cfg.keyItem&&!hasKey)tipText.textContent='终点还锁着！先去左侧高台拿金钥匙。';
+   else completeLevel();
+  }
+ }
+
+ // ================= Draw =================
+ function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+ function drawChar(e,isShadow,alt){
+  ctx.save();ctx.translate(e.x+e.w/2,e.y+e.h/2);ctx.scale(e.face,1);ctx.translate(-(e.x+e.w/2),-(e.y+e.h/2));
+  const bob=e.walk?Math.sin(e.walk*0.35)*1.5:0,totalG=save.totalGrudge+levelGrudge;
+  if(isShadow&&alt){ctx.fillStyle='rgba(38,46,84,0.94)';ctx.shadowColor='rgba(120,160,255,.4)';ctx.shadowBlur=10}
+  else if(isShadow){const r=Math.min(90,totalG*24);ctx.fillStyle=`rgba(${12+r},10,20,0.94)`;ctx.shadowColor='rgba(255,0,0,.35)';ctx.shadowBlur=totalG>=2?14:8}
+  else{ctx.fillStyle='#f5f7ff';ctx.shadowColor='rgba(255,255,255,.35)';ctx.shadowBlur=10}
+  roundRect(e.x,e.y+bob,e.w,e.h-6,10);ctx.fill();ctx.shadowBlur=0;
+  ctx.fillStyle=isShadow?(alt?'#7fd4ff':'#ff2222'):'#11152a';ctx.beginPath();ctx.arc(e.x+e.w/2+6,e.y+16+bob,3.4,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(e.x+e.w/2-4,e.y+16+bob,3.4,0,Math.PI*2);ctx.fill();
+  if(isShadow&&!alt&&totalG>=2){ctx.strokeStyle='#ff2222';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(e.x+8,e.y+8+bob);ctx.lineTo(e.x+16,e.y+12+bob);ctx.moveTo(e.x+26,e.y+8+bob);ctx.lineTo(e.x+20,e.y+12+bob);ctx.stroke()}
+  ctx.fillStyle=isShadow?(alt?'#232a52':'#0c0a14'):'#e8ecff';const lp=e.walk?Math.sin(e.walk*0.35)*5:0;roundRect(e.x+5,e.y+e.h-8+Math.max(0,lp),9,8,3);ctx.fill();roundRect(e.x+e.w-14,e.y+e.h-8+Math.max(0,-lp),9,8,3);ctx.fill();ctx.restore();
+ }
+ function draw(){
+  const ch=chapOf(cur),topColor=ch===1?'#1a2148':ch===2?'#241a3d':'#2d1420';
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,topColor);g.addColorStop(0.65,'#121733');g.addColorStop(1,'#0d1026');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(255,255,255,.7)';for(let i=0;i<50;i++)ctx.fillRect((i*97)%960,(i*53)%240,2,2);
+  ctx.fillStyle='#f7e8a0';ctx.beginPath();ctx.arc(872,64,27,0,Math.PI*2);ctx.fill();ctx.fillStyle=topColor;ctx.beginPath();ctx.arc(860,56,23,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.16)';const step=Math.max(1,Math.floor(history.length/28));for(let i=0;i<history.length;i+=step){const pt=history[i];ctx.beginPath();ctx.arc(pt.x+17,pt.y+22,2.2,0,Math.PI*2);ctx.fill()}
+  ctx.fillStyle='#232a52';ctx.fillRect(0,groundY,W,H-groundY);ctx.fillStyle='#39457f';ctx.fillRect(0,groundY,W,5);
+  for(const sp of cfg.spikes){ctx.fillStyle='#c7cede';ctx.beginPath();for(let x=sp.x;x<sp.x+sp.w;x+=16){ctx.moveTo(x,groundY);ctx.lineTo(x+8,groundY-16);ctx.lineTo(x+16,groundY)}ctx.fill();ctx.fillStyle='rgba(255,120,120,.8)';ctx.font='11px sans-serif';ctx.fillText('尖刺',sp.x+sp.w/2-12,groundY+28)}
+  if(cfg.enemy){ctx.fillStyle='rgba(255,60,60,.07)';ctx.fillRect(cfg.enemy.min,groundY-110,cfg.enemy.max-cfg.enemy.min,110);ctx.fillStyle='rgba(255,120,120,.75)';ctx.font='12px sans-serif';ctx.fillText('⚠ 守卫巡逻区',cfg.enemy.min+60,groundY-118)}
+  if(cfg.checkpoint){ctx.strokeStyle=checkpointOn?'#50ffa0':'#687096';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(cfg.checkpoint.x,groundY);ctx.lineTo(cfg.checkpoint.x,groundY-54);ctx.stroke();ctx.fillStyle=checkpointOn?'#50ffa0':'#687096';ctx.beginPath();ctx.moveTo(cfg.checkpoint.x,groundY-54);ctx.lineTo(cfg.checkpoint.x+20,groundY-46);ctx.lineTo(cfg.checkpoint.x,groundY-38);ctx.fill();ctx.font='11px sans-serif';ctx.fillText('检查点',cfg.checkpoint.x-14,groundY+30)}
+  // soothe zone
+  if(cfg.sootheZone){const z=cfg.sootheZone;ctx.strokeStyle=sootheDone?'#50ffa0':'#ff8fb3';ctx.lineWidth=3;ctx.setLineDash([7,6]);ctx.strokeRect(z.x,groundY-58,z.w,58);ctx.setLineDash([]);ctx.font='20px serif';ctx.fillText(sootheDone?'💚':'💗',z.x+z.w/2-10,groundY-66);ctx.fillStyle='rgba(255,180,200,.85)';ctx.font='12px sans-serif';ctx.fillText('并肩点',z.x+z.w/2-18,groundY+30);if(!sootheDone&&sootheProg>0){ctx.strokeStyle='#ff8fb3';ctx.lineWidth=4;ctx.beginPath();ctx.arc(z.x+z.w/2,groundY-86,11,-Math.PI/2,-Math.PI/2+Math.PI*2*sootheProg/50);ctx.stroke()}}
+  // wires
+  ctx.strokeStyle='#3a4270';ctx.lineWidth=3;ctx.setLineDash([8,7]);ctx.beginPath();cfg.doors.forEach((d,i)=>{if(d.mode==='and'){d.plates.forEach(pi=>{ctx.moveTo(cfg.plates[pi].x+cfg.plates[pi].w/2,groundY+18);ctx.lineTo(d.x+d.w/2,groundY+18)})}else if(d.mode!=='soothe'){const pi=d.plate!==undefined?d.plate:i;if(cfg.plates[pi]){ctx.moveTo(cfg.plates[pi].x+cfg.plates[pi].w/2,groundY+18);ctx.lineTo(d.x+d.w/2,groundY+18)}}});if(cfg.ferry){const fr2=ferryRect();ctx.moveTo(cfg.plates[cfg.ferry.plate].x+cfg.plates[cfg.ferry.plate].w/2,groundY+18);ctx.lineTo(fr2.x+fr2.w/2,groundY+18);ctx.lineTo(fr2.x+fr2.w/2,fr2.y+fr2.h)}ctx.stroke();ctx.setLineDash([]);
+  for(const pf of cfg.platforms){ctx.fillStyle='#333d70';roundRect(pf.x,pf.y,pf.w,pf.h,6);ctx.fill();ctx.fillStyle='#4a5795';ctx.fillRect(pf.x,pf.y,pf.w,4)}
+  if(cfg.ferry){const fr=ferryRect();ctx.strokeStyle='#687096';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(fr.x+10,0);ctx.lineTo(fr.x+10,fr.y);ctx.moveTo(fr.x+fr.w-10,0);ctx.lineTo(fr.x+fr.w-10,fr.y);ctx.stroke();ctx.fillStyle='#8a6d3b';roundRect(fr.x,fr.y,fr.w,fr.h,6);ctx.fill();ctx.fillStyle='#ffd166';ctx.font='bold 11px sans-serif';ctx.fillText('配重升降台',fr.x+16,fr.y-8)}
+  if(cfg.keyItem&&!hasKey){const kx=cfg.keyItem.x,ky=cfg.keyItem.y+Math.sin(frame*0.08)*4;ctx.fillStyle='rgba(255,209,102,.18)';ctx.beginPath();ctx.arc(kx+14,ky+14,24,0,Math.PI*2);ctx.fill();ctx.font='26px serif';ctx.fillText('🔑',kx,ky+24);ctx.fillStyle='#ffd166';ctx.font='bold 11px sans-serif';ctx.fillText('终点钥匙',kx-8,ky-14)}
+  if(cfg.keyItem&&hasKey){ctx.fillStyle='#ffd166';ctx.font='bold 13px sans-serif';ctx.fillText('🔑 已拿到钥匙',14,30)}
+  // shooter turret + projectiles
+  if(cfg.shooter){const sx=cfg.shooter.x,charging=frame%cfg.shooter.period>=cfg.shooter.period-25;ctx.fillStyle='#4a3040';roundRect(sx,groundY-54,32,54,6);ctx.fill();ctx.fillStyle=charging?'#ff4444':'#8a5a5a';ctx.fillRect(sx-16,groundY-42,18,10);ctx.beginPath();ctx.arc(sx+16,groundY-58,charging?9:6,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ffb3b3';ctx.font='bold 11px sans-serif';ctx.fillText(charging?'炮台·要开火了！':'炮台',sx-8,groundY-70);
+   for(const pr of projs){ctx.fillStyle='#ff5544';ctx.shadowColor='rgba(255,60,40,.7)';ctx.shadowBlur=10;ctx.beginPath();ctx.arc(pr.x+7,pr.y+7,7,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0}}
+  // goal
+  const goal={x:cfg.goalX,y:groundY-92,w:cfg.goalW,h:92},locked=cfg.keyItem&&!hasKey;
+  ctx.fillStyle=locked?'rgba(150,150,160,.12)':'rgba(80,255,160,.14)';roundRect(goal.x-8,goal.y-10,goal.w+16,goal.h+10,14);ctx.fill();ctx.strokeStyle=locked?'#9aa0b5':'#50ffa0';ctx.lineWidth=3;ctx.strokeRect(goal.x,goal.y,goal.w,goal.h);ctx.fillStyle=locked?'#9aa0b5':'#50ffa0';ctx.font='22px serif';ctx.fillText(locked?'🔒':'★',goal.x+10,goal.y+34);ctx.font='bold 12px sans-serif';ctx.fillText('终点',goal.x+7,goal.y+60);
+  // doors
+  cfg.doors.forEach((d,i)=>{ctx.fillStyle='#2e3866';ctx.fillRect(d.x,0,d.w,d.top);ctx.fillStyle='#454f85';ctx.fillRect(d.x,d.top-6,d.w,6);const h=(groundY-d.top)*(1-doorsOpen[i]);if(h>2){ctx.fillStyle=doorsOpen[i]>0.1?'#7a86c2':'#59659c';ctx.fillRect(d.x,groundY-h,d.w,h);ctx.fillStyle='rgba(255,255,255,.22)';for(let y=groundY-h+14;y<groundY-8;y+=26)ctx.fillRect(d.x+7,y,d.w-14,4)}ctx.fillStyle='#ffd166';ctx.font='bold 12px sans-serif';ctx.fillText(doorsOpen[i]>0.85?'门已开':d.mode==='soothe'?'心门':'锁住的门',d.x-8,d.top-12);
+   if(d.mode==='and'){d.plates.forEach((pi,k)=>{const on=plateBy(player,cfg.plates[pi])||(cache.eff1&&plateBy(cache.eff1,cfg.plates[pi]))||(cache.s2&&plateBy(cache.s2,cfg.plates[pi]));ctx.fillStyle=on?'#ffd166':'#3a4270';ctx.beginPath();ctx.arc(d.x+10+k*20,d.top-28,7,0,Math.PI*2);ctx.fill()});ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='11px sans-serif';ctx.fillText(doorsLatched[i]?'已锁定开启':'多机关同亮才开',d.x-24,d.top-44)}});
+  // plates
+  cfg.plates.forEach(p=>{const pressed=plateBy(player,p)||(cache.eff1&&plateBy(cache.eff1,p))||(cache.s2&&plateBy(cache.s2,p));const y=(groundY-10)+(pressed?4:0);ctx.fillStyle=p.only==='shadow'?(pressed?'#ff6b81':'#a03a4a'):(pressed?'#ffd166':'#c9a227');roundRect(p.x,y,p.w,10,6);ctx.fill();ctx.fillStyle='#aeb6d6';ctx.font='bold 12px sans-serif';ctx.fillText(p.label,p.x+Math.max(2,p.w/2-16),y-8);if(p.only==='shadow'){ctx.fillStyle='rgba(255,150,160,.75)';ctx.font='10px sans-serif';ctx.fillText('影子专属',p.x+2,y-22)}});
+  // reverse footprint preview
+  if(cfg.reverseShadow&&cache.s1&&stillCt>=50&&revLeft===0){ctx.fillStyle='rgba(255,60,60,.55)';ctx.font='16px serif';ctx.fillText('👣',cache.s1.x-cache.s1.face*44,cache.s1.y+40)}
+  // guard
+  if(enemy){ctx.fillStyle=enemy.stun>0?'#8a5a5a':'#d92b2b';ctx.shadowColor='rgba(255,0,0,.5)';ctx.shadowBlur=12;roundRect(enemy.x,enemy.y,enemy.w,enemy.h-6,9);ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='#fff';const look=enemy.dir*4;ctx.beginPath();ctx.arc(enemy.x+12+look,enemy.y+16,4,0,Math.PI*2);ctx.arc(enemy.x+24+look,enemy.y+16,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#111';ctx.beginPath();ctx.arc(enemy.x+12+look,enemy.y+16,2,0,Math.PI*2);ctx.arc(enemy.x+24+look,enemy.y+16,2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ffd7d7';ctx.font='bold 11px sans-serif';ctx.fillText(enemy.stun>0?'😵 被影子撞晕':'守卫',enemy.x-2,enemy.y-10);if(enemy.stun>0){ctx.fillStyle='#ffd166';ctx.font='16px serif';ctx.fillText('✦ ✦',enemy.x+4,enemy.y-22)}}
+  // chaser
+  if(chaser&&chaser.active){ctx.fillStyle=chaser.stun>0?'#6a5a7a':'#8b2fc9';ctx.shadowColor='rgba(180,60,255,.55)';ctx.shadowBlur=12;roundRect(chaser.x,chaser.y,chaser.w,chaser.h-6,9);ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='#e9c6ff';ctx.beginPath();ctx.moveTo(chaser.x+6,chaser.y+2);ctx.lineTo(chaser.x+12,chaser.y-8);ctx.lineTo(chaser.x+16,chaser.y+3);ctx.moveTo(chaser.x+22,chaser.y+3);ctx.lineTo(chaser.x+28,chaser.y-8);ctx.lineTo(chaser.x+32,chaser.y+2);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(chaser.x+12,chaser.y+18,4,0,Math.PI*2);ctx.arc(chaser.x+25,chaser.y+18,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ffd7f4';ctx.font='bold 11px sans-serif';ctx.fillText(chaser.stun>0?'😵 被影子断后':'追猎者',chaser.x-4,chaser.y-16)}
+  else if(chaser){ctx.fillStyle='rgba(139,47,201,.4)';roundRect(chaser.x,chaser.y,chaser.w,chaser.h-6,9);ctx.fill();ctx.fillStyle='rgba(255,255,255,.5)';ctx.font='11px sans-serif';ctx.fillText('沉睡的追猎者',chaser.x-14,chaser.y-10)}
+  // shadows
+  const s2=cache.s2,eff1=cache.eff1;
+  if(s2){drawChar(s2,true,true);ctx.fillStyle='rgba(180,205,255,.9)';ctx.font='12px sans-serif';ctx.fillText(`-${(cfg.delay*2/60).toFixed(1)}s 影子`,s2.x-6,s2.y-10)}
+  if(eff1){drawChar(eff1,true,false);ctx.fillStyle='rgba(255,255,255,.85)';ctx.font='12px sans-serif';ctx.fillText(`-${(cfg.delay/60).toFixed(1)}s 影子`,eff1.x-6,eff1.y-10);
+   if(cfg.pauseShadow&&p1){if(p1.pauseLeft>0){ctx.font='16px serif';ctx.fillText('💢',eff1.x+8,eff1.y-22)}else if(p1.t>=0&&p1.nextPauseAt-p1.t<=30){ctx.fillStyle='#ffdd55';ctx.font='bold 17px sans-serif';ctx.fillText('!',eff1.x+13,eff1.y-20)}}
+   if(shadowMsg&&performance.now()<shadowMsgUntil){ctx.font='13px sans-serif';const w=ctx.measureText(shadowMsg).width+18;const bx=Math.max(8,Math.min(eff1.x+18,W-w-8));ctx.fillStyle='rgba(0,0,0,.8)';roundRect(bx,Math.max(8,eff1.y-48),w,26,8);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(shadowMsg,bx+9,Math.max(8,eff1.y-48)+18)}}
+  else if(state==='playing'&&player){const remain=Math.max(0,cfg.delay/60-(performance.now()-startAt)/1000);ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='bold 13px sans-serif';ctx.fillText(`影子 ${remain.toFixed(1)}s 后出现`,player.x-24,player.y-26)}
+  if(player)drawChar(player,false);
+  if(player){const prog=Math.min(1,history.length/cfg.delay);ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=4;ctx.beginPath();ctx.arc(player.x+17,player.y-16,10,-Math.PI/2,-Math.PI/2+Math.PI*2);ctx.stroke();ctx.strokeStyle=cfg.delay>180?'#ff9a5c':'#ffd166';ctx.beginPath();ctx.arc(player.x+17,player.y-16,10,-Math.PI/2,-Math.PI/2+Math.PI*2*prog);ctx.stroke()}
+ }
+ function loop(){update();draw();requestAnimationFrame(loop)}
+ loadLevel(Math.min(save.lastLevel||1,Math.max(1,Math.min(save.unlocked,LEVELS.length))),true);renderProgress();loop();
+})();
+</script>
+<script>
+document.addEventListener('gesturestart',e=>e.preventDefault());
+let __lastTouch=0;document.addEventListener('touchend',e=>{const now=Date.now();if(now-__lastTouch<320&&e.target.closest('.stage'))e.preventDefault();__lastTouch=now},{passive:false});
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
+if(window.navigator.standalone){document.body.classList.add('standalone')}
+</script>
+</body>
+</html>
