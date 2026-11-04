@@ -1,0 +1,41 @@
+name: Build unsigned IPA
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install and add iOS platform
+        working-directory: shadow-grudge-app
+        run: |
+          npm install
+          npx cap add ios
+          npx cap sync ios
+      - name: Build app (unsigned)
+        working-directory: shadow-grudge-app
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+      - name: Package IPA
+        working-directory: shadow-grudge-app
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          echo "APP=$APP"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry shadow-grudge-unsigned.ipa Payload
+          mkdir -p ../dist
+          cp shadow-grudge-unsigned.ipa ../dist/
+      - name: Commit IPA back to repo
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add dist/shadow-grudge-unsigned.ipa
+          git commit -m "Built unsigned IPA [skip ci]"
+          git push
